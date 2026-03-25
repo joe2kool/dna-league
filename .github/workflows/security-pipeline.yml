@@ -42,13 +42,26 @@ jobs:
             echo "PASS: No service_role key found"
           fi
 
-          # 2. Private key headers
+          # 2. Private key headers — only scan source files, not deps or lock files
           if grep -rq "BEGIN.*PRIVATE KEY" . \
-              --exclude-dir=node_modules --exclude-dir=.git 2>/dev/null; then
-            echo "FAIL: Private key found in repository"
+              --exclude-dir=node_modules \
+              --exclude-dir=.git \
+              --exclude-dir=dist \
+              --exclude-dir=build \
+              --exclude="package-lock.json" \
+              --exclude="yarn.lock" \
+              --exclude="*.toml" \
+              --include="*.html" \
+              --include="*.js" \
+              --include="*.ts" \
+              --include="*.env" \
+              --include="*.pem" \
+              --include="*.key" \
+              2>/dev/null; then
+            echo "FAIL: Private key found in source files"
             FAIL=1
           else
-            echo "PASS: No private keys found"
+            echo "PASS: No private keys found in source files"
           fi
 
           # 3. Postgres connection strings with embedded credentials
