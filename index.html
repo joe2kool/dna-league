@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The DNA League</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --bg:#0a0d12; --surface:#0f1318; --surface2:#151c24; --surface3:#1c2530;
@@ -219,6 +221,42 @@
 </head>
 <body>
 
+<!-- AUTH SCREEN -->
+<div id="auth-screen" style="display:none;position:fixed;inset:0;z-index:999;background:var(--bg);align-items:center;justify-content:center;padding:2rem;">
+  <div style="width:100%;max-width:420px;">
+    <div style="text-align:center;margin-bottom:2rem;">
+      <div style="width:56px;height:56px;background:linear-gradient(135deg,var(--chrome2),var(--chrome1));clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:inline-flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:22px;color:var(--bg);margin-bottom:1rem;">DNA</div>
+      <div style="font-family:'Bebas Neue';font-size:32px;letter-spacing:3px;color:var(--gold);">The DNA League</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px;">MLB The Show League Management</div>
+    </div>
+    <div style="background:var(--surface2);border-radius:14px;border:1px solid rgba(168,189,212,0.18);padding:2rem;">
+      <div id="auth-mode" data-mode="login"></div>
+      <h2 id="auth-title" style="font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;margin-bottom:1.5rem;color:var(--text);">Sign In</h2>
+      <div id="auth-name-row" style="display:none;margin-bottom:1rem;">
+        <label>Display Name</label>
+        <input type="text" id="auth-displayname" placeholder="What the league calls you">
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label>Email Address</label>
+        <input type="email" id="auth-email" placeholder="your@email.com">
+      </div>
+      <div style="margin-bottom:1.5rem;">
+        <label>Password</label>
+        <input type="password" id="auth-password" placeholder="Min 8 characters" onkeydown="if(event.key==='Enter')handleAuth()">
+      </div>
+      <div id="auth-error" style="display:none;background:rgba(217,64,64,0.12);border:1px solid rgba(217,64,64,0.3);border-radius:6px;padding:10px 14px;font-size:13px;color:#f07070;margin-bottom:1rem;"></div>
+      <button id="auth-submit" class="btn btn-gold" style="width:100%;justify-content:center;font-size:15px;padding:12px;" onclick="handleAuth()">Sign In</button>
+      <div style="text-align:center;margin-top:1.25rem;font-size:13px;color:var(--text2);">
+        <span id="auth-switch-text">Don't have an account? </span>
+        <span id="auth-switch-link" style="color:var(--gold);cursor:pointer;text-decoration:underline;" onclick="switchAuthMode('signup')">Create one</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="app-screen" style="display:none;">
+
 <nav>
   <div class="nav-logo">
     <div class="logo-icon">DNA</div>
@@ -232,6 +270,13 @@
     <button class="nav-tab active" onclick="showPage('home',this)">Home</button>
     <button class="nav-tab" onclick="showPage('draft',this)">Draft Order</button>
     <button class="nav-tab" onclick="showPage('profiles',this)">Players</button>
+  </div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:1rem;padding:0 0.5rem;">
+    <div style="text-align:right;">
+      <div id="nav-user-name" style="font-family:'Barlow Condensed';font-size:14px;color:var(--text);letter-spacing:1px;"></div>
+      <div id="nav-user-role" style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;"></div>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="handleSignOut()">Sign Out</button>
   </div>
 </nav>
 
@@ -478,6 +523,7 @@
   </div>
 </div>
 
+</div><!-- end app-screen -->
 <div id="toast"></div>
 
 <script>
@@ -816,7 +862,7 @@ function closeProfileModal() {
   document.getElementById('profile-modal').classList.remove('open');
 }
 
-function saveProfile() {
+async function saveProfile() {
   var name = document.getElementById('f-name').value.trim();
   if (!name) { toast('Name is required'); return; }
 
@@ -833,6 +879,10 @@ function saveProfile() {
     cyyoung: parseInt(document.getElementById('f-cyyoung').value) || 0
   };
 
+  // Save to Supabase
+  var savedId = await saveProfileToDB(data, state.editingProfileId);
+  if (!savedId) return; // DB error already toasted
+
   if (state.editingProfileId) {
     for (var i = 0; i < state.players.length; i++) {
       if (state.players[i].id === state.editingProfileId) {
@@ -841,7 +891,7 @@ function saveProfile() {
       }
     }
   } else {
-    data.id = Date.now().toString();
+    data.id = savedId;
     data.draftHistory = [];
     data.standingsHistory = [];
     data.joinDate = new Date().toLocaleDateString();
@@ -1143,13 +1193,170 @@ function escAttr(str) {
   return String(str || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 }
 
-// INIT
-loadState();
-renderSlots();
-updateDashboard();
-document.getElementById('slot-count').value = state.slotCount;
-document.getElementById('slot-val').textContent = state.slotCount;
-if (state.draftMode === 'weighted') { selectMode('weighted'); }
+// ── SUPABASE CONFIG ──────────────────────────────
+var SUPABASE_URL  = 'https://orhpiuwptucgktioigju.supabase.co';
+var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9yaHBpdXdwdHVjZ2t0aW9pZ2p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NTIwNjIsImV4cCI6MjA5MDAyODA2Mn0.crGOk7q2k6lr4RDgGCBmgKF8hh1BykSTcRiAefmf7pQ';
+var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+var currentUser   = null;
+var currentMember = null;
+var currentLeague = null;
+
+// ── AUTH HELPERS ─────────────────────────────────
+function showAuthScreen() {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display  = 'none';
+}
+function showAppScreen() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display  = 'block';
+}
+function setAuthError(msg) {
+  var el = document.getElementById('auth-error');
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+function setAuthLoading(loading) {
+  var btn = document.getElementById('auth-submit');
+  var mode = document.getElementById('auth-mode').dataset.mode;
+  btn.textContent = loading ? 'Please wait...' : (mode === 'login' ? 'Sign In' : 'Create Account');
+  btn.disabled = loading;
+}
+function switchAuthMode(mode) {
+  document.getElementById('auth-mode').dataset.mode = mode;
+  document.getElementById('auth-title').textContent  = mode === 'login' ? 'Sign In' : 'Create Account';
+  document.getElementById('auth-submit').textContent = mode === 'login' ? 'Sign In' : 'Create Account';
+  document.getElementById('auth-switch-text').textContent = mode === 'login' ? "Don't have an account? " : 'Already have an account? ';
+  document.getElementById('auth-switch-link').textContent = mode === 'login' ? 'Create one' : 'Sign in';
+  document.getElementById('auth-switch-link').onclick = function() { switchAuthMode(mode === 'login' ? 'signup' : 'login'); };
+  document.getElementById('auth-name-row').style.display = mode === 'signup' ? '' : 'none';
+  setAuthError('');
+}
+async function handleAuth() {
+  var mode  = document.getElementById('auth-mode').dataset.mode;
+  var email = document.getElementById('auth-email').value.trim();
+  var pass  = document.getElementById('auth-password').value;
+  var name  = document.getElementById('auth-displayname').value.trim();
+  if (!email || !pass) { setAuthError('Email and password are required.'); return; }
+  if (mode === 'signup' && !name) { setAuthError('Display name is required.'); return; }
+  if (pass.length < 8) { setAuthError('Password must be at least 8 characters.'); return; }
+  setAuthLoading(true); setAuthError('');
+  try {
+    if (mode === 'login') {
+      var res = await db.auth.signInWithPassword({ email: email, password: pass });
+      if (res.error) throw res.error;
+    } else {
+      var res = await db.auth.signUp({ email: email, password: pass, options: { data: { display_name: name } } });
+      if (res.error) throw res.error;
+      if (res.data && res.data.user && !res.data.session) {
+        setAuthLoading(false);
+        alert('Account created! Check your email to confirm your address, then sign in.');
+        switchAuthMode('login'); return;
+      }
+    }
+  } catch(err) {
+    setAuthError(err.message || 'Authentication failed. Please try again.');
+    setAuthLoading(false);
+  }
+}
+async function handleSignOut() {
+  await db.auth.signOut();
+  currentUser = null; currentMember = null; currentLeague = null;
+  showAuthScreen(); toast('Signed out');
+}
+
+// ── BOOTSTRAP ────────────────────────────────────
+async function bootstrap() {
+  var sessionRes = await db.auth.getSession();
+  var session = sessionRes.data && sessionRes.data.session;
+  if (session && session.user) {
+    currentUser = session.user;
+    await loadLeagueContext();
+    showAppScreen();
+  } else {
+    showAuthScreen();
+  }
+  db.auth.onAuthStateChange(async function(event, session) {
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+      await loadLeagueContext();
+      showAppScreen();
+    } else if (event === 'SIGNED_OUT') {
+      showAuthScreen();
+    }
+  });
+}
+
+async function loadLeagueContext() {
+  var mRes = await db.from('league_members').select('*, leagues(*)').eq('user_id', currentUser.id).maybeSingle();
+  if (mRes.data) {
+    currentMember = mRes.data;
+    currentLeague = mRes.data.leagues;
+    document.getElementById('nav-user-name').textContent = currentMember.display_name;
+    document.getElementById('nav-user-role').textContent = currentMember.role;
+  }
+  await syncPlayersFromDB();
+  loadState();
+  renderSlots();
+  updateDashboard();
+  document.getElementById('slot-count').value = state.slotCount;
+  document.getElementById('slot-val').textContent = state.slotCount;
+  if (state.draftMode === 'weighted') { selectMode('weighted'); }
+}
+
+async function syncPlayersFromDB() {
+  if (!currentLeague) return;
+  var res = await db.from('league_members')
+    .select('id, display_name, real_name, avatar_color, favorite_mlb_team, role, joined_at')
+    .eq('league_id', currentLeague.id)
+    .order('joined_at', { ascending: true });
+  if (res.error) { console.error('syncPlayers:', res.error.message); return; }
+  res.data.forEach(function(m) {
+    var existing = null;
+    for (var i = 0; i < state.players.length; i++) {
+      if (state.players[i].id === m.id) { existing = state.players[i]; break; }
+    }
+    if (!existing) {
+      state.players.push({
+        id: m.id, name: m.display_name, realname: m.real_name || '',
+        color: m.avatar_color || '#6a9ec7', team: m.favorite_mlb_team || '',
+        role: m.role, joinDate: m.joined_at ? new Date(m.joined_at).toLocaleDateString() : '',
+        draftHistory: [], standingsHistory: [],
+        championships: 0, playoffs: 0, mvp: 0, cyyoung: 0, wins: '', losses: ''
+      });
+    } else {
+      existing.name = m.display_name;
+      existing.realname = m.real_name || '';
+      existing.color = m.avatar_color || existing.color;
+      existing.team = m.favorite_mlb_team || '';
+      existing.role = m.role;
+    }
+  });
+  saveState();
+}
+
+async function saveProfileToDB(data, editingId) {
+  if (!currentLeague || !currentUser) return null;
+  var payload = {
+    display_name: data.name, real_name: data.realname || null,
+    avatar_color: data.color || '#6a9ec7', favorite_mlb_team: data.team || null
+  };
+  if (editingId) {
+    var res = await db.from('league_members').update(payload).eq('id', editingId);
+    if (res.error) { toast('DB error: ' + res.error.message); return null; }
+    return editingId;
+  } else {
+    var insertPayload = Object.assign({}, payload, {
+      league_id: currentLeague.id, user_id: currentUser.id, role: 'member'
+    });
+    var res = await db.from('league_members').insert(insertPayload).select().single();
+    if (res.error) { toast('DB error: ' + res.error.message); return null; }
+    return res.data.id;
+  }
+}
+
+// ── INIT ─────────────────────────────────────────
+bootstrap();
 </script>
 </body>
 </html>
