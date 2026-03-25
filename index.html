@@ -214,6 +214,121 @@
   .pick-chip { display:inline-block; font-family:'Bebas Neue'; font-size:15px; padding:2px 8px; border-radius:4px; background:rgba(168,189,212,0.15); color:var(--chrome1); }
   #toast { position:fixed; bottom:2rem; right:2rem; z-index:999; background:var(--surface3); border:1px solid var(--border); border-radius:8px; padding:12px 20px; font-family:'Barlow Condensed'; font-size:14px; letter-spacing:1px; opacity:0; transform:translateY(10px); transition:all 0.3s; pointer-events:none; }
   #toast.show { opacity:1; transform:translateY(0); }
+  /* ── SEASON MANAGEMENT ─────────────────────────── */
+  .season-card { background:var(--surface2); border-radius:12px; border:1px solid rgba(255,255,255,0.06); overflow:hidden; margin-bottom:1rem; transition:all 0.2s; }
+  .season-card.active-season { border-color:rgba(46,204,113,0.3); box-shadow:0 0 20px rgba(46,204,113,0.08); }
+  .season-card.playoffs-season { border-color:rgba(201,168,76,0.3); box-shadow:0 0 20px rgba(201,168,76,0.08); }
+  .season-card-header { display:flex; align-items:center; justify-content:space-between; padding:1.25rem 1.5rem; }
+  .season-card-left { display:flex; align-items:center; gap:1rem; }
+  .season-number { font-family:'Bebas Neue'; font-size:48px; color:var(--gold); line-height:1; min-width:52px; }
+  .season-info { }
+  .season-name { font-family:'Barlow Condensed'; font-size:22px; font-weight:700; }
+  .season-game { font-size:12px; color:var(--text2); margin-top:2px; }
+  .season-dates { font-size:12px; color:var(--text2); margin-top:2px; }
+  .status-pill { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:2px; text-transform:uppercase; padding:4px 12px; border-radius:20px; font-weight:600; }
+  .status-upcoming  { background:rgba(168,189,212,0.15); color:var(--chrome1); }
+  .status-active    { background:rgba(46,204,113,0.15);  color:var(--green); }
+  .status-playoffs  { background:rgba(201,168,76,0.15);  color:var(--gold2); }
+  .status-completed { background:rgba(255,255,255,0.08); color:var(--text2); }
+  .status-cancelled { background:rgba(217,64,64,0.12);   color:var(--red); }
+
+  .season-card-body { border-top:1px solid rgba(255,255,255,0.06); padding:1.25rem 1.5rem; }
+  .season-tabs { display:flex; gap:0; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:1.25rem; }
+  .season-tab { font-family:'Barlow Condensed'; font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--text2); padding:8px 16px; cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; transition:all 0.15s; }
+  .season-tab:hover { color:var(--text); }
+  .season-tab.active { color:var(--gold); border-bottom-color:var(--gold); }
+
+  .roster-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; }
+  .roster-item { display:flex; align-items:center; gap:10px; background:var(--surface3); border-radius:8px; padding:8px 12px; border:1px solid rgba(255,255,255,0.04); }
+  .roster-item.confirmed { border-color:rgba(46,204,113,0.25); background:rgba(46,204,113,0.05); }
+  .roster-item.pending   { border-color:rgba(201,168,76,0.2); }
+  .roster-name { font-family:'Barlow Condensed'; font-size:15px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .roster-status-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .dot-confirmed { background:var(--green); }
+  .dot-pending   { background:var(--gold); }
+  .dot-invited   { background:var(--text2); }
+
+  .team-assignment-row { display:flex; align-items:center; gap:10px; background:var(--surface3); border-radius:8px; padding:8px 12px; border:1px solid rgba(255,255,255,0.04); margin-bottom:6px; }
+  .team-assignment-row:last-child { margin-bottom:0; }
+  .ta-player { font-family:'Barlow Condensed'; font-size:15px; font-weight:600; flex:1; display:flex; align-items:center; gap:8px; }
+  .ta-team { flex:1; }
+  .ta-team select { font-size:13px; padding:6px 8px; }
+
+  .transition-btn { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:1px; text-transform:uppercase; padding:5px 12px; border-radius:5px; border:none; cursor:pointer; transition:all 0.15s; }
+  .transition-btn:hover { opacity:0.85; transform:translateY(-1px); }
+
+  /* Season creation modal extras */
+  .modal-section-title { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--text2); margin-bottom:8px; padding-top:4px; }
+
+  /* Roster picker */
+  .roster-picker-grid { display:flex; flex-direction:column; gap:6px; max-height:400px; overflow-y:auto; }
+  .roster-picker-item { display:flex; align-items:center; gap:10px; background:var(--surface3); border-radius:8px; padding:10px 12px; border:1px solid rgba(255,255,255,0.04); cursor:pointer; transition:all 0.15s; user-select:none; }
+  .roster-picker-item:hover { border-color:rgba(168,189,212,0.3); background:rgba(168,189,212,0.05); }
+  .roster-picker-item input[type=checkbox] { width:18px; height:18px; accent-color:var(--chrome2); cursor:pointer; flex-shrink:0; }
+  .roster-picker-item:has(input:checked) { border-color:rgba(46,204,113,0.3); background:rgba(46,204,113,0.05); }
+
+  /* ── SCHEDULE PAGE ─────────────────────────────── */
+  .schedule-controls { display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap; background:var(--surface2); border-radius:10px; padding:1.25rem 1.5rem; margin-bottom:1.5rem; border:1px solid rgba(255,255,255,0.06); }
+  .schedule-controls .form-group { flex:1; min-width:140px; }
+  .week-block { background:var(--surface2); border-radius:12px; border:1px solid rgba(255,255,255,0.06); overflow:hidden; margin-bottom:1rem; }
+  .week-header { display:flex; align-items:center; justify-content:space-between; padding:0.9rem 1.25rem; background:var(--surface3); border-bottom:1px solid rgba(255,255,255,0.06); cursor:pointer; user-select:none; }
+  .week-header:hover { background:rgba(168,189,212,0.06); }
+  .week-label { font-family:'Bebas Neue'; font-size:20px; letter-spacing:2px; color:var(--gold); }
+  .week-meta { font-size:12px; color:var(--text2); }
+  .week-chevron { color:var(--text2); font-size:12px; transition:transform 0.2s; }
+  .week-block.collapsed .week-chevron { transform:rotate(-90deg); }
+  .week-body { padding:0.75rem 1.25rem 1rem; }
+  .week-block.collapsed .week-body { display:none; }
+  .matchup-row { display:flex; align-items:center; gap:1rem; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .matchup-row:last-child { border-bottom:none; }
+  .matchup-team { flex:1; font-family:'Barlow Condensed'; font-size:16px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .avatar-sm { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue'; font-size:12px; color:var(--bg); flex-shrink:0; }
+  .matchup-vs { font-family:'Bebas Neue'; font-size:14px; color:var(--text2); padding:0 0.5rem; flex-shrink:0; }
+  .matchup-series { font-size:11px; color:var(--text2); letter-spacing:1px; text-transform:uppercase; flex-shrink:0; }
+  .bye-row { display:flex; align-items:center; gap:10px; padding:10px 0; color:var(--text2); font-size:13px; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .bye-row:last-child { border-bottom:none; }
+  .bye-badge { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:2px; text-transform:uppercase; padding:2px 8px; border-radius:4px; background:rgba(255,255,255,0.06); color:var(--text2); }
+  .schedule-summary-bar { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+  .sched-stat { background:var(--surface2); border-radius:8px; border:1px solid rgba(255,255,255,0.06); padding:1rem; text-align:center; }
+  .sched-stat-val { font-family:'Bebas Neue'; font-size:30px; color:var(--gold); line-height:1; }
+  .sched-stat-lbl { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:1px; margin-top:4px; }
+  .schedule-lock-banner { display:flex; align-items:center; gap:10px; background:rgba(46,204,113,0.08); border:1px solid rgba(46,204,113,0.2); border-radius:8px; padding:10px 16px; font-size:13px; color:var(--green); margin-bottom:1.5rem; }
+
+  /* Player-centric schedule rows */
+  .player-week-row { display:grid; grid-template-columns:220px 1fr; gap:0; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .player-week-row:last-child { border-bottom:none; }
+  .player-week-row:nth-child(even) .pw-player { background:rgba(255,255,255,0.015); }
+  .player-week-row:nth-child(even) .pw-opponents { background:rgba(255,255,255,0.015); }
+  .pw-player { padding:12px 14px; display:flex; align-items:center; gap:10px; border-right:1px solid rgba(255,255,255,0.06); }
+  .pw-player-info { min-width:0; }
+  .pw-player-name { font-family:'Barlow Condensed'; font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pw-player-team { font-size:10px; color:var(--text2); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pw-opponents { padding:10px 14px; display:flex; flex-direction:column; gap:6px; justify-content:center; }
+  .pw-opp-row { display:flex; align-items:center; gap:8px; }
+  .pw-opp-label { font-family:'Barlow Condensed'; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--text2); min-width:28px; }
+  .pw-opp-name { font-family:'Barlow Condensed'; font-size:14px; font-weight:600; }
+  .pw-opp-team { font-size:10px; color:var(--text2); margin-left:4px; }
+  .pw-bye { padding:12px 14px; display:flex; align-items:center; gap:8px; color:var(--text2); font-size:13px; font-style:italic; }
+  .pw-series-badge { font-family:'Barlow Condensed'; font-size:10px; letter-spacing:1px; padding:2px 7px; border-radius:4px; background:rgba(168,189,212,0.12); color:var(--chrome1); flex-shrink:0; }
+
+  /* Schedule save bar */
+  .sched-save-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--surface3); border-radius:8px; padding:10px 14px; margin-bottom:1rem; border:1px solid rgba(46,204,113,0.2); }
+  .sched-save-info { flex:1; min-width:0; }
+  .sched-save-name { font-family:'Barlow Condensed'; font-size:14px; font-weight:600; color:var(--text); }
+  .sched-save-meta { font-size:11px; color:var(--text2); margin-top:2px; }
+  .sched-saved-badge { font-family:'Barlow Condensed'; font-size:10px; letter-spacing:2px; text-transform:uppercase; padding:3px 8px; border-radius:4px; background:rgba(46,204,113,0.15); color:var(--green); flex-shrink:0; }
+  /* Home schedule widget */
+  .home-schedule-widget { background:var(--surface2); border-radius:12px; border:1px solid rgba(255,255,255,0.06); overflow:hidden; margin-top:1.5rem; }
+  .hsw-header { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; border-bottom:1px solid rgba(255,255,255,0.06); }
+  .hsw-title { font-family:'Barlow Condensed'; font-size:13px; letter-spacing:3px; text-transform:uppercase; color:var(--text2); }
+  .hsw-week-label { font-family:'Bebas Neue'; font-size:18px; letter-spacing:2px; color:var(--gold); padding:8px 1.25rem 4px; }
+  .hsw-matchup { display:flex; align-items:center; gap:10px; padding:8px 1.25rem; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .hsw-matchup:last-child { border-bottom:none; }
+  .hsw-player { display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
+  .hsw-pname { font-family:'Barlow Condensed'; font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hsw-pteam { font-size:10px; color:var(--text2); }
+  .hsw-vs { font-family:'Bebas Neue'; font-size:12px; color:var(--text2); flex-shrink:0; padding:0 4px; }
+
   ::-webkit-scrollbar { width:6px; height:6px; }
   ::-webkit-scrollbar-track { background:transparent; }
   ::-webkit-scrollbar-thumb { background:rgba(168,189,212,0.3); border-radius:3px; }
@@ -269,6 +384,8 @@
   <div class="nav-tabs">
     <button type="button" class="nav-tab active" onclick="showPage('home',this)">Home</button>
     <button type="button" class="nav-tab" onclick="showPage('draft',this)">Draft Order</button>
+    <button type="button" class="nav-tab" onclick="showPage('seasons',this)">Seasons</button>
+    <button type="button" class="nav-tab" onclick="showPage('schedule',this)">Schedule</button>
     <button type="button" class="nav-tab" onclick="showPage('profiles',this)">Players</button>
   </div>
   <div style="margin-left:auto;display:flex;align-items:center;gap:1rem;padding:0 0.5rem;">
@@ -315,10 +432,18 @@
         <div class="cs-grid">
           <div class="cs-tile"><div class="cs-icon">&#x1F3C6;</div><div class="cs-name">Standings</div><div class="cs-badge">Soon</div></div>
           <div class="cs-tile"><div class="cs-icon">&#x1F4CA;</div><div class="cs-name">Stats Tracker</div><div class="cs-badge">Soon</div></div>
-          <div class="cs-tile"><div class="cs-icon">&#x1F4C5;</div><div class="cs-name">Schedule</div><div class="cs-badge">Soon</div></div>
           <div class="cs-tile"><div class="cs-icon">&#x1F3AE;</div><div class="cs-name">Game Results</div><div class="cs-badge">Soon</div></div>
         </div>
       </div>
+    </div>
+
+    <!-- Home schedule widget -->
+    <div id="home-schedule-widget" class="home-schedule-widget" style="display:none;">
+      <div class="hsw-header">
+        <div class="hsw-title" id="hsw-title">&#x1F4C5; Week 1 Matchups</div>
+        <span onclick="showPage('schedule',document.querySelectorAll('.nav-tab')[3])" style="font-family:'Barlow Condensed';font-size:12px;letter-spacing:1px;color:var(--gold);cursor:pointer;">View Full Schedule &#x2192;</span>
+      </div>
+      <div id="hsw-body"></div>
     </div>
   </div>
 
@@ -393,7 +518,180 @@
     </div>
   </div>
 
+  <!-- SCHEDULE -->
+  <div id="page-schedule" class="page">
+    <div class="page-header">
+      <div><h1>Season <span>Schedule</span></h1><p>Full round robin &mdash; every team plays every other team once</p></div>
+      <div style="display:flex;gap:8px;align-items:center;" id="schedule-header-actions"></div>
+    </div>
+
+    <!-- Lock banner shown when season is active -->
+    <div id="schedule-lock-banner" style="display:none;" class="schedule-lock-banner">
+      <span>&#x1F512;</span>
+      <span>Schedule is locked &mdash; season is active. Start a new season to regenerate.</span>
+    </div>
+
+    <!-- Controls (commissioner+ only) -->
+    <div id="schedule-controls-panel" class="schedule-controls">
+      <div class="form-group">
+        <label>Season</label>
+        <select id="sched-season-select">
+          <option value="">Select season...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Matchups per team per week</label>
+        <select id="sched-matchups-per-week">
+          <option value="2" selected>2 opponents</option>
+          <option value="1">1 opponent</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Series length</label>
+        <select id="sched-series-length">
+          <option value="3" selected>Best of 3</option>
+          <option value="5">Best of 5</option>
+          <option value="1">Single game</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;padding-bottom:1px;">
+        <button type="button" class="btn btn-gold" onclick="generateSchedule()">&#x26A1; Generate Schedule</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="clearSchedule()" id="sched-clear-btn" style="display:none;">Clear</button>
+      </div>
+    </div>
+
+    <!-- Save bar (shown after schedule generated) -->
+    <div id="sched-save-bar" style="display:none;" class="sched-save-bar">
+      <div class="sched-save-info">
+        <div class="sched-save-name" id="sched-save-name">Unsaved schedule</div>
+        <div class="sched-save-meta" id="sched-save-meta">Generate a schedule then save it to this season</div>
+      </div>
+      <span class="sched-saved-badge" id="sched-saved-badge" style="display:none;">&#x2713; Saved</span>
+      <button type="button" class="btn btn-outline btn-sm" id="sched-export-btn" style="display:none;" onclick="exportSchedulePNG()">&#x1F4F7; Download PNG</button>
+      <button type="button" class="btn btn-gold btn-sm" id="sched-save-btn" style="display:none;" onclick="saveScheduleToSeason()">&#x1F4BE; Save Schedule</button>
+    </div>
+
+    <!-- Summary stats -->
+    <div id="schedule-summary" style="display:none;">
+      <div class="schedule-summary-bar">
+        <div class="sched-stat"><div class="sched-stat-val" id="ss-weeks">0</div><div class="sched-stat-lbl">Weeks</div></div>
+        <div class="sched-stat"><div class="sched-stat-val" id="ss-matchups">0</div><div class="sched-stat-lbl">Total Matchups</div></div>
+        <div class="sched-stat"><div class="sched-stat-val" id="ss-teams">0</div><div class="sched-stat-lbl">Teams</div></div>
+        <div class="sched-stat"><div class="sched-stat-val" id="ss-series">0</div><div class="sched-stat-lbl">Games Per Series</div></div>
+      </div>
+    </div>
+
+    <!-- Schedule output -->
+    <div id="schedule-output">
+      <div class="empty-state">
+        <div class="empty-icon">&#x1F4C5;</div>
+        <div class="empty-text">Configure options above and generate a schedule</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEASONS -->
+  <div id="page-seasons" class="page">
+    <div class="page-header">
+      <div><h1>Season <span>Management</span></h1><p>Create seasons, roster players, and assign MLB teams</p></div>
+      <div id="season-create-btn-wrap"></div>
+    </div>
+    <div id="seasons-list">
+      <div class="empty-state">
+        <div class="empty-icon">&#x1F3C6;</div>
+        <div class="empty-text">No seasons yet &mdash; create your first</div>
+      </div>
+    </div>
+  </div>
+
 </main>
+
+<!-- SEASON MODAL -->
+<div class="modal-overlay" id="season-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="season-modal-title">Create Season</h2>
+      <button type="button" class="btn btn-ghost" onclick="closeSeasonModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Season Name *</label>
+          <input type="text" id="sm-name" placeholder="e.g. Season 1">
+        </div>
+        <div class="form-group">
+          <label>Season Number</label>
+          <input type="number" id="sm-number" placeholder="1" min="1">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Game Title</label>
+          <input type="text" id="sm-game" placeholder="MLB The Show 26">
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="sm-status">
+            <option value="upcoming">Upcoming</option>
+            <option value="active">Active</option>
+            <option value="playoffs">Playoffs</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Start Date</label>
+          <input type="date" id="sm-start">
+        </div>
+        <div class="form-group">
+          <label>End Date</label>
+          <input type="date" id="sm-end">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeSeasonModal()">Cancel</button>
+      <button type="button" class="btn btn-gold" onclick="saveSeason()">Save Season</button>
+    </div>
+  </div>
+</div>
+
+<!-- TEAM ASSIGNMENT MODAL -->
+<div class="modal-overlay" id="team-assign-modal">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-header">
+      <h2>Assign MLB Teams</h2>
+      <button type="button" class="btn btn-ghost" onclick="closeTeamAssignModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:1rem;">Assign each rostered player their MLB team for this season. Teams marked with a draft pick number were set via the draft.</div>
+      <div id="team-assign-body"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeTeamAssignModal()">Cancel</button>
+      <button type="button" class="btn btn-gold" onclick="saveTeamAssignments()">Save Assignments</button>
+    </div>
+  </div>
+</div>
+
+<!-- ROSTER PICKER MODAL -->
+<div class="modal-overlay" id="roster-picker-modal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h2 id="roster-picker-title">Add Players to Roster</h2>
+      <button type="button" class="btn btn-ghost" onclick="closeRosterPickerModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div id="roster-picker-body"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeRosterPickerModal()">Cancel</button>
+      <button type="button" class="btn btn-gold" onclick="confirmRosterPicker()">Add Selected Players</button>
+    </div>
+  </div>
+</div>
 
 <!-- VIEW MODAL -->
 <div class="view-modal-overlay" id="view-modal">
@@ -558,9 +856,11 @@ function showPage(id, tabEl) {
   document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
   document.getElementById('page-' + id).classList.add('active');
   tabEl.classList.add('active');
-  if (id === 'home') updateDashboard();
-  if (id === 'draft') { renderSlots(); renderSuggestions(); }
+  if (id === 'home')     updateDashboard();
+  if (id === 'draft')    { renderSlots(); renderSuggestions(); }
   if (id === 'profiles') renderProfiles();
+  if (id === 'seasons')  initSeasonsPage();
+  if (id === 'schedule') initSchedulePage();
 }
 
 function selectMode(mode) {
@@ -879,25 +1179,33 @@ async function saveProfile() {
     cyyoung: parseInt(document.getElementById('f-cyyoung').value) || 0
   };
 
-  // Save to Supabase
-  var savedId = await saveProfileToDB(data, state.editingProfileId);
-  if (!savedId) return; // DB error already toasted
-
   if (state.editingProfileId) {
+    // Editing existing — try to update DB record if it has a real UUID
+    // (real UUIDs come from Supabase auth, local-only IDs start with 'local-')
+    var isDbRecord = state.editingProfileId && !state.editingProfileId.startsWith('local-');
+    if (isDbRecord) {
+      var savedId = await saveProfileToDB(data, state.editingProfileId);
+      if (!savedId) return;
+    }
     for (var i = 0; i < state.players.length; i++) {
       if (state.players[i].id === state.editingProfileId) {
         Object.keys(data).forEach(function(k) { state.players[i][k] = data[k]; });
         break;
       }
     }
+    toast('Profile updated');
   } else {
-    data.id = savedId;
+    // New player added by commissioner — save locally with a local- prefix ID
+    // When this player signs up themselves they will get a real DB record
+    data.id = 'local-' + Date.now();
     data.draftHistory = [];
     data.standingsHistory = [];
     data.joinDate = new Date().toLocaleDateString();
+    data.localOnly = true; // flag so we know it hasn't synced to DB yet
     nextColor++;
     state.players.push(data);
-    logActivity(name + ' joined the league');
+    logActivity(name + ' added to league');
+    toast('Player added!');
   }
 
   saveState();
@@ -905,11 +1213,17 @@ async function saveProfile() {
   renderProfiles();
   renderSuggestions();
   updateDashboard();
-  toast(state.editingProfileId ? 'Profile updated' : 'Player added!');
 }
 
-function deleteProfile(id) {
+async function deleteProfile(id) {
   if (!confirm('Remove this player from the league?')) return;
+
+  // Only delete from DB if it's a real Supabase record
+  if (id && !id.startsWith('local-')) {
+    var res = await db.from('league_members').delete().eq('id', id);
+    if (res.error) { toast('DB error: ' + res.error.message); return; }
+  }
+
   state.players = state.players.filter(function(p) { return p.id !== id; });
   saveState();
   renderProfiles();
@@ -1162,6 +1476,7 @@ function closeViewModal() {
 function updateDashboard() {
   document.getElementById('dash-players').textContent = state.players.length;
   document.getElementById('dash-drafts').textContent = state.draftsGenerated;
+  renderHomeScheduleWidget();
   var actEl = document.getElementById('activity-list');
   if (!state.activityLog.length) {
     actEl.innerHTML = '<div class="empty-state" style="min-height:120px;"><div class="empty-icon">&#x1F4CB;</div><div class="empty-text">No activity yet</div></div>';
@@ -1193,6 +1508,1380 @@ function escAttr(str) {
   return String(str || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 }
 
+// ════════════════════════════════════════════════
+// SEASON MANAGEMENT
+// ════════════════════════════════════════════════
+
+var seasonState = {
+  seasons: [],          // [{id, name, number, game, status, startDate, endDate, roster, teamAssignments}]
+  editingSeasonId: null,
+  activeSeasonTab: {},  // {seasonId: 'roster'|'teams'|'settings'}
+  teamAssignEditing: null,
+};
+
+var MLB_TEAMS = [
+  'Arizona Diamondbacks','Atlanta Braves','Baltimore Orioles','Boston Red Sox',
+  'Chicago Cubs','Chicago White Sox','Cincinnati Reds','Cleveland Guardians',
+  'Colorado Rockies','Detroit Tigers','Houston Astros','Kansas City Royals',
+  'Los Angeles Angels','Los Angeles Dodgers','Miami Marlins','Milwaukee Brewers',
+  'Minnesota Twins','New York Mets','New York Yankees','Oakland Athletics',
+  'Philadelphia Phillies','Pittsburgh Pirates','San Diego Padres','San Francisco Giants',
+  'Seattle Mariners','St. Louis Cardinals','Tampa Bay Rays','Texas Rangers',
+  'Toronto Blue Jays','Washington Nationals'
+];
+
+function saveSeasonState() {
+  try { localStorage.setItem('dna_seasons', JSON.stringify(seasonState)); } catch(e) {}
+}
+function loadSeasonState() {
+  try {
+    var s = localStorage.getItem('dna_seasons');
+    if (s) {
+      var p = JSON.parse(s);
+      Object.keys(p).forEach(function(k) { seasonState[k] = p[k]; });
+    }
+  } catch(e) {}
+}
+
+// ── INIT ─────────────────────────────────────────
+function initSeasonsPage() {
+  // Show create button for commissioner+
+  var wrap = document.getElementById('season-create-btn-wrap');
+  if (canManageSchedule()) {
+    wrap.innerHTML = '<button type="button" class="btn btn-gold" onclick="openSeasonModal(null)">+ Create Season</button>';
+  } else {
+    wrap.innerHTML = '';
+  }
+  renderSeasonsList();
+}
+
+// ── RENDER SEASONS LIST ───────────────────────────
+function renderSeasonsList() {
+  var list = document.getElementById('seasons-list');
+
+  if (!seasonState.seasons.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">&#x1F3C6;</div><div class="empty-text">No seasons yet &mdash; create your first</div></div>';
+    return;
+  }
+
+  // Sort: active first, then by number descending
+  var sorted = seasonState.seasons.slice().sort(function(a, b) {
+    var order = { active:0, playoffs:1, upcoming:2, completed:3, cancelled:4 };
+    if ((order[a.status]||5) !== (order[b.status]||5)) return (order[a.status]||5) - (order[b.status]||5);
+    return (b.number||0) - (a.number||0);
+  });
+
+  list.innerHTML = sorted.map(function(s) {
+    return renderSeasonCard(s);
+  }).join('');
+}
+
+function renderSeasonCard(s) {
+  var statusClass = 'status-' + s.status;
+  var cardClass   = s.status === 'active' ? 'season-card active-season' :
+                    s.status === 'playoffs' ? 'season-card playoffs-season' : 'season-card';
+  var tab = seasonState.activeSeasonTab[s.id] || 'roster';
+  var roster = s.roster || [];
+  var teams  = s.teamAssignments || {};
+
+  var statusLabel = s.status.charAt(0).toUpperCase() + s.status.slice(1);
+  var dateStr = '';
+  if (s.startDate) dateStr = s.startDate + (s.endDate ? ' → ' + s.endDate : '');
+
+  // Status transition buttons
+  var transitions = '';
+  if (canManageSchedule()) {
+    if (s.status === 'upcoming') {
+      transitions += '<button type="button" class="transition-btn" style="background:rgba(46,204,113,0.15);color:var(--green);" onclick="transitionSeason(\'' + s.id + '\',\'active\')">Activate</button>';
+      transitions += '<button type="button" class="transition-btn" style="background:rgba(217,64,64,0.12);color:var(--red);margin-left:6px;" onclick="transitionSeason(\'' + s.id + '\',\'cancelled\')">Cancel</button>';
+    }
+    if (s.status === 'active') {
+      transitions += '<button type="button" class="transition-btn" style="background:rgba(201,168,76,0.15);color:var(--gold2);" onclick="transitionSeason(\'' + s.id + '\',\'playoffs\')">Start Playoffs</button>';
+    }
+    if (s.status === 'playoffs') {
+      transitions += '<button type="button" class="transition-btn" style="background:rgba(255,255,255,0.08);color:var(--text2);" onclick="transitionSeason(\'' + s.id + '\',\'completed\')">Complete Season</button>';
+    }
+  }
+
+  // Roster tab content
+  var rosterContent = '';
+  if (!roster.length) {
+    rosterContent = '<div style="font-size:13px;color:var(--text2);padding:4px 0;">No players rostered yet.</div>';
+    if (canManageSchedule()) {
+      rosterContent += '<button type="button" class="btn btn-outline btn-sm" style="margin-top:10px;" onclick="openRosterEditor(\'' + s.id + '\')">+ Add Players</button>';
+    }
+  } else {
+    rosterContent = '<div class="roster-grid">' + roster.map(function(r) {
+      var player = state.players.find(function(p) { return p.id === r.memberId; });
+      if (!player) return '';
+      var initials = player.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+      var dotClass = r.status === 'confirmed' ? 'dot-confirmed' : r.status === 'pending' ? 'dot-pending' : 'dot-invited';
+      var itemClass = r.status === 'confirmed' ? 'roster-item confirmed' : r.status === 'pending' ? 'roster-item pending' : 'roster-item';
+      return '<div class="' + itemClass + '">' +
+        '<div class="avatar-sm" style="background:' + (player.color||'#6a9ec7') + ';font-size:11px;">' + initials + '</div>' +
+        '<div class="roster-name">' + escHtml(player.name) + '</div>' +
+        '<div class="roster-status-dot ' + dotClass + '" title="' + r.status + '"></div>' +
+        (canManageSchedule() ? '<button type="button" class="btn btn-ghost" style="padding:2px 6px;font-size:14px;" onclick="event.stopPropagation();removeFromRoster(\'' + s.id + '\',\'' + r.memberId + '\')">&times;</button>' : '') +
+        '</div>';
+    }).join('') + '</div>';
+    if (canManageSchedule() && s.status === 'upcoming') {
+      rosterContent += '<div style="margin-top:10px;display:flex;gap:8px;">' +
+        '<button type="button" class="btn btn-outline btn-sm" onclick="openRosterEditor(\'' + s.id + '\')">Edit Roster</button>' +
+        '</div>';
+    }
+  }
+
+  // Teams tab content — exclude teams already assigned to other players
+  var takenTeams = {}; // team -> memberId
+  Object.keys(teams).forEach(function(id) {
+    if (teams[id]) takenTeams[teams[id]] = id;
+  });
+
+  var teamsContent = '<div style="max-height:380px;overflow-y:auto;">' +
+    (roster.length ? roster.map(function(r) {
+      var player = state.players.find(function(p) { return p.id === r.memberId; });
+      if (!player) return '';
+      var assigned = teams[r.memberId] || '';
+
+      var options = '<option value="">— Unassigned —</option>' +
+        MLB_TEAMS.map(function(t) {
+          var takenBy = takenTeams[t];
+          var isMine  = takenBy === r.memberId;
+          var isTaken = takenBy && !isMine;
+          if (isTaken) return ''; // hide teams taken by others
+          return '<option value="' + t + '"' + (assigned === t ? ' selected' : '') + '>' + t + '</option>';
+        }).join('');
+
+      return '<div class="team-assignment-row">' +
+        '<div class="ta-player">' +
+          '<div class="avatar-sm" style="background:' + (player.color||'#6a9ec7') + ';font-size:11px;">' +
+            player.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase() +
+          '</div>' +
+          escHtml(player.name) +
+        '</div>' +
+        '<div class="ta-team">' +
+          '<select id="ta-' + s.id + '-' + r.memberId + '" ' +
+            (canManageSchedule() ? 'onchange="updateTeamAssignmentLive(\'' + s.id + '\')"' : 'disabled') + '>' +
+            options +
+          '</select>' +
+        '</div>' +
+        (assigned ? '<span class="tag tag-gold" style="flex-shrink:0;font-size:10px;">' + escHtml(assigned.split(' ').pop()) + '</span>' : '') +
+        '</div>';
+    }).join('') : '<div style="font-size:13px;color:var(--text2);">Roster players first before assigning teams.</div>') +
+    '</div>';
+  if (canManageSchedule() && roster.length) {
+    teamsContent += '<div style="margin-top:12px;">' +
+      '<button type="button" class="btn btn-gold btn-sm" onclick="saveTeamAssignmentsDirect(\'' + s.id + '\')">Save Team Assignments</button>' +
+      '</div>';
+  }
+
+  // Settings tab
+  var settingsContent = '';
+  if (canManageSchedule()) {
+    var isEditable = s.status !== 'completed';
+    settingsContent = '<div style="display:flex;flex-direction:column;gap:16px;">';
+
+    // Edit + Reset team assignments row
+    settingsContent += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">';
+    if (isEditable) {
+      settingsContent += '<button type="button" class="btn btn-outline btn-sm" onclick="openSeasonModal(\'' + s.id + '\')">&#x270F; Edit Season Details</button>';
+    }
+    if (Object.keys(teams).length > 0) {
+      settingsContent += '<button type="button" class="btn btn-outline btn-sm" onclick="resetTeamAssignments(\'' + s.id + '\')" style="color:var(--gold);border-color:rgba(201,168,76,0.3);">&#x21BA; Reset Team Assignments</button>';
+    }
+    settingsContent += '</div>';
+
+    // Status info
+    var statusNote = {
+      upcoming:  'Season has not started yet. Roster, team assignments, and schedule can be freely modified.',
+      active:    'Season is in progress. Roster and schedule are locked.',
+      playoffs:  'Playoffs are underway.',
+      completed: 'This season is complete. All data is read-only.',
+      cancelled: 'This season was cancelled.'
+    }[s.status] || '';
+    if (statusNote) {
+      settingsContent += '<div style="font-size:12px;color:var(--text2);padding:8px 12px;background:var(--surface3);border-radius:6px;">' + statusNote + '</div>';
+    }
+
+    // Delete — available to commissioner+ for any status
+    settingsContent += '<div style="padding-top:4px;border-top:1px solid rgba(255,255,255,0.06);">';
+    settingsContent += '<div style="font-family:\'Barlow Condensed\';font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);margin-bottom:8px;">Danger Zone</div>';
+    settingsContent += '<button type="button" class="btn btn-sm" style="background:rgba(217,64,64,0.12);color:var(--red);border:1px solid rgba(217,64,64,0.25);" onclick="deleteSeason(\'' + s.id + '\')">&#x1F5D1; Delete Season</button>';
+    settingsContent += '<div style="font-size:11px;color:var(--text2);margin-top:6px;">Permanently removes all season data including roster, team assignments, and schedule.</div>';
+    settingsContent += '</div>';
+
+    settingsContent += '</div>';
+  } else {
+    settingsContent = '<div style="font-size:13px;color:var(--text2);">Season settings are managed by the commissioner.</div>';
+  }
+
+  return '<div class="' + cardClass + '" id="season-card-' + s.id + '">' +
+    '<div class="season-card-header">' +
+      '<div class="season-card-left">' +
+        '<div class="season-number">' + (s.number||'?') + '</div>' +
+        '<div class="season-info">' +
+          '<div class="season-name">' + escHtml(s.name) + '</div>' +
+          '<div class="season-game">' + escHtml(s.game||'MLB The Show') + '</div>' +
+          (dateStr ? '<div class="season-dates">' + dateStr + '</div>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:10px;">' +
+        transitions +
+        '<span class="status-pill ' + statusClass + '">' + statusLabel + '</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="season-card-body">' +
+      '<div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.75rem;flex-wrap:wrap;">' +
+        '<div class="season-tabs">' +
+          '<button type="button" class="season-tab' + (tab==='roster'?' active':'') + '" onclick="switchSeasonTab(\'' + s.id + '\',\'roster\',this)">Roster <span style="font-size:11px;">(' + roster.filter(function(r){ return !!state.players.find(function(p){return p.id===r.memberId;}); }).length + ')</span></button>' +
+          '<button type="button" class="season-tab' + (tab==='teams'?' active':'') + '" onclick="switchSeasonTab(\'' + s.id + '\',\'teams\',this)">Teams</button>' +
+          '<button type="button" class="season-tab' + (tab==='settings'?' active':'') + '" onclick="switchSeasonTab(\'' + s.id + '\',\'settings\',this)">Settings</button>' +
+        '</div>' +
+        '<div style="margin-left:auto;font-size:12px;color:var(--text2);">' +
+          roster.filter(function(r){return r.status==='confirmed';}).length + ' confirmed &nbsp;/&nbsp; ' + roster.filter(function(r){ return !!state.players.find(function(p){return p.id===r.memberId;}); }).length + ' total' +
+        '</div>' +
+      '</div>' +
+      '<div id="season-tab-content-' + s.id + '">' +
+        (tab === 'roster' ? rosterContent : tab === 'teams' ? teamsContent : settingsContent) +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function switchSeasonTab(seasonId, tab, tabEl) {
+  seasonState.activeSeasonTab[seasonId] = tab;
+  saveSeasonState();
+  // Re-render just this card
+  var season = seasonState.seasons.find(function(s) { return s.id === seasonId; });
+  if (!season) return;
+  var card = document.getElementById('season-card-' + seasonId);
+  if (!card) return;
+  var newCard = document.createElement('div');
+  newCard.innerHTML = renderSeasonCard(season);
+  card.parentNode.replaceChild(newCard.firstChild, card);
+}
+
+// ── SEASON CRUD ───────────────────────────────────
+function openSeasonModal(id) {
+  seasonState.editingSeasonId = id || null;
+  var s = id ? seasonState.seasons.find(function(x){return x.id===id;}) : null;
+  document.getElementById('season-modal-title').textContent = id ? 'Edit Season' : 'Create Season';
+  document.getElementById('sm-name').value   = s ? s.name : 'Season ' + (seasonState.seasons.length + 1);
+  document.getElementById('sm-number').value = s ? s.number : seasonState.seasons.length + 1;
+  document.getElementById('sm-game').value   = s ? (s.game||'') : 'MLB The Show 26';
+  document.getElementById('sm-status').value = s ? s.status : 'upcoming';
+  document.getElementById('sm-start').value  = s ? (s.startDate||'') : '';
+  document.getElementById('sm-end').value    = s ? (s.endDate||'') : '';
+  document.getElementById('season-modal').classList.add('open');
+}
+
+function closeSeasonModal() {
+  document.getElementById('season-modal').classList.remove('open');
+}
+
+function saveSeason() {
+  var name = document.getElementById('sm-name').value.trim();
+  if (!name) { toast('Season name is required'); return; }
+
+  var data = {
+    name:      name,
+    number:    parseInt(document.getElementById('sm-number').value) || 1,
+    game:      document.getElementById('sm-game').value.trim() || 'MLB The Show 26',
+    status:    document.getElementById('sm-status').value,
+    startDate: document.getElementById('sm-start').value || null,
+    endDate:   document.getElementById('sm-end').value || null,
+  };
+
+  if (seasonState.editingSeasonId) {
+    var idx = seasonState.seasons.findIndex(function(s){return s.id===seasonState.editingSeasonId;});
+    if (idx > -1) {
+      Object.keys(data).forEach(function(k){ seasonState.seasons[idx][k] = data[k]; });
+    }
+    toast('Season updated');
+  } else {
+    data.id              = 'season-' + Date.now();
+    data.roster          = [];
+    data.teamAssignments = {};
+    seasonState.seasons.push(data);
+    logActivity('Season "' + name + '" created');
+    toast('Season created!');
+  }
+
+  saveSeasonState();
+  closeSeasonModal();
+  renderSeasonsList();
+  updateDashboard();
+  populateSeasonDropdown();
+}
+
+function deleteSeason(id) {
+  var s = seasonState.seasons.find(function(x){return x.id===id;});
+  if (!s) return;
+
+  var confirmMsg;
+  if (s.status === 'active' || s.status === 'playoffs') {
+    confirmMsg = 'WARNING: "' + s.name + '" is currently ' + s.status + '.\n\nDeleting an active season will permanently remove all roster data, team assignments, and schedule.\n\nType DELETE to confirm.';
+    var input = prompt(confirmMsg);
+    if (!input || input.trim().toUpperCase() !== 'DELETE') {
+      toast('Delete cancelled — type DELETE to confirm');
+      return;
+    }
+  } else if (s.status === 'completed') {
+    confirmMsg = 'Delete completed season "' + s.name + '"?\n\nThis will permanently remove all historical data for this season. This cannot be undone.';
+    if (!confirm(confirmMsg)) return;
+  } else {
+    if (!confirm('Delete "' + s.name + '"? This cannot be undone.')) return;
+  }
+
+  seasonState.seasons = seasonState.seasons.filter(function(x){return x.id!==id;});
+  saveSeasonState();
+  renderSeasonsList();
+  populateSeasonDropdown();
+  logActivity('"' + s.name + '" was deleted');
+  toast('Season deleted');
+}
+
+function resetTeamAssignments(id) {
+  var s = seasonState.seasons.find(function(x){return x.id===id;});
+  if (!s) return;
+  if (!confirm('Reset all team assignments for "' + s.name + '"?\n\nAll MLB team selections will be cleared. Roster and schedule are not affected.')) return;
+  s.teamAssignments = {};
+  saveSeasonState();
+  renderSeasonsList();
+  toast('Team assignments cleared');
+}
+
+function transitionSeason(id, newStatus) {
+  var s = seasonState.seasons.find(function(x){return x.id===id;});
+  if (!s) return;
+
+  var label = { active:'activate', playoffs:'start playoffs for', completed:'complete', cancelled:'cancel' }[newStatus] || newStatus;
+  if (!confirm('Are you sure you want to ' + label + ' "' + s.name + '"?')) return;
+
+  s.status = newStatus;
+  saveSeasonState();
+  renderSeasonsList();
+  logActivity('"' + s.name + '" status changed to ' + newStatus);
+  updateDashboard();
+  toast('Season status updated to ' + newStatus);
+}
+
+// ── ROSTER MANAGEMENT ────────────────────────────
+function openRosterEditor(seasonId) {
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s) return;
+
+  seasonState.rosterEditingSeasonId = seasonId;
+
+  var available = state.players.filter(function(p) {
+    return !(s.roster||[]).find(function(r){return r.memberId===p.id;});
+  });
+
+  var modal = document.getElementById('roster-picker-modal');
+  var body  = document.getElementById('roster-picker-body');
+  var title = document.getElementById('roster-picker-title');
+
+  title.textContent = 'Add Players to ' + s.name;
+
+  if (!available.length) {
+    body.innerHTML = '<div style="font-size:13px;color:var(--text2);padding:8px 0;">All registered players are already on this roster.</div>';
+  } else {
+    body.innerHTML = '<div style="margin-bottom:12px;display:flex;gap:8px;">' +
+      '<button type="button" class="btn btn-outline btn-sm" onclick="rosterPickerSelectAll(true)">Select All</button>' +
+      '<button type="button" class="btn btn-outline btn-sm" onclick="rosterPickerSelectAll(false)">Deselect All</button>' +
+      '</div>' +
+      '<div class="roster-picker-grid">' +
+      available.map(function(p) {
+        var initials = p.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+        return '<label class="roster-picker-item" for="rp-' + p.id + '">' +
+          '<input type="checkbox" id="rp-' + p.id + '" value="' + p.id + '" class="rp-check">' +
+          '<div class="avatar-sm" style="background:' + (p.color||'#6a9ec7') + ';font-size:11px;">' + initials + '</div>' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="font-family:\'Barlow Condensed\';font-size:15px;font-weight:600;">' + escHtml(p.name) + '</div>' +
+            (p.team ? '<div style="font-size:11px;color:var(--text2);">' + escHtml(p.team) + '</div>' : '') +
+          '</div>' +
+        '</label>';
+      }).join('') +
+      '</div>';
+  }
+
+  modal.classList.add('open');
+}
+
+function rosterPickerSelectAll(checked) {
+  document.querySelectorAll('.rp-check').forEach(function(cb){ cb.checked = checked; });
+}
+
+function confirmRosterPicker() {
+  var seasonId = seasonState.rosterEditingSeasonId;
+  if (!seasonId) return;
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s) return;
+
+  var checked = Array.from(document.querySelectorAll('.rp-check:checked')).map(function(cb){ return cb.value; });
+  if (!checked.length) { toast('No players selected'); return; }
+
+  if (!s.roster) s.roster = [];
+  var added = 0;
+  checked.forEach(function(id) {
+    if (!s.roster.find(function(r){return r.memberId===id;})) {
+      s.roster.push({ memberId: id, status: 'invited' });
+      added++;
+    }
+  });
+
+  saveSeasonState();
+  closeRosterPickerModal();
+  renderSeasonsList();
+  toast('Added ' + added + ' player' + (added !== 1 ? 's' : '') + ' to roster');
+}
+
+function closeRosterPickerModal() {
+  document.getElementById('roster-picker-modal').classList.remove('open');
+  seasonState.rosterEditingSeasonId = null;
+}
+
+function removeFromRoster(seasonId, memberId) {
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s || !s.roster) return;
+  s.roster = s.roster.filter(function(r){return r.memberId!==memberId;});
+  if (s.teamAssignments) delete s.teamAssignments[memberId];
+  saveSeasonState();
+  renderSeasonsList();
+  toast('Player removed from roster');
+}
+
+// Allow a member to confirm their own participation
+function confirmParticipation(seasonId) {
+  if (!currentMember) return;
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s || !s.roster) return;
+  var entry = s.roster.find(function(r){return r.memberId===currentMember.id;});
+  if (!entry) return;
+  entry.status = 'confirmed';
+  saveSeasonState();
+  renderSeasonsList();
+  toast('Participation confirmed!');
+}
+
+// ── TEAM ASSIGNMENTS ─────────────────────────────
+// Called when a single team dropdown changes.
+// Saves ONLY that one assignment, then refreshes available options
+// in all OTHER dropdowns for this season — no full card re-render.
+function updateTeamAssignmentLive(seasonId) {
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s || !s.roster) return;
+  if (!s.teamAssignments) s.teamAssignments = {};
+
+  // Save current value of every dropdown that is currently rendered
+  s.roster.forEach(function(r) {
+    var sel = document.getElementById('ta-' + seasonId + '-' + r.memberId);
+    if (sel && sel.value !== '') {
+      s.teamAssignments[r.memberId] = sel.value;
+    }
+    // Do NOT overwrite with empty — only save positive selections
+  });
+
+  saveSeasonState();
+
+  // Build taken set from saved assignments only
+  var taken = {};
+  Object.keys(s.teamAssignments).forEach(function(id) {
+    if (s.teamAssignments[id]) taken[s.teamAssignments[id]] = id;
+  });
+
+  // Refresh each dropdown's options without touching its selected value
+  s.roster.forEach(function(r) {
+    var sel = document.getElementById('ta-' + seasonId + '-' + r.memberId);
+    if (!sel) return;
+    var currentVal = s.teamAssignments[r.memberId] || '';
+    var currentText = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+
+    // Rebuild options: show all teams except those taken by someone else
+    var html = '<option value="">— Unassigned —</option>';
+    MLB_TEAMS.forEach(function(t) {
+      var takenBy = taken[t];
+      var isMine  = takenBy === r.memberId;
+      var isTaken = takenBy && !isMine;
+      if (!isTaken) {
+        html += '<option value="' + t + '"' + (currentVal === t ? ' selected' : '') + '>' + t + '</option>';
+      }
+    });
+    sel.innerHTML = html;
+  });
+}
+
+function saveTeamAssignmentsDirect(seasonId) {
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s || !s.roster) return;
+  if (!s.teamAssignments) s.teamAssignments = {};
+
+  s.roster.forEach(function(r) {
+    var sel = document.getElementById('ta-' + seasonId + '-' + r.memberId);
+    if (sel) s.teamAssignments[r.memberId] = sel.value;
+  });
+
+  saveSeasonState();
+  toast('Team assignments saved');
+}
+
+function closeTeamAssignModal() {
+  document.getElementById('team-assign-modal').classList.remove('open');
+}
+function saveTeamAssignments() { closeTeamAssignModal(); }
+
+// ── ACTIVE SEASON HELPER ──────────────────────────
+// Returns the active or most recent upcoming season
+function getActiveSeason() {
+  var active = seasonState.seasons.find(function(s){ return s.status === 'active'; });
+  if (active) return active;
+  var upcoming = seasonState.seasons.filter(function(s){ return s.status === 'upcoming'; });
+  upcoming.sort(function(a,b){ return (b.number||0)-(a.number||0); });
+  return upcoming[0] || null;
+}
+
+// Returns roster player names for a given season (used by schedule generator)
+function getSeasonRoster(seasonId) {
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s || !s.roster || !s.roster.length) return [];
+  return s.roster.map(function(r) {
+    var p = state.players.find(function(pl){ return pl.id === r.memberId; });
+    return p ? p.name : null;
+  }).filter(Boolean);
+}
+
+// ════════════════════════════════════════════════
+// SCHEDULE GENERATOR
+// ════════════════════════════════════════════════
+
+var scheduleState = {
+  generatedWeeks: [],   // [{weekNum, matchups:[{home,away}], byes:[name]}]
+  seasonId: null,
+  seasonStatus: null,
+  seriesLength: 3,
+  matchupsPerWeek: 2,
+};
+
+function canManageSchedule() {
+  if (!currentMember) return false;
+  return ['admin','commissioner','co_commissioner'].indexOf(currentMember.role) > -1;
+}
+
+function initSchedulePage() {
+  var controlsPanel = document.getElementById('schedule-controls-panel');
+  var lockBanner    = document.getElementById('schedule-lock-banner');
+
+  // Show/hide controls based on role
+  controlsPanel.style.display = canManageSchedule() ? '' : 'none';
+
+  // Populate season dropdown from state.players league context
+  populateSeasonDropdown();
+
+  // Restore any previously generated schedule from state
+  if (scheduleState.generatedWeeks.length) {
+    renderSchedule(scheduleState.generatedWeeks, scheduleState.seriesLength);
+    updateSaveBar();
+    document.getElementById('sched-clear-btn').style.display = '';
+  }
+}
+
+function populateSeasonDropdown() {
+  var sel = document.getElementById('sched-season-select');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select season...</option>';
+  seasonState.seasons.forEach(function(s) {
+    var opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name + ' (' + s.status + ')';
+    if (s.status === 'active') opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// ── SCHEDULE GENERATION ──────────────────────────
+// Round robin using the circle method.
+// Returns an array of matchup pairs: [{home, away}]
+// for each "slot" - a single pairing of every team.
+function generateAllPairings(teams) {
+  var n = teams.length;
+  var list = teams.slice();
+  var allPairings = []; // flat list of every {home, away} pair
+  var byeAssignments = []; // flat list of bye names
+
+  var hasBye = n % 2 !== 0;
+  if (hasBye) {
+    list.push('__BYE__');
+    n = list.length;
+  }
+
+  var numRounds = n - 1;
+
+  for (var r = 0; r < numRounds; r++) {
+    for (var i = 0; i < n / 2; i++) {
+      var home = list[i];
+      var away = list[n - 1 - i];
+      if (home === '__BYE__' || away === '__BYE__') {
+        byeAssignments.push({ roundIndex: r, team: home === '__BYE__' ? away : home });
+      } else {
+        allPairings.push({ home: home, away: away, roundIndex: r });
+      }
+    }
+    // Rotate: keep list[0] fixed, rotate rest
+    var last = list[n - 1];
+    for (var j = n - 1; j > 1; j--) {
+      list[j] = list[j - 1];
+    }
+    list[1] = last;
+  }
+
+  return { pairings: allPairings, byes: byeAssignments, numRounds: numRounds };
+}
+
+// Pack rounds into weeks.
+// With an even number of teams, the circle method guarantees
+// consecutive rounds have NO overlapping teams, so we can
+// always safely pair rounds without any conflict checking.
+function packIntoWeeks(rounds, matchupsPerWeek) {
+  var weeks = [];
+  var remaining = rounds.slice();
+  var weekNum = 1;
+
+  while (remaining.length > 0) {
+    var wm = [], wb = [];
+    // Take up to matchupsPerWeek rounds straight — no conflict check needed
+    // (circle method guarantees consecutive rounds are disjoint for even N)
+    var toTake = Math.min(matchupsPerWeek, remaining.length);
+    for (var i = 0; i < toTake; i++) {
+      var round = remaining.shift();
+      round.forEach(function(m) {
+        if (m.bye) wb.push(m.bye);
+        else wm.push(m);
+      });
+    }
+    if (wm.length || wb.length) {
+      weeks.push({ weekNum: weekNum++, matchups: wm, byes: wb });
+    }
+  }
+  return weeks;
+}
+
+function generateRoundRobin(teams) {
+  var n = teams.length;
+  var list = teams.slice();
+  var rounds = [];
+
+  var hasBye = n % 2 !== 0;
+  if (hasBye) { list.push('__BYE__'); n = list.length; }
+
+  var numRounds = n - 1;
+  for (var r = 0; r < numRounds; r++) {
+    var round = [];
+    for (var i = 0; i < n / 2; i++) {
+      var home = list[i];
+      var away = list[n - 1 - i];
+      if (home === '__BYE__' || away === '__BYE__') {
+        round.push({ bye: home === '__BYE__' ? away : home });
+      } else {
+        round.push({ home: home, away: away });
+      }
+    }
+    rounds.push(round);
+    var last = list[n - 1];
+    for (var j = n - 1; j > 1; j--) { list[j] = list[j - 1]; }
+    list[1] = last;
+  }
+  return rounds;
+}
+
+// ── MAIN GENERATE FUNCTION ────────────────────────
+function generateSchedule() {
+  var matchupsPerWeek = parseInt(document.getElementById('sched-matchups-per-week').value) || 2;
+  var seriesLength    = parseInt(document.getElementById('sched-series-length').value) || 3;
+  var seasonId        = document.getElementById('sched-season-select').value;
+
+  // Get team list from season roster if season selected, otherwise fall back to all players
+  var teams;
+  if (seasonId) {
+    teams = getSeasonRoster(seasonId);
+    if (!teams.length) {
+      toast('Selected season has no rostered players. Add players in the Seasons tab first.');
+      return;
+    }
+    // Check if season is locked (active or beyond)
+    var season = seasonState.seasons.find(function(s){return s.id===seasonId;});
+    if (season && season.status !== 'upcoming') {
+      toast('Schedule is locked — season is no longer in upcoming status.');
+      return;
+    }
+  } else {
+    teams = state.players.map(function(p) { return p.name; });
+    if (!teams.length) {
+      toast('No players found. Add players in the Players tab or select a season with a roster.');
+      return;
+    }
+  }
+
+  if (teams.length < 2) { toast('Need at least 2 players to generate a schedule'); return; }
+  if (teams.length > 32) { toast('Maximum 32 teams supported'); return; }
+
+  // Shuffle teams for random initial seeding
+  for (var i = teams.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = teams[i]; teams[i] = teams[j]; teams[j] = tmp;
+  }
+
+  var rounds = generateRoundRobin(teams);
+  var weeks  = packIntoWeeks(rounds, matchupsPerWeek);
+
+  scheduleState.generatedWeeks  = weeks;
+  scheduleState.seriesLength    = seriesLength;
+  scheduleState.matchupsPerWeek = matchupsPerWeek;
+  scheduleState.seasonId        = seasonId || null;
+  scheduleState.savedAt         = null; // mark as unsaved after new generation
+
+  saveState();
+  logActivity('Schedule generated — ' + weeks.length + ' weeks, ' + teams.length + ' teams');
+  updateDashboard();
+  renderSchedule(weeks, seriesLength);
+  updateSaveBar();
+  document.getElementById('sched-clear-btn').style.display = '';
+  toast('Schedule generated — ' + weeks.length + ' weeks!');
+}
+
+function clearSchedule() {
+  if (!confirm('Clear the current schedule?')) return;
+  scheduleState.generatedWeeks = [];
+  scheduleState.savedAt = null;
+  saveState();
+  document.getElementById('schedule-output').innerHTML =
+    '<div class="empty-state"><div class="empty-icon">&#x1F4C5;</div><div class="empty-text">Configure options above and generate a schedule</div></div>';
+  document.getElementById('schedule-summary').style.display = 'none';
+  document.getElementById('sched-clear-btn').style.display = 'none';
+  document.getElementById('sched-save-bar').style.display = 'none';
+  updateDashboard();
+  toast('Schedule cleared');
+}
+
+// ── RENDER SCHEDULE ───────────────────────────────
+function renderSchedule(weeks, seriesLength) {
+  if (!weeks || !weeks.length) return;
+
+  var totalMatchups = 0;
+  weeks.forEach(function(w) { totalMatchups += w.matchups.length; });
+  var uniqueTeams = new Set();
+  weeks.forEach(function(w) {
+    w.matchups.forEach(function(m) { uniqueTeams.add(m.home); uniqueTeams.add(m.away); });
+    w.byes.forEach(function(b) { uniqueTeams.add(b); });
+  });
+
+  // Build MLB team lookup: playerName -> mlbTeam
+  var mlbTeamLookup = {};
+  var activeSeason = scheduleState.seasonId
+    ? seasonState.seasons.find(function(s){ return s.id === scheduleState.seasonId; })
+    : getActiveSeason();
+  if (activeSeason && activeSeason.teamAssignments) {
+    Object.keys(activeSeason.teamAssignments).forEach(function(memberId) {
+      var player = state.players.find(function(p){ return p.id === memberId; });
+      if (player && activeSeason.teamAssignments[memberId]) {
+        mlbTeamLookup[player.name] = activeSeason.teamAssignments[memberId];
+      }
+    });
+  }
+
+  // Summary bar
+  document.getElementById('ss-weeks').textContent    = weeks.length;
+  document.getElementById('ss-matchups').textContent = totalMatchups;
+  document.getElementById('ss-teams').textContent    = uniqueTeams.size;
+  document.getElementById('ss-series').textContent   = seriesLength;
+  document.getElementById('schedule-summary').style.display = '';
+
+  var html = '';
+
+  weeks.forEach(function(w, wi) {
+    // Build a per-player opponents map for this week
+    // Each player appears as both home and away in different matchups
+    var playerOpponents = {}; // playerName -> [{opponent, mlbTeam}]
+
+    w.matchups.forEach(function(m) {
+      if (!playerOpponents[m.home]) playerOpponents[m.home] = [];
+      if (!playerOpponents[m.away]) playerOpponents[m.away] = [];
+      playerOpponents[m.home].push(m.away);
+      playerOpponents[m.away].push(m.home);
+    });
+
+    // Get sorted list of all players this week
+    var allPlayers = Object.keys(playerOpponents).sort();
+    var byePlayers = w.byes.slice();
+
+    var playerCount = allPlayers.length + byePlayers.length;
+    // Figure out expected matchups per player for this week
+    // A "full" week has matchupsPerWeek opponents per player
+    // A "reduced" week has fewer (last week of odd-round seasons)
+    var maxOpponents = 0;
+    allPlayers.forEach(function(p) {
+      var c = (playerOpponents[p] || []).length;
+      if (c > maxOpponents) maxOpponents = c;
+    });
+    var isReducedWeek = maxOpponents < scheduleState.matchupsPerWeek && scheduleState.matchupsPerWeek > 1;
+
+    var matchupCount = w.matchups.length;
+    var meta = playerCount + ' players &nbsp;&bull;&nbsp; ' + matchupCount + ' matchup' + (matchupCount !== 1 ? 's' : '');
+    if (byePlayers.length) meta += ' &nbsp;&bull;&nbsp; ' + byePlayers.length + ' bye' + (byePlayers.length !== 1 ? 's' : '');
+    if (isReducedWeek) meta += ' &nbsp;&bull;&nbsp; <span style="color:var(--gold);font-size:11px;">&#x26A0; Reduced week &mdash; 1 game each</span>';
+
+    html += '<div class="week-block" id="week-block-' + wi + '">';
+
+    // Week header
+    html += '<div class="week-header" onclick="toggleWeek(' + wi + ')">';
+    html += '<span class="week-label">Week ' + w.weekNum + '</span>';
+    html += '<div style="display:flex;align-items:center;gap:1rem;">';
+    html += '<span class="week-meta">' + meta + '</span>';
+    html += '<span class="week-chevron">&#9660;</span>';
+    html += '</div></div>';
+
+    // Column headers
+    html += '<div style="display:grid;grid-template-columns:220px 1fr;border-bottom:1px solid rgba(255,255,255,0.08);background:var(--surface3);">';
+    html += '<div style="padding:6px 14px;font-family:\'Barlow Condensed\';font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);border-right:1px solid rgba(255,255,255,0.06);">Player / Team</div>';
+    html += '<div style="padding:6px 14px;font-family:\'Barlow Condensed\';font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);">This Week\'s Opponents</div>';
+    html += '</div>';
+
+    html += '<div class="week-body" style="padding:0;">';
+
+    // Player rows
+    allPlayers.forEach(function(playerName) {
+      var player   = state.players.find(function(p) { return p.name === playerName; });
+      var color    = (player && player.color) || '#6a9ec7';
+      var initials = playerName.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+      var mlbTeam  = mlbTeamLookup[playerName] || '';
+      var opponents = playerOpponents[playerName] || [];
+
+      html += '<div class="player-week-row">';
+
+      // Left: player identity
+      html += '<div class="pw-player">';
+      html += '<div class="avatar-sm" style="background:' + color + '">' + initials + '</div>';
+      html += '<div class="pw-player-info">';
+      html += '<div class="pw-player-name">' + escHtml(playerName) + '</div>';
+      if (mlbTeam) html += '<div class="pw-player-team">' + escHtml(mlbTeam) + '</div>';
+      html += '</div>';
+      html += '</div>';
+
+      // Right: opponents
+      html += '<div class="pw-opponents">';
+      opponents.forEach(function(oppName, oi) {
+        var oppPlayer  = state.players.find(function(p) { return p.name === oppName; });
+        var oppColor   = (oppPlayer && oppPlayer.color) || '#6a9ec7';
+        var oppInitials = oppName.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+        var oppMLB     = mlbTeamLookup[oppName] || '';
+        html += '<div class="pw-opp-row">';
+        html += '<span class="pw-opp-label">OPP ' + (oi + 1) + '</span>';
+        html += '<div class="avatar-sm" style="background:' + oppColor + ';width:22px;height:22px;font-size:10px;">' + oppInitials + '</div>';
+        html += '<div>';
+        html += '<span class="pw-opp-name">' + escHtml(oppName) + '</span>';
+        if (oppMLB) html += '<span class="pw-opp-team">· ' + escHtml(oppMLB) + '</span>';
+        html += '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+
+      html += '</div>'; // player-week-row
+    });
+
+    // Bye rows
+    byePlayers.forEach(function(playerName) {
+      var player   = state.players.find(function(p) { return p.name === playerName; });
+      var color    = (player && player.color) || '#6a9ec7';
+      var initials = playerName.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+      var mlbTeam  = mlbTeamLookup[playerName] || '';
+
+      html += '<div class="player-week-row">';
+      html += '<div class="pw-player" style="opacity:0.6;">';
+      html += '<div class="avatar-sm" style="background:' + color + '">' + initials + '</div>';
+      html += '<div class="pw-player-info">';
+      html += '<div class="pw-player-name">' + escHtml(playerName) + '</div>';
+      if (mlbTeam) html += '<div class="pw-player-team">' + escHtml(mlbTeam) + '</div>';
+      html += '</div></div>';
+      html += '<div class="pw-bye"><span class="bye-badge">Bye Week</span><span style="font-size:12px;margin-left:6px;">No opponent this week</span></div>';
+      html += '</div>';
+    });
+
+    html += '</div></div>'; // week-body, week-block
+  });
+
+  document.getElementById('schedule-output').innerHTML = html;
+}
+
+function toggleWeek(idx) {
+  var block = document.getElementById('week-block-' + idx);
+  if (block) block.classList.toggle('collapsed');
+}
+
+// ── SAVE STATE EXTENSION ──────────────────────────
+// Persist scheduleState alongside main state
+var _origSaveState = saveState;
+saveState = function() {
+  _origSaveState();
+  try {
+    localStorage.setItem('dna_schedule', JSON.stringify(scheduleState));
+  } catch(e) {}
+};
+
+var _origLoadState = loadState;
+loadState = function() {
+  _origLoadState();
+  try {
+    var s = localStorage.getItem('dna_schedule');
+    if (s) {
+      var parsed = JSON.parse(s);
+      Object.keys(parsed).forEach(function(k) { scheduleState[k] = parsed[k]; });
+    }
+  } catch(e) {}
+};
+
+// ── SUPABASE SCHEDULE SYNC ────────────────────────
+async function saveScheduleToDB(weeks, seasonId, seriesLength) {
+  if (!currentLeague || !seasonId) return;
+
+  // Clear existing weeks for this season first
+  await db.from('schedule_weeks')
+    .delete()
+    .eq('season_id', seasonId);
+
+  // Insert weeks and matchups
+  for (var w = 0; w < weeks.length; w++) {
+    var week = weeks[w];
+
+    var weekRes = await db.from('schedule_weeks').insert({
+      season_id:   seasonId,
+      week_number: week.weekNum,
+    }).select().single();
+
+    if (weekRes.error) {
+      console.error('Error saving week:', weekRes.error.message);
+      continue;
+    }
+
+    var weekId = weekRes.data.id;
+
+    // Insert matchups for this week
+    var matchupInserts = week.matchups.map(function(m) {
+      var homeM = state.players.find(function(p) { return p.name === m.home; });
+      var awayM = state.players.find(function(p) { return p.name === m.away; });
+      return {
+        week_id:         weekId,
+        home_member_id:  homeM ? homeM.id : null,
+        away_member_id:  awayM ? awayM.id : null,
+        status:          'scheduled',
+      };
+    }).filter(function(m) { return m.home_member_id && m.away_member_id; });
+
+    if (matchupInserts.length) {
+      var mRes = await db.from('matchups').insert(matchupInserts);
+      if (mRes.error) console.error('Error saving matchups:', mRes.error.message);
+    }
+  }
+
+  toast('Schedule saved to database');
+}
+
+// ── SCHEDULE SAVE & EXPORT ────────────────────────
+
+function updateSaveBar() {
+  var bar     = document.getElementById('sched-save-bar');
+  var nameEl  = document.getElementById('sched-save-name');
+  var metaEl  = document.getElementById('sched-save-meta');
+  var badge   = document.getElementById('sched-saved-badge');
+  var saveBtn = document.getElementById('sched-save-btn');
+  var expBtn  = document.getElementById('sched-export-btn');
+
+  if (!scheduleState.generatedWeeks || !scheduleState.generatedWeeks.length) {
+    bar.style.display = 'none';
+    return;
+  }
+
+  bar.style.display = '';
+  expBtn.style.display = '';
+
+  // Get season name if linked
+  var seasonName = 'No season selected';
+  if (scheduleState.seasonId) {
+    var s = seasonState.seasons.find(function(x){ return x.id === scheduleState.seasonId; });
+    if (s) seasonName = s.name;
+  }
+
+  var weeks = scheduleState.generatedWeeks.length;
+  var teams = new Set();
+  scheduleState.generatedWeeks.forEach(function(w) {
+    w.matchups.forEach(function(m) { teams.add(m.home); teams.add(m.away); });
+    w.byes.forEach(function(b) { teams.add(b); });
+  });
+
+  nameEl.textContent = seasonName + ' Schedule';
+  metaEl.textContent = weeks + ' weeks · ' + teams.size + ' teams · ' + scheduleState.matchupsPerWeek + ' games/week';
+
+  if (scheduleState.savedAt) {
+    badge.style.display = '';
+    badge.textContent = '✓ Saved ' + new Date(scheduleState.savedAt).toLocaleDateString();
+    // Only show save button for commissioner+ if not yet saved or season changed
+    saveBtn.style.display = canManageSchedule() ? '' : 'none';
+  } else {
+    badge.style.display = 'none';
+    saveBtn.style.display = canManageSchedule() ? '' : 'none';
+    if (saveBtn.style.display !== 'none') {
+      saveBtn.style.background = 'linear-gradient(135deg,var(--chrome3),var(--chrome2),var(--chrome1))';
+    }
+  }
+}
+
+function saveScheduleToSeason() {
+  if (!canManageSchedule()) { toast('Commissioner or admin access required'); return; }
+  if (!scheduleState.generatedWeeks.length) { toast('No schedule to save'); return; }
+
+  var seasonName = 'this schedule';
+  if (scheduleState.seasonId) {
+    var s = seasonState.seasons.find(function(x){ return x.id === scheduleState.seasonId; });
+    if (s) seasonName = '"' + s.name + '"';
+  }
+
+  var existing = scheduleState.savedAt;
+  var msg = existing
+    ? 'Replace the existing saved schedule for ' + seasonName + '?\n\nSaved on: ' + new Date(existing).toLocaleString() + '\n\nThis cannot be undone.'
+    : 'Save this schedule for ' + seasonName + '?';
+
+  if (!confirm(msg)) return;
+
+  scheduleState.savedAt = Date.now();
+
+  // Store the full saved schedule keyed to the season
+  if (scheduleState.seasonId) {
+    var key = 'dna_saved_schedule_' + scheduleState.seasonId;
+    try {
+      localStorage.setItem(key, JSON.stringify({
+        weeks:          scheduleState.generatedWeeks,
+        seriesLength:   scheduleState.seriesLength,
+        matchupsPerWeek:scheduleState.matchupsPerWeek,
+        savedAt:        scheduleState.savedAt,
+        seasonId:       scheduleState.seasonId,
+      }));
+    } catch(e) { toast('Storage error: ' + e.message); return; }
+  }
+
+  saveState();
+  updateSaveBar();
+  updateDashboard();
+  logActivity('Schedule saved for ' + seasonName);
+  toast('Schedule saved!');
+}
+
+function loadSavedSchedule(seasonId) {
+  try {
+    var key = 'dna_saved_schedule_' + seasonId;
+    var raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
+// ── PNG EXPORT ────────────────────────────────────
+function exportSchedulePNG() {
+  if (!scheduleState.generatedWeeks.length) { toast('No schedule to export'); return; }
+
+  toast('Generating image...');
+
+  // Build MLB team lookup
+  var mlbTeamLookup = {};
+  var activeSeason = scheduleState.seasonId
+    ? seasonState.seasons.find(function(s){ return s.id === scheduleState.seasonId; })
+    : getActiveSeason();
+  if (activeSeason && activeSeason.teamAssignments) {
+    Object.keys(activeSeason.teamAssignments).forEach(function(id) {
+      var p = state.players.find(function(pl){ return pl.id === id; });
+      if (p && activeSeason.teamAssignments[id]) mlbTeamLookup[p.name] = activeSeason.teamAssignments[id];
+    });
+  }
+
+  var seasonName = scheduleState.seasonId
+    ? (seasonState.seasons.find(function(s){ return s.id === scheduleState.seasonId; }) || {}).name || 'Schedule'
+    : 'Schedule';
+
+  var weeks = scheduleState.generatedWeeks;
+  var seriesLength = scheduleState.seriesLength;
+
+  // Measure total rows needed
+  var ROW_H = 44, HEADER_H = 52, WEEK_LABEL_H = 36, COL_H = 28, PAD = 20;
+  var totalHeight = PAD;
+  weeks.forEach(function(w) {
+    var players = new Set();
+    w.matchups.forEach(function(m){ players.add(m.home); players.add(m.away); });
+    w.byes.forEach(function(b){ players.add(b); });
+    totalHeight += WEEK_LABEL_H + COL_H + (players.size * ROW_H) + 12;
+  });
+  totalHeight += HEADER_H + PAD * 2;
+
+  var W = 960;
+  var canvas = document.createElement('canvas');
+  canvas.width  = W;
+  canvas.height = totalHeight;
+  var ctx = canvas.getContext('2d');
+
+  // Background
+  ctx.fillStyle = '#0a0d12';
+  ctx.fillRect(0, 0, W, totalHeight);
+
+  // Header
+  ctx.fillStyle = '#151c24';
+  ctx.fillRect(0, 0, W, HEADER_H);
+  ctx.fillStyle = '#a8bdd4';
+  ctx.font = 'bold 22px Arial';
+  ctx.fillText('THE DNA LEAGUE', PAD, 32);
+  ctx.fillStyle = '#5a7a94';
+  ctx.font = '14px Arial';
+  ctx.fillText(seasonName + '  ·  ' + weeks.length + ' weeks  ·  ' + teams.size + ' teams', PAD, 50);
+
+  // Divider
+  ctx.fillStyle = '#1c2530';
+  ctx.fillRect(0, HEADER_H, W, 2);
+
+  var y = HEADER_H + PAD;
+
+  weeks.forEach(function(w) {
+    // Week label background
+    ctx.fillStyle = '#131a24';
+    ctx.fillRect(PAD, y, W - PAD*2, WEEK_LABEL_H);
+    ctx.fillStyle = '#a8bdd4';
+    ctx.font = 'bold 18px Arial';
+    ctx.fillText('WEEK ' + w.weekNum, PAD + 12, y + 22);
+
+    // Count matchups
+    var matchupCount = w.matchups.length;
+    ctx.fillStyle = '#5a7a94';
+    ctx.font = '12px Arial';
+    ctx.fillText(matchupCount + ' matchups', W - PAD - 90, y + 22);
+
+    y += WEEK_LABEL_H + 2;
+
+    // Column headers
+    ctx.fillStyle = '#1a2333';
+    ctx.fillRect(PAD, y, W - PAD*2, COL_H);
+    ctx.fillStyle = '#5a7a94';
+    ctx.font = '10px Arial';
+    ctx.fillText('PLAYER / TEAM', PAD + 12, y + 18);
+    ctx.fillText('OPPONENTS THIS WEEK', PAD + 260, y + 18);
+    y += COL_H;
+
+    // Build player→opponents map
+    var playerOpps = {};
+    w.matchups.forEach(function(m) {
+      if (!playerOpps[m.home]) playerOpps[m.home] = [];
+      if (!playerOpps[m.away]) playerOpps[m.away] = [];
+      playerOpps[m.home].push(m.away);
+      playerOpps[m.away].push(m.home);
+    });
+    var allPlayers = Object.keys(playerOpps).sort();
+    var byePlayers = w.byes.slice();
+
+    allPlayers.forEach(function(name, pi) {
+      var bg = pi % 2 === 0 ? '#0f1318' : '#111720';
+      ctx.fillStyle = bg;
+      ctx.fillRect(PAD, y, W - PAD*2, ROW_H);
+
+      // Avatar circle
+      var player = state.players.find(function(p){ return p.name === name; });
+      var color  = (player && player.color) || '#6a9ec7';
+      ctx.beginPath();
+      ctx.arc(PAD + 28, y + ROW_H/2, 14, 0, Math.PI*2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      var init = name.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+      ctx.fillStyle = '#080b10';
+      ctx.font = 'bold 11px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(init, PAD + 28, y + ROW_H/2 + 4);
+      ctx.textAlign = 'left';
+
+      // Player name
+      ctx.fillStyle = '#dde6ef';
+      ctx.font = 'bold 13px Arial';
+      ctx.fillText(name, PAD + 50, y + 18);
+      var mlbTeam = mlbTeamLookup[name] || '';
+      if (mlbTeam) {
+        ctx.fillStyle = '#5a7a94';
+        ctx.font = '10px Arial';
+        ctx.fillText(mlbTeam, PAD + 50, y + 32);
+      }
+
+      // Divider between columns
+      ctx.fillStyle = '#1a2333';
+      ctx.fillRect(PAD + 240, y + 6, 1, ROW_H - 12);
+
+      // Opponents
+      var opps = playerOpps[name] || [];
+      opps.forEach(function(oppName, oi) {
+        var ox = PAD + 256 + (oi * 300);
+        var oppPlayer = state.players.find(function(p){ return p.name === oppName; });
+        var oppColor  = (oppPlayer && oppPlayer.color) || '#6a9ec7';
+        ctx.beginPath();
+        ctx.arc(ox + 14, y + ROW_H/2, 12, 0, Math.PI*2);
+        ctx.fillStyle = oppColor;
+        ctx.fill();
+        var oppInit = oppName.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+        ctx.fillStyle = '#080b10';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(oppInit, ox + 14, y + ROW_H/2 + 4);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#dde6ef';
+        ctx.font = 'bold 13px Arial';
+        ctx.fillText(oppName, ox + 34, y + 19);
+        var oppMLB = mlbTeamLookup[oppName] || '';
+        if (oppMLB) {
+          ctx.fillStyle = '#5a7a94';
+          ctx.font = '10px Arial';
+          ctx.fillText(oppMLB, ox + 34, y + 33);
+        }
+      });
+
+      y += ROW_H;
+    });
+
+    // Bye rows
+    byePlayers.forEach(function(name, pi) {
+      ctx.fillStyle = '#0d1117';
+      ctx.fillRect(PAD, y, W - PAD*2, ROW_H);
+      var player = state.players.find(function(p){ return p.name === name; });
+      var color = (player && player.color) || '#6a9ec7';
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.arc(PAD + 28, y + ROW_H/2, 14, 0, Math.PI*2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#5a7a94';
+      ctx.font = 'bold 13px Arial';
+      ctx.fillText(name, PAD + 50, y + 18);
+      ctx.font = '10px Arial';
+      ctx.fillText('BYE WEEK', PAD + 256, y + 18);
+      y += ROW_H;
+    });
+
+    y += 12; // gap between weeks
+  });
+
+  // Footer
+  ctx.fillStyle = '#5a7a94';
+  ctx.font = '11px Arial';
+  ctx.fillText('The DNA League  ·  Generated ' + new Date().toLocaleDateString(), PAD, totalHeight - 8);
+
+  // Download
+  canvas.toBlob(function(blob) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = (seasonName + '-schedule').replace(/\s+/g, '-').toLowerCase() + '.png';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Schedule downloaded as PNG!');
+  }, 'image/png');
+}
+
+// ── HOME SCHEDULE WIDGET ──────────────────────────
+function renderHomeScheduleWidget() {
+  var widget = document.getElementById('home-schedule-widget');
+  var body   = document.getElementById('hsw-body');
+
+  var activeSeason = getActiveSeason();
+  var weeks = null;
+
+  if (activeSeason) {
+    var saved = loadSavedSchedule(activeSeason.id);
+    if (saved && saved.weeks && saved.weeks.length) weeks = saved.weeks;
+  }
+  if (!weeks && scheduleState.generatedWeeks.length) weeks = scheduleState.generatedWeeks;
+  if (!weeks || !weeks.length) { widget.style.display = 'none'; return; }
+
+  // Build MLB team lookup
+  var mlbTeamLookup = {};
+  if (activeSeason && activeSeason.teamAssignments) {
+    Object.keys(activeSeason.teamAssignments).forEach(function(id) {
+      var p = state.players.find(function(pl){ return pl.id === id; });
+      if (p && activeSeason.teamAssignments[id]) mlbTeamLookup[p.name] = activeSeason.teamAssignments[id];
+    });
+  }
+
+  // Find current week
+  var currentWeek = weeks[0];
+  for (var i = 0; i < weeks.length; i++) {
+    if (!weeks[i].completed) { currentWeek = weeks[i]; break; }
+  }
+
+  // Build player→opponents map
+  var playerOpps = {};
+  currentWeek.matchups.forEach(function(m) {
+    if (!playerOpps[m.home]) playerOpps[m.home] = [];
+    if (!playerOpps[m.away]) playerOpps[m.away] = [];
+    playerOpps[m.home].push(m.away);
+    playerOpps[m.away].push(m.home);
+  });
+  var allPlayers = Object.keys(playerOpps).sort();
+
+  widget.style.display = '';
+  var titleEl = document.getElementById('hsw-title');
+  if (titleEl) titleEl.textContent = '\uD83D\uDCC5 Week ' + currentWeek.weekNum + ' Matchups';
+
+  var html = '<div style="display:grid;grid-template-columns:180px 1fr;border-bottom:1px solid rgba(255,255,255,0.06);background:var(--surface3);">' +
+    '<div style="padding:6px 14px;font-family:\'Barlow Condensed\';font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);border-right:1px solid rgba(255,255,255,0.06);">Player / Team</div>' +
+    '<div style="padding:6px 14px;font-family:\'Barlow Condensed\';font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);">Opponents</div>' +
+    '</div>';
+
+  allPlayers.forEach(function(playerName, pi) {
+    var player   = state.players.find(function(p){ return p.name === playerName; });
+    var color    = (player && player.color) || '#6a9ec7';
+    var initials = playerName.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+    var mlbTeam  = mlbTeamLookup[playerName] || '';
+    var opponents = playerOpps[playerName] || [];
+    var rowBg = pi % 2 === 0 ? '' : 'background:rgba(255,255,255,0.015);';
+
+    html += '<div style="display:grid;grid-template-columns:180px 1fr;border-bottom:1px solid rgba(255,255,255,0.04);' + rowBg + '">';
+
+    // Player column
+    html += '<div style="padding:9px 12px;display:flex;align-items:center;gap:8px;border-right:1px solid rgba(255,255,255,0.05);">' +
+      '<div class="avatar-sm" style="background:' + color + ';width:26px;height:26px;font-size:11px;flex-shrink:0;">' + initials + '</div>' +
+      '<div style="min-width:0;">' +
+        '<div style="font-family:\'Barlow Condensed\';font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(playerName) + '</div>' +
+        (mlbTeam ? '<div style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(mlbTeam) + '</div>' : '') +
+      '</div>' +
+    '</div>';
+
+    // Opponents column
+    html += '<div style="padding:7px 12px;display:flex;flex-direction:column;gap:4px;justify-content:center;">';
+    opponents.forEach(function(oppName, oi) {
+      var oppPlayer  = state.players.find(function(p){ return p.name === oppName; });
+      var oppColor   = (oppPlayer && oppPlayer.color) || '#6a9ec7';
+      var oppInitials = oppName.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+      var oppMLB     = mlbTeamLookup[oppName] || '';
+      html += '<div style="display:flex;align-items:center;gap:7px;">' +
+        '<span style="font-family:\'Barlow Condensed\';font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);min-width:30px;">OPP ' + (oi+1) + '</span>' +
+        '<div class="avatar-sm" style="background:' + oppColor + ';width:20px;height:20px;font-size:9px;flex-shrink:0;">' + oppInitials + '</div>' +
+        '<div>' +
+          '<span style="font-family:\'Barlow Condensed\';font-size:13px;font-weight:600;">' + escHtml(oppName) + '</span>' +
+          (oppMLB ? '<span style="font-size:10px;color:var(--text2);margin-left:5px;">· ' + escHtml(oppMLB) + '</span>' : '') +
+        '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+
+    html += '</div>';
+  });
+
+  // Bye row at bottom if any
+  if (currentWeek.byes && currentWeek.byes.length) {
+    html += '<div style="padding:8px 14px;font-size:12px;color:var(--text2);border-top:1px solid rgba(255,255,255,0.04);">Bye week: ' + currentWeek.byes.map(escHtml).join(', ') + '</div>';
+  }
+
+  body.innerHTML = html;
+}
+
+// ════════════════════════════════════════════════
 // ── SUPABASE CONFIG ──────────────────────────────
 var SUPABASE_URL  = 'https://orhpiuwptucgktioigju.supabase.co';
 var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9yaHBpdXdwdHVjZ2t0aW9pZ2p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NTIwNjIsImV4cCI6MjA5MDAyODA2Mn0.crGOk7q2k6lr4RDgGCBmgKF8hh1BykSTcRiAefmf7pQ';
@@ -1297,6 +2986,7 @@ async function loadLeagueContext() {
   }
   await syncPlayersFromDB();
   loadState();
+  loadSeasonState();
   renderSlots();
   updateDashboard();
   document.getElementById('slot-count').value = state.slotCount;
