@@ -245,7 +245,7 @@
         <input type="password" id="auth-password" placeholder="Min 8 characters" onkeydown="if(event.key==='Enter')handleAuth()">
       </div>
       <div id="auth-error" style="display:none;background:rgba(217,64,64,0.12);border:1px solid rgba(217,64,64,0.3);border-radius:6px;padding:10px 14px;font-size:13px;color:#f07070;margin-bottom:1rem;"></div>
-      <button id="auth-submit" class="btn btn-gold" style="width:100%;justify-content:center;font-size:15px;padding:12px;" onclick="handleAuth()">Sign In</button>
+      <button type="button" id="auth-submit" class="btn btn-gold" style="width:100%;justify-content:center;font-size:15px;padding:12px;" onclick="handleAuth()">Sign In</button>
       <div style="text-align:center;margin-top:1.25rem;font-size:13px;color:var(--text2);">
         <span id="auth-switch-text">Don't have an account? </span>
         <span id="auth-switch-link" style="color:var(--gold);cursor:pointer;text-decoration:underline;" onclick="switchAuthMode('signup')">Create one</span>
@@ -267,16 +267,16 @@
     </div>
   </div>
   <div class="nav-tabs">
-    <button class="nav-tab active" onclick="showPage('home',this)">Home</button>
-    <button class="nav-tab" onclick="showPage('draft',this)">Draft Order</button>
-    <button class="nav-tab" onclick="showPage('profiles',this)">Players</button>
+    <button type="button" class="nav-tab active" onclick="showPage('home',this)">Home</button>
+    <button type="button" class="nav-tab" onclick="showPage('draft',this)">Draft Order</button>
+    <button type="button" class="nav-tab" onclick="showPage('profiles',this)">Players</button>
   </div>
   <div style="margin-left:auto;display:flex;align-items:center;gap:1rem;padding:0 0.5rem;">
     <div style="text-align:right;">
       <div id="nav-user-name" style="font-family:'Barlow Condensed';font-size:14px;color:var(--text);letter-spacing:1px;"></div>
       <div id="nav-user-role" style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;"></div>
     </div>
-    <button class="btn btn-outline btn-sm" onclick="handleSignOut()">Sign Out</button>
+    <button type="button" class="btn btn-outline btn-sm" onclick="handleSignOut()">Sign Out</button>
   </div>
 </nav>
 
@@ -307,8 +307,8 @@
       <div class="card">
         <div class="card-header"><div class="card-title">Quick Actions</div></div>
         <div style="display:flex;flex-direction:column;gap:10px;">
-          <button class="btn btn-gold" style="justify-content:center;" onclick="showPage('draft',document.querySelectorAll('.nav-tab')[1])">&#x26A1; Generate Draft Order</button>
-          <button class="btn btn-outline" style="justify-content:center;" onclick="showPage('profiles',document.querySelectorAll('.nav-tab')[2])">&#x1F464; Manage Players</button>
+          <button type="button" class="btn btn-gold" style="justify-content:center;" onclick="showPage('draft',document.querySelectorAll('.nav-tab')[1])">&#x26A1; Generate Draft Order</button>
+          <button type="button" class="btn btn-outline" style="justify-content:center;" onclick="showPage('profiles',document.querySelectorAll('.nav-tab')[2])">&#x1F464; Manage Players</button>
         </div>
         <div class="divider"></div>
         <div class="card-title" style="margin-bottom:1rem;">Coming Soon</div>
@@ -331,7 +331,7 @@
       <label>Draft Slots</label>
       <input type="range" id="slot-count" min="2" max="32" value="8" oninput="updateSlots(this.value)">
       <div class="slot-count-val" id="slot-val">8</div>
-      <button class="btn btn-outline btn-sm" onclick="syncFromProfiles()">Import from Profiles</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="syncFromProfiles()">Import from Profiles</button>
     </div>
     <div class="mode-select">
       <div class="mode-btn active" id="mode-random" onclick="selectMode('random')">
@@ -358,8 +358,8 @@
             <div class="suggestion-chips" id="suggestion-chips"></div>
           </div>
           <div style="margin-top:1.25rem;display:flex;gap:8px;">
-            <button class="btn btn-gold" style="flex:1;justify-content:center;" onclick="generateDraft()">&#x26A1; Generate Draft</button>
-            <button class="btn btn-outline btn-sm" onclick="clearAll()">Clear</button>
+            <button type="button" class="btn btn-gold" style="flex:1;justify-content:center;" onclick="generateDraft()">&#x26A1; Generate Draft</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="clearAll()">Clear</button>
           </div>
         </div>
       </div>
@@ -381,7 +381,7 @@
   <div id="page-profiles" class="page">
     <div class="page-header">
       <div><h1>Player <span>Profiles</span></h1><p>Manage league members and track their history</p></div>
-      <button class="btn btn-gold" onclick="openProfileModal(null)">+ Add Player</button>
+      <button type="button" class="btn btn-gold" onclick="openProfileModal(null)">+ Add Player</button>
     </div>
     <div class="profiles-toolbar">
       <input type="text" id="profile-search" placeholder="Search players..." oninput="renderProfiles()">
@@ -405,7 +405,7 @@
         <div class="vm-name" id="vm-name"></div>
         <div class="vm-meta" id="vm-meta"></div>
       </div>
-      <button class="btn btn-ghost vm-close" onclick="closeViewModal()">&#x2715;</button>
+      <button type="button" class="btn btn-ghost vm-close" onclick="closeViewModal()">&#x2715;</button>
     </div>
     <div class="vm-body" id="vm-body"></div>
   </div>
@@ -416,7 +416,7 @@
   <div class="modal">
     <div class="modal-header">
       <h2 id="modal-title">Add Player</h2>
-      <button class="btn btn-ghost" onclick="closeProfileModal()">&#x2715;</button>
+      <button type="button" class="btn btn-ghost" onclick="closeProfileModal()">&#x2715;</button>
     </div>
     <div class="modal-body">
       <div class="form-row">
@@ -504,7 +504,7 @@
             <label>Final Place</label>
             <input type="number" id="f-season-finish" placeholder="e.g. 3" min="1">
           </div>
-          <button class="btn btn-outline btn-sm" style="flex-shrink:0;" onclick="addStandingsEntry()">+ Add</button>
+          <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0;" onclick="addStandingsEntry()">+ Add</button>
         </div>
         <div id="standings-log-list" style="margin-top:12px;"></div>
       </div>
@@ -517,8 +517,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-outline" onclick="closeProfileModal()">Cancel</button>
-      <button class="btn btn-gold" onclick="saveProfile()">Save Player</button>
+      <button type="button" class="btn btn-outline" onclick="closeProfileModal()">Cancel</button>
+      <button type="button" class="btn btn-gold" onclick="saveProfile()">Save Player</button>
     </div>
   </div>
 </div>
@@ -703,8 +703,8 @@ function generateDraft() {
   updateDashboard();
   renderResults(order);
   document.getElementById('result-actions').innerHTML =
-    '<button class="btn btn-outline btn-sm" onclick="copyResults()">Copy</button>' +
-    '<button class="btn btn-outline btn-sm" onclick="saveDraftHistory()">Save</button>';
+    '<button type="button" type="button" class="btn btn-outline btn-sm" onclick="copyResults()">Copy</button>' +
+    '<button type="button" type="button" class="btn btn-outline btn-sm" onclick="saveDraftHistory()">Save</button>';
   toast('Draft order generated!');
 }
 
@@ -981,7 +981,7 @@ function renderStandingsLog(history) {
       '<td>' + escHtml(e.label) + '</td>' +
       '<td><span class="pick-chip">#' + e.finish + '</span></td>' +
       '<td style="color:var(--text2);">' + (e.addedAt || '') + '</td>' +
-      '<td style="text-align:right;"><button class="btn btn-ghost" style="padding:2px 10px;font-size:18px;" onclick="deleteStandingsEntry(\'' + escAttr(id) + '\',\'' + escAttr(e.label) + '\')">&times;</button></td>' +
+      '<td style="text-align:right;"><button type="button" class="btn btn-ghost" style="padding:2px 10px;font-size:18px;" onclick="deleteStandingsEntry(\'' + escAttr(id) + '\',\'' + escAttr(e.label) + '\')">&times;</button></td>' +
     '</tr>';
   }).join('');
   el.innerHTML =
@@ -1064,9 +1064,9 @@ function renderProfiles() {
         '<div class="pc-draft-pips">' + pipsHtml + '</div>' +
       '</div>' +
       '<div class="pc-actions" onclick="event.stopPropagation()">' +
-        '<button class="btn btn-ghost btn-sm" onclick="deleteProfile(\'' + p.id + '\')">&#x1F5D1;</button>' +
-        '<button class="btn btn-outline btn-sm" onclick="openProfileModal(\'' + p.id + '\')">Edit</button>' +
-        '<button class="btn btn-gold btn-sm" onclick="openViewModal(\'' + p.id + '\')">View</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" onclick="deleteProfile(\'' + p.id + '\')">&#x1F5D1;</button>' +
+        '<button type="button" class="btn btn-outline btn-sm" onclick="openProfileModal(\'' + p.id + '\')">Edit</button>' +
+        '<button type="button" class="btn btn-gold btn-sm" onclick="openViewModal(\'' + p.id + '\')">View</button>' +
       '</div>' +
     '</div>';
   }).join('');
