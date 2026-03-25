@@ -43,7 +43,7 @@ jobs:
           fi
 
           # 2. Private key headers — only scan source files, not deps or lock files
-          if grep -rq "BEGIN.*PRIVATE KEY" . \
+          PRIVATE_KEY_MATCHES=$(grep -rn "BEGIN.*PRIVATE KEY" . \
               --exclude-dir=node_modules \
               --exclude-dir=.git \
               --exclude-dir=dist \
@@ -57,8 +57,11 @@ jobs:
               --include="*.env" \
               --include="*.pem" \
               --include="*.key" \
-              2>/dev/null; then
-            echo "FAIL: Private key found in source files"
+              2>/dev/null || true)
+
+          if [ -n "$PRIVATE_KEY_MATCHES" ]; then
+            echo "FAIL: Private key found in source files:"
+            echo "$PRIVATE_KEY_MATCHES"
             FAIL=1
           else
             echo "PASS: No private keys found in source files"
