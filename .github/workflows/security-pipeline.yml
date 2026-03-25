@@ -42,10 +42,11 @@ jobs:
             echo "PASS: No service_role key found"
           fi
 
-          # 2. Private key headers — only scan source files, not deps or lock files
+          # 2. Private key headers — only scan source files, not deps, locks, or workflow files
           PRIVATE_KEY_MATCHES=$(grep -rn "BEGIN.*PRIVATE KEY" . \
               --exclude-dir=node_modules \
               --exclude-dir=.git \
+              --exclude-dir=.github \
               --exclude-dir=dist \
               --exclude-dir=build \
               --exclude="package-lock.json" \
