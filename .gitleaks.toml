@@ -1,55 +1,43 @@
 # ============================================================
-# THE DNA LEAGUE — Gitleaks Configuration
-# Customizes secret scanning to catch DNA League specific
-# sensitive patterns in addition to default rules.
+# THE DNA LEAGUE — Gitleaks Configuration v2
+# Valid gitleaks v8 syntax
 # ============================================================
 
 title = "DNA League Secret Scanner"
 
 [extend]
-  # Extend the default ruleset
   useDefault = true
 
 [[rules]]
-  id = "supabase-service-role"
-  description = "Supabase service_role key — bypasses ALL Row Level Security"
-  regex = '''service_role'''
-  tags = ["supabase", "critical"]
-  severity = "CRITICAL"
+  id          = "supabase-service-role"
+  description = "Supabase service_role key - bypasses ALL Row Level Security"
+  regex       = '''service_role'''
+  tags        = ["supabase", "critical"]
 
 [[rules]]
-  id = "supabase-anon-key-commit"
-  description = "Supabase anon key hardcoded outside of config"
-  regex = '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSJ'''
-  tags = ["supabase", "key"]
-  severity = "HIGH"
+  id          = "database-connection-string"
+  description = "Database connection string with embedded credentials"
+  regex       = '''postgresql://[^:]+:[^@]+@'''
+  tags        = ["database", "credentials"]
+
+[[rules]]
+  id          = "generic-api-key"
+  description = "Generic API key assignment"
+  regex       = '''(?i)(api[_-]?key|apikey)\s*[:=]\s*['"][a-zA-Z0-9]{20,}['"]'''
+  tags        = ["api-key"]
   [rules.allowlist]
-    # Allow the anon key in the main app file only (it's intentionally public)
-    files = ["index.html", "dna-league.html"]
-
-[[rules]]
-  id = "database-password"
-  description = "Database connection string with password"
-  regex = '''postgresql://[^:]+:[^@]+@'''
-  tags = ["database", "credentials"]
-  severity = "CRITICAL"
-
-[[rules]]
-  id = "generic-api-key"
-  description = "Generic API key pattern"
-  regex = '''(?i)(api[_-]?key|apikey)\s*[:=]\s*['"][a-zA-Z0-9]{20,}['"]'''
-  tags = ["api-key"]
-  severity = "HIGH"
+    # Allow in the main app HTML file (anon key is intentionally public)
+    paths     = ['''index\.html''', '''dna-league\.html''']
+    stopwords = ["SUPABASE_ANON", "anon", "publishable"]
 
 [allowlist]
   description = "Global allowlist"
-  # Ignore test files and documentation
   paths = [
     '''\.md$''',
     '''\.txt$''',
     '''CHANGELOG''',
+    '''package-lock\.json''',
   ]
-  # Ignore placeholder values
   regexes = [
     '''YOUR_.*_HERE''',
     '''<REPLACE_ME>''',
