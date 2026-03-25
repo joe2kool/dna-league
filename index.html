@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>The DNA League</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -22,7 +25,7 @@
     background-image:linear-gradient(rgba(168,189,212,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(168,189,212,0.04) 1px,transparent 1px);
     background-size:50px 50px;
   }
-  nav { position:sticky; top:0; z-index:100; background:rgba(8,11,16,0.92); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); padding:0 2rem; display:flex; align-items:center; }
+  nav { position:sticky; top:0; z-index:100; background:rgba(8,11,16,0.92); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); padding:0 2rem; display:flex; align-items:center; flex-wrap:nowrap; overflow:hidden; }
   .nav-logo { display:flex; align-items:center; gap:1rem; padding:1rem 2rem 1rem 0; border-right:1px solid var(--border); margin-right:1.5rem; }
   .logo-icon { width:42px; height:42px; background:linear-gradient(135deg,var(--chrome2),var(--chrome1),var(--gold2)); clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue'; font-size:18px; color:var(--bg); flex-shrink:0; }
   .logo-text { line-height:1; }
@@ -94,7 +97,107 @@
   .mode-name { font-family:'Bebas Neue'; font-size:18px; letter-spacing:2px; color:var(--text); }
   .mode-desc { font-size:12px; color:var(--text2); margin-top:4px; line-height:1.4; }
   .draft-layout { display:grid; grid-template-columns:320px 1fr; gap:1.5rem; }
-  @media(max-width:900px){ .draft-layout { grid-template-columns:1fr; } }
+  /* ── MOBILE RESPONSIVE ──────────────────────── */
+  @media (max-width: 768px) {
+    /* Nav */
+    nav { padding:0 0.75rem; flex-wrap:wrap; }
+    .nav-logo { padding:0.75rem 1rem 0.75rem 0; margin-right:0.75rem; border-right:none; }
+    .logo-text .dna { font-size:20px; }
+    .logo-text .the, .logo-text .league { font-size:9px; }
+    .logo-icon { width:34px; height:34px; font-size:14px; }
+    .nav-tabs { flex:1; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; gap:0; }
+    .nav-tabs::-webkit-scrollbar { display:none; }
+    .nav-tab { font-size:11px; padding:0.9rem 0.9rem; letter-spacing:1px; white-space:nowrap; }
+    #nav-user-name { font-size:12px; }
+    #nav-user-role { font-size:9px; }
+    .btn.btn-outline.btn-sm[onclick="handleSignOut()"] { padding:6px 10px; font-size:10px; }
+
+    /* Layout */
+    main { padding:1rem; }
+    .page-header { margin-bottom:1.5rem; }
+    .page-header h1 { font-size:clamp(28px,8vw,42px); }
+
+    /* Home */
+    .stats-strip { grid-template-columns:repeat(2,1fr); gap:0.75rem; }
+    .stat-tile-val { font-size:32px; }
+    div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns:1fr !important; }
+
+    /* Draft */
+    .slot-count-bar { gap:0.5rem; padding:0.75rem 1rem; }
+    .slot-count-bar label { font-size:10px; }
+    .mode-select { grid-template-columns:1fr 1fr; gap:0.5rem; }
+    .mode-btn { padding:0.75rem 0.5rem; }
+    .mode-btn .mode-icon { font-size:22px; margin-bottom:4px; }
+    .mode-btn .mode-name { font-size:14px; }
+    .mode-btn .mode-desc { font-size:10px; }
+    .draft-layout { grid-template-columns:1fr; }
+
+    /* Players */
+    .profiles-grid { grid-template-columns:1fr; }
+    .profile-card-stats { grid-template-columns:repeat(4,1fr); }
+    .pc-stats { grid-template-columns:repeat(4,1fr); }
+
+    /* Seasons */
+    .season-card-header { flex-direction:column; align-items:flex-start; gap:0.75rem; padding:1rem; }
+    .season-card-left { gap:0.75rem; }
+    .season-number { font-size:36px; min-width:40px; }
+    .season-tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .season-tab { font-size:11px; padding:6px 10px; white-space:nowrap; }
+    .roster-grid { grid-template-columns:repeat(2,1fr); }
+    .team-assignment-row { flex-wrap:wrap; gap:6px; }
+    .ta-player { min-width:100%; }
+    .ta-team { width:100%; }
+    .ta-team select { width:100%; }
+
+    /* Schedule */
+    .schedule-controls { flex-direction:column; gap:0.75rem; }
+    .schedule-controls .form-group { min-width:100%; }
+    .schedule-summary-bar { grid-template-columns:repeat(2,1fr); gap:0.5rem; }
+    .sched-stat-val { font-size:22px; }
+    .player-week-row { grid-template-columns:140px 1fr; }
+    .pw-player { padding:8px 8px; gap:6px; }
+    .pw-player-name { font-size:13px; }
+    .pw-player-team { font-size:9px; }
+    .pw-opponents { padding:6px 8px; }
+    .pw-opp-name { font-size:12px; }
+    .week-label { font-size:16px; }
+    .sched-save-bar { flex-direction:column; align-items:flex-start; gap:8px; }
+
+    /* Modals */
+    .modal-overlay { padding:0.5rem; align-items:flex-end; }
+    .modal { border-radius:16px 16px 0 0; max-height:92vh; }
+    .view-modal-overlay { padding:0.5rem; align-items:flex-end; }
+    .view-modal { border-radius:16px 16px 0 0; max-height:92vh; }
+    .form-row { grid-template-columns:1fr; }
+    .vm-stat-grid { grid-template-columns:repeat(2,1fr); }
+    .vm-award-grid { grid-template-columns:1fr; }
+
+    /* Home widget */
+    .home-schedule-widget { margin-top:1rem; }
+
+    /* Auth screen */
+    #auth-screen { padding:1rem; }
+  }
+
+  @media (max-width: 480px) {
+    .stats-strip { grid-template-columns:repeat(2,1fr); }
+    .stat-tile { padding:0.875rem; }
+    .stat-tile-val { font-size:28px; }
+    .mode-select { grid-template-columns:1fr; }
+    .profiles-grid { grid-template-columns:1fr; }
+    .roster-grid { grid-template-columns:1fr; }
+    .pc-stats { grid-template-columns:repeat(2,1fr); }
+    .profile-card-stats { grid-template-columns:repeat(2,1fr); }
+    .player-week-row { grid-template-columns:1fr; }
+    .pw-player { border-right:none; border-bottom:1px solid rgba(255,255,255,0.05); }
+    .nav-tab { font-size:10px; padding:0.8rem 0.6rem; }
+    .page-header h1 { font-size:clamp(24px,9vw,36px); }
+    .week-header { flex-wrap:wrap; gap:4px; }
+    .season-card-header { padding:0.875rem; }
+    .modal-body { padding:1rem; }
+    .modal-footer { padding:0.75rem 1rem; }
+    .vm-stat-grid { grid-template-columns:repeat(2,1fr); }
+  }
   .player-builder { display:flex; flex-direction:column; gap:8px; }
   .player-row { display:flex; gap:8px; align-items:center; background:var(--surface3); border-radius:8px; padding:8px 12px; border:1px solid rgba(255,255,255,0.04); }
   .player-num { font-family:'Bebas Neue'; font-size:20px; color:var(--gold); min-width:28px; flex-shrink:0; }
@@ -627,7 +730,7 @@
       <div class="form-row">
         <div class="form-group">
           <label>Game Title</label>
-          <input type="text" id="sm-game" placeholder="MLB The Show 26">
+          <input type="text" id="sm-game" placeholder="MLB The Show 25">
         </div>
         <div class="form-group">
           <label>Status</label>
@@ -1768,7 +1871,7 @@ function openSeasonModal(id) {
   document.getElementById('season-modal-title').textContent = id ? 'Edit Season' : 'Create Season';
   document.getElementById('sm-name').value   = s ? s.name : 'Season ' + (seasonState.seasons.length + 1);
   document.getElementById('sm-number').value = s ? s.number : seasonState.seasons.length + 1;
-  document.getElementById('sm-game').value   = s ? (s.game||'') : 'MLB The Show 26';
+  document.getElementById('sm-game').value   = s ? (s.game||'') : 'MLB The Show 25';
   document.getElementById('sm-status').value = s ? s.status : 'upcoming';
   document.getElementById('sm-start').value  = s ? (s.startDate||'') : '';
   document.getElementById('sm-end').value    = s ? (s.endDate||'') : '';
@@ -1786,7 +1889,7 @@ function saveSeason() {
   var data = {
     name:      name,
     number:    parseInt(document.getElementById('sm-number').value) || 1,
-    game:      document.getElementById('sm-game').value.trim() || 'MLB The Show 26',
+    game:      document.getElementById('sm-game').value.trim() || 'MLB The Show 25',
     status:    document.getElementById('sm-status').value,
     startDate: document.getElementById('sm-start').value || null,
     endDate:   document.getElementById('sm-end').value || null,
@@ -2606,6 +2709,13 @@ function exportSchedulePNG() {
 
   var weeks = scheduleState.generatedWeeks;
   var seriesLength = scheduleState.seriesLength;
+
+  // Build teams set for header count
+  var teams = new Set();
+  weeks.forEach(function(w) {
+    w.matchups.forEach(function(m){ teams.add(m.home); teams.add(m.away); });
+    w.byes.forEach(function(b){ teams.add(b); });
+  });
 
   // Measure total rows needed
   var ROW_H = 44, HEADER_H = 52, WEEK_LABEL_H = 36, COL_H = 28, PAD = 20;
