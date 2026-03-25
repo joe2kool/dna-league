@@ -1,0 +1,57 @@
+# ============================================================
+# THE DNA LEAGUE — Gitleaks Configuration
+# Customizes secret scanning to catch DNA League specific
+# sensitive patterns in addition to default rules.
+# ============================================================
+
+title = "DNA League Secret Scanner"
+
+[extend]
+  # Extend the default ruleset
+  useDefault = true
+
+[[rules]]
+  id = "supabase-service-role"
+  description = "Supabase service_role key — bypasses ALL Row Level Security"
+  regex = '''service_role'''
+  tags = ["supabase", "critical"]
+  severity = "CRITICAL"
+
+[[rules]]
+  id = "supabase-anon-key-commit"
+  description = "Supabase anon key hardcoded outside of config"
+  regex = '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSJ'''
+  tags = ["supabase", "key"]
+  severity = "HIGH"
+  [rules.allowlist]
+    # Allow the anon key in the main app file only (it's intentionally public)
+    files = ["index.html", "dna-league.html"]
+
+[[rules]]
+  id = "database-password"
+  description = "Database connection string with password"
+  regex = '''postgresql://[^:]+:[^@]+@'''
+  tags = ["database", "credentials"]
+  severity = "CRITICAL"
+
+[[rules]]
+  id = "generic-api-key"
+  description = "Generic API key pattern"
+  regex = '''(?i)(api[_-]?key|apikey)\s*[:=]\s*['"][a-zA-Z0-9]{20,}['"]'''
+  tags = ["api-key"]
+  severity = "HIGH"
+
+[allowlist]
+  description = "Global allowlist"
+  # Ignore test files and documentation
+  paths = [
+    '''\.md$''',
+    '''\.txt$''',
+    '''CHANGELOG''',
+  ]
+  # Ignore placeholder values
+  regexes = [
+    '''YOUR_.*_HERE''',
+    '''<REPLACE_ME>''',
+    '''example\.com''',
+  ]
