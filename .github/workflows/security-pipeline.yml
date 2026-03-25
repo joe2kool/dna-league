@@ -1,0 +1,406 @@
+# ============================================================
+# THE DNA LEAGUE — Security Pipeline v5
+# ============================================================
+
+name: Security Pipeline
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+
+  # ── JOB 1: SECRET SCAN ───────────────────────────────────
+  # Pure bash — no external action dependencies
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Scan for secrets
+        run: |
+          echo "=== DNA League Secret Scanner ==="
+          FAIL=0
+
+          # 1. service_role key (bypasses ALL Supabase RLS — critical)
+          if grep -rq "service_role" \
+              --include="*.html" --include="*.js" \
+              --include="*.ts" --include="*.env" . 2>/dev/null; then
+            echo "FAIL: service_role key detected in source — this bypasses all RLS"
+            FAIL=1
+          else
+            echo "PASS: No service_role key found"
+          fi
+
+          # 2. Private key headers — only scan source files, not deps, locks, or workflow files
+          PRIVATE_KEY_MATCHES=$(grep -rn "BEGIN.*PRIVATE KEY" . \
+              --exclude-dir=node_modules \
+              --exclude-dir=.git \
+              --exclude-dir=.github \
+              --exclude-dir=dist \
+              --exclude-dir=build \
+              --exclude="package-lock.json" \
+              --exclude="yarn.lock" \
+              --exclude="*.toml" \
+              --include="*.html" \
+              --include="*.js" \
+              --include="*.ts" \
+              --include="*.env" \
+              --include="*.pem" \
+              --include="*.key" \
+              2>/dev/null || true)
+
+          if [ -n "$PRIVATE_KEY_MATCHES" ]; then
+            echo "FAIL: Private key found in source files:"
+            echo "$PRIVATE_KEY_MATCHES"
+            FAIL=1
+          else
+            echo "PASS: No private keys found in source files"
+          fi
+
+          # 3. Postgres connection strings with embedded credentials
+          if grep -rqE "postgresql://[^:]+:[^@]+@" \
+              --include="*.html" --include="*.js" --include="*.ts" . 2>/dev/null; then
+            echo "FAIL: Postgres connection string with credentials found"
+            FAIL=1
+          else
+            echo "PASS: No database credentials in connection strings"
+          fi
+
+          # 4. .env files accidentally committed
+          if find . -name ".env" -not -path "./.git/*" | grep -q "."; then
+            echo "FAIL: .env file found in repository — check .gitignore"
+            FAIL=1
+          else
+            echo "PASS: No .env files committed"
+          fi
+
+          echo ""
+          if [ $FAIL -eq 1 ]; then
+            echo "Secret scan FAILED"
+            exit 1
+          fi
+          echo "All secret scan checks passed"
+
+  # ── JOB 2: DEPENDENCY AUDIT ──────────────────────────────
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Confirm Node version
+        run: |
+          node --version
+          npm --version
+
+      - name: Install dependencies and generate lock file
+        run: |
+          # Generate package-lock.json if it doesn't exist
+          if [ ! -f package-lock.json ]; then
+            echo "No package-lock.json found — generating one now..."
+            npm install
+          fi
+          npm ci
+
+      - name: Audit for vulnerabilities
+        run: |
+          echo "=== Dependency Vulnerability Audit ==="
+          npm audit --audit-level=high
+          echo "Dependency audit passed"
+
+      - name: List CDN references
+        run: |
+          echo "=== CDN Libraries ==="
+          FILE=$(ls index.html dna-league.html 2>/dev/null | head -1)
+          [ -n "$FILE" ] && grep -oP 'https://cdn\.[^"]+' "$FILE" || echo "None found"
+
+  # ── JOB 3: JS SECURITY LINT ──────────────────────────────
+  js-security-lint:
+    name: JS Security Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Confirm Node version
+        run: node --version
+
+      - name: Install ESLint
+        run: |
+          npm install --save-dev \
+            eslint@9 \
+            @eslint/js@9 \
+            eslint-plugin-security@3 \
+            --legacy-peer-deps
+
+      - name: Extract inline JS from HTML
+        run: |
+          python3 - << 'PYEOF'
+          import re, sys, os
+
+          filename = None
+          for name in ['index.html', 'dna-league.html']:
+              if os.path.exists(name):
+                  filename = name
+                  break
+
+          if not filename:
+              print("ERROR: No HTML file (index.html or dna-league.html) found")
+              sys.exit(1)
+
+          with open(filename, 'r', encoding='utf-8') as f:
+              content = f.read()
+
+          # Extract inline script blocks only (skip src= CDN scripts)
+          pattern = r'<script(?:(?!src)[^>])*>(.*?)</script>'
+          scripts = re.findall(pattern, content, re.DOTALL | re.IGNORECASE)
+          app_scripts = [s for s in scripts if len(s.strip()) > 200]
+
+          with open('extracted-app.js', 'w', encoding='utf-8') as f:
+              if app_scripts:
+                  f.write('\n'.join(app_scripts))
+              else:
+                  f.write('// no inline scripts found\n')
+
+          print(f"Extracted {len(app_scripts)} script block(s) from {filename}")
+          PYEOF
+
+      - name: Create ESLint config
+        run: |
+          cat > eslint.config.mjs << 'ESLINTEOF'
+          import js from '@eslint/js';
+          import security from 'eslint-plugin-security';
+
+          export default [
+            {
+              files: ['extracted-app.js'],
+              plugins: { security },
+              languageOptions: {
+                ecmaVersion: 2020,
+                sourceType: 'script',
+                globals: {
+                  // Browser globals
+                  window:       'readonly',
+                  document:     'readonly',
+                  console:      'readonly',
+                  alert:        'readonly',
+                  confirm:      'readonly',
+                  localStorage: 'readonly',
+                  navigator:    'readonly',
+                  fetch:        'readonly',
+                  Headers:      'readonly',
+                  // JS builtins
+                  Promise:      'readonly',
+                  JSON:         'readonly',
+                  Date:         'readonly',
+                  Math:         'readonly',
+                  parseInt:     'readonly',
+                  parseFloat:   'readonly',
+                  isNaN:        'readonly',
+                  setTimeout:   'readonly',
+                  clearTimeout: 'readonly',
+                  Object:       'readonly',
+                  Array:        'readonly',
+                  // App globals
+                  supabase:     'readonly',
+                },
+              },
+              rules: {
+                // Critical security rules — must not fail
+                'no-eval':                                  'error',
+                'no-implied-eval':                          'error',
+                'no-new-func':                              'error',
+                'security/detect-eval-with-expression':     'error',
+                // Warnings — reported but do not fail the build
+                'security/detect-non-literal-regexp':       'warn',
+                'security/detect-possible-timing-attacks':  'warn',
+                // Disabled — too noisy for generated app code
+                'security/detect-object-injection':         'off',
+                'no-unused-vars':                           'off',
+              },
+            },
+          ];
+          ESLINTEOF
+
+      - name: Run ESLint
+        run: |
+          echo "=== JS Security Lint ==="
+          npx eslint extracted-app.js
+          echo "JS security lint passed"
+
+  # ── JOB 4: HTML VALIDATION ───────────────────────────────
+  html-validation:
+    name: HTML Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Confirm Node version
+        run: node --version
+
+      - name: Install html-validate
+        run: npm install --save-dev html-validate@9 --legacy-peer-deps
+
+      - name: Create HTML validate config
+        run: |
+          cat > .htmlvalidate.json << 'HTMLEOF'
+          {
+            "extends": ["html-validate:recommended"],
+            "rules": {
+              "attr-quotes":                  "error",
+              "no-dup-attr":                  "error",
+              "no-dup-id":                    "error",
+              "no-inline-style":              "off",
+              "prefer-native-element":        "off",
+              "no-trailing-whitespace":       "off",
+              "long-title":                   "off",
+              "valid-id":                     "off",
+              "script-type":                  "off",
+              "button-type":                  "off",
+              "no-redundant-role":            "off",
+              "aria-label-misuse":            "off",
+              "element-permitted-content":    "off",
+              "doctype-style":                "off",
+              "void-style":                   "off",
+              "no-missing-references":        "off",
+              "heading-level":                "off",
+              "require-sri":                  "off",
+              "meta-refresh":                 "off",
+              "wcag/h30":                     "off",
+              "wcag/h32":                     "off",
+              "wcag/h36":                     "off",
+              "wcag/h37":                     "off",
+              "wcag/h67":                     "off",
+              "wcag/h71":                     "off"
+            }
+          }
+          HTMLEOF
+
+      - name: Validate HTML
+        run: |
+          echo "=== HTML Validation ==="
+          FILE=$(ls index.html dna-league.html 2>/dev/null | head -1)
+          if [ -z "$FILE" ]; then
+            echo "ERROR: No HTML file found (index.html or dna-league.html)"
+            exit 1
+          fi
+          echo "Validating: $FILE"
+          npx html-validate "$FILE"
+          echo "HTML validation passed"
+
+  # ── JOB 5: SUPABASE SECURITY CHECK ──────────────────────
+  supabase-security-check:
+    name: Supabase Security Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Check Supabase config
+        run: |
+          echo "=== Supabase Security Check ==="
+          FILE=$(ls index.html dna-league.html 2>/dev/null | head -1)
+          FAIL=0
+
+          if grep -q "service_role" "$FILE" 2>/dev/null; then
+            echo "FAIL: service_role key in $FILE"
+            FAIL=1
+          else
+            echo "PASS: No service_role key in frontend"
+          fi
+
+          if grep -q "createClient" "$FILE" 2>/dev/null; then
+            echo "PASS: Supabase client found"
+          else
+            echo "WARN: Supabase createClient not found"
+          fi
+
+          if grep -q "auth.getSession\|onAuthStateChange" "$FILE" 2>/dev/null; then
+            echo "PASS: Auth checks present"
+          else
+            echo "WARN: No auth session checks found"
+          fi
+
+          if [ $FAIL -eq 1 ]; then
+            echo "Supabase security check FAILED"
+            exit 1
+          fi
+          echo "All Supabase checks passed"
+
+  # ── JOB 6: SUMMARY ───────────────────────────────────────
+  security-summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs:
+      - secret-scan
+      - dependency-audit
+      - js-security-lint
+      - html-validation
+      - supabase-security-check
+    if: always()
+    steps:
+      - name: Post PR comment
+        uses: actions/github-script@v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const results = {
+              'Secret Scan':             '${{ needs.secret-scan.result }}',
+              'Dependency Audit':        '${{ needs.dependency-audit.result }}',
+              'JS Security Lint':        '${{ needs.js-security-lint.result }}',
+              'HTML Validation':         '${{ needs.html-validation.result }}',
+              'Supabase Security Check': '${{ needs.supabase-security-check.result }}',
+            };
+            const icon = r => ({ success:'✅', failure:'❌', skipped:'⏭️' }[r] ?? '⚠️');
+            const allGreen = Object.values(results).every(r => r === 'success');
+            const rows = Object.entries(results)
+              .map(([k, v]) => `| ${k} | ${icon(v)} ${v.toUpperCase()} |`)
+              .join('\n');
+            const body = [
+              '## 🔒 Security Pipeline Results',
+              '',
+              '| Check | Result |',
+              '|---|---|',
+              rows,
+              '',
+              allGreen
+                ? '### ✅ All checks passed — safe to merge'
+                : '### ❌ One or more checks failed — fix before merging',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });

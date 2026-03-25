@@ -1,0 +1,41 @@
+# ============================================================
+# THE DNA LEAGUE — .gitignore
+# ============================================================
+
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Supabase local dev
+.supabase/
+
+# ESLint cache
+.eslintcache
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
+build/
+extracted-app.js
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp

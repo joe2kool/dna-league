@@ -1,0 +1,18 @@
+{
+  "name": "dna-league",
+  "version": "1.0.0",
+  "description": "The DNA League - MLB The Show custom league manager",
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-security": "^3.0.0",
+    "html-validate": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
