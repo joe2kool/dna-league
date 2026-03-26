@@ -99,17 +99,18 @@
   .draft-layout { display:grid; grid-template-columns:320px 1fr; gap:1.5rem; }
   /* ── MOBILE DRAWER ──────────────────────────── */
   .drawer-nav-item {
-    display:flex; align-items:center; gap:0.875rem;
+    display:flex !important; flex-direction:row; align-items:center; gap:0.875rem;
     width:100%; padding:0.875rem 1.25rem;
-    background:none; border:none; cursor:pointer;
-    font-family:'Barlow Condensed'; font-size:16px; letter-spacing:1.5px;
+    background:none; border:none; border-left:3px solid transparent;
+    cursor:pointer; text-align:left; transition:all 0.15s;
+    font-family:'Barlow Condensed'; font-size:17px; letter-spacing:1.5px;
     text-transform:uppercase; color:var(--text2);
-    text-align:left; transition:all 0.15s;
-    border-left:3px solid transparent;
+    box-sizing:border-box;
   }
-  .drawer-nav-item:hover { background:rgba(255,255,255,0.04); color:var(--text); }
-  .drawer-nav-item.active { color:var(--gold); border-left-color:var(--gold); background:rgba(168,189,212,0.05); }
-  .drawer-nav-icon { font-size:18px; width:24px; text-align:center; flex-shrink:0; }
+  .drawer-nav-item:hover { background:rgba(255,255,255,0.05); color:var(--text); }
+  .drawer-nav-item.active { color:var(--gold); border-left-color:var(--gold); background:rgba(168,189,212,0.06); }
+  .drawer-nav-icon { font-size:20px; width:28px; text-align:center; flex-shrink:0; line-height:1; }
+  #nav-drawer nav { display:flex !important; flex-direction:column !important; align-items:stretch; }
 
   /* ── MOBILE RESPONSIVE ──────────────────────── */
   @media (max-width: 768px) {
@@ -491,9 +492,9 @@
 <div id="nav-drawer-overlay" onclick="closeNavDrawer()" style="display:none;position:fixed;inset:0;z-index:150;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);"></div>
 
 <!-- MOBILE DRAWER -->
-<div id="nav-drawer" style="position:fixed;top:0;left:0;bottom:0;z-index:160;width:280px;background:var(--surface);border-right:1px solid var(--border);transform:translateX(-100%);transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;overflow:hidden;">
+<div id="nav-drawer" style="position:fixed;top:0;left:0;height:100%;height:100dvh;z-index:160;width:min(280px,85vw);background:var(--surface);border-right:1px solid var(--border);transform:translateX(-100%);transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;overflow:hidden;padding-bottom:env(safe-area-inset-bottom,0);">
   <!-- Drawer header -->
-  <div style="padding:1.25rem 1.25rem 1rem;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:0.875rem;">
+  <div style="padding:1.25rem 1.25rem 1rem;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:0.875rem;flex-shrink:0;">
     <div class="logo-icon" style="width:36px;height:36px;font-size:15px;flex-shrink:0;">DNA</div>
     <div class="logo-text">
       <div class="the">The</div>
@@ -502,15 +503,15 @@
     </div>
   </div>
   <!-- Drawer user info -->
-  <div style="padding:1rem 1.25rem;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:0.75rem;">
-    <div id="drawer-avatar" style="width:38px;height:38px;border-radius:50%;background:var(--chrome2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:16px;color:var(--bg);flex-shrink:0;"></div>
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:0.75rem;flex-shrink:0;">
+    <div id="drawer-avatar" style="width:42px;height:42px;border-radius:50%;background:var(--chrome2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:17px;color:var(--bg);flex-shrink:0;"></div>
     <div>
-      <div id="drawer-user-name" style="font-family:'Barlow Condensed';font-size:15px;font-weight:700;color:var(--text);"></div>
-      <div id="drawer-user-role" style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;"></div>
+      <div id="drawer-user-name" style="font-family:'Barlow Condensed';font-size:16px;font-weight:700;color:var(--text);"></div>
+      <div id="drawer-user-role" style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:2px;"></div>
     </div>
   </div>
   <!-- Drawer nav items -->
-  <nav aria-label="Drawer navigation" style="flex:1;padding:0.75rem 0;overflow-y:auto;">
+  <nav aria-label="Drawer navigation" style="flex:1;padding:0.5rem 0;overflow-y:auto;display:flex;flex-direction:column;">
     <button type="button" class="drawer-nav-item active" id="drawer-tab-home" onclick="showPageMobile('home',this)">
       <span class="drawer-nav-icon">&#x1F3E0;</span><span>Home</span>
     </button>
@@ -528,7 +529,7 @@
     </button>
   </nav>
   <!-- Drawer sign out -->
-  <div style="padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,0.06);">
+  <div style="padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
     <button type="button" class="btn btn-outline" style="width:100%;justify-content:center;" onclick="handleSignOut()">Sign Out</button>
   </div>
 </div>
