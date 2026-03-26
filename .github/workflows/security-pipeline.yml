@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
 
@@ -101,10 +101,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6.3.0
+        uses: actions/setup-node@v4.4.0
         with:
           node-version: '22'
 
@@ -140,10 +140,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6.3.0
+        uses: actions/setup-node@v4.4.0
         with:
           node-version: '22'
 
@@ -161,33 +161,34 @@ jobs:
       - name: Extract inline JS from HTML
         run: |
           python3 - << 'PYEOF'
-          import re, sys, os
+          import re, sys, os, glob
 
-          filename = None
-          for name in ['index.html', 'dna-league.html']:
-              if os.path.exists(name):
-                  filename = name
-                  break
+          html_files = glob.glob('**/*.html', recursive=True)
+          html_files = [f for f in html_files if 'node_modules' not in f and '.git' not in f]
 
-          if not filename:
-              print("ERROR: No HTML file (index.html or dna-league.html) found")
+          if not html_files:
+              print("ERROR: No HTML files found")
               sys.exit(1)
 
-          with open(filename, 'r', encoding='utf-8') as f:
-              content = f.read()
-
-          # Extract inline script blocks only (skip src= CDN scripts)
-          pattern = r'<script(?:(?!src)[^>])*>(.*?)</script>'
-          scripts = re.findall(pattern, content, re.DOTALL | re.IGNORECASE)
-          app_scripts = [s for s in scripts if len(s.strip()) > 200]
+          all_scripts = []
+          for filename in html_files:
+              with open(filename, 'r', encoding='utf-8') as f:
+                  content = f.read()
+              pattern = r'<script(?:(?!src)[^>])*>(.*?)</script>'
+              scripts = re.findall(pattern, content, re.DOTALL | re.IGNORECASE)
+              app_scripts = [s for s in scripts if len(s.strip()) > 200]
+              all_scripts.extend(app_scripts)
+              print(f"Extracted {len(app_scripts)} script block(s) from {filename}")
 
           with open('extracted-app.js', 'w', encoding='utf-8') as f:
-              if app_scripts:
-                  f.write('\n'.join(app_scripts))
+              if all_scripts:
+                  # Wrap each block in an IIFE to prevent cross-file variable conflicts
+                  wrapped = ['(function(){\n' + s + '\n})();' for s in all_scripts]
+                  f.write('\n\n'.join(wrapped))
               else:
                   f.write('// no inline scripts found\n')
 
-          print(f"Extracted {len(app_scripts)} script block(s) from {filename}")
+          print(f"Total: {len(all_scripts)} script blocks extracted")
           PYEOF
 
       - name: Create ESLint config
@@ -259,10 +260,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6.3.0
+        uses: actions/setup-node@v4.4.0
         with:
           node-version: '22'
 
@@ -310,14 +311,23 @@ jobs:
       - name: Validate HTML
         run: |
           echo "=== HTML Validation ==="
-          FILE=$(ls index.html dna-league.html 2>/dev/null | head -1)
-          if [ -z "$FILE" ]; then
-            echo "ERROR: No HTML file found (index.html or dna-league.html)"
+          FILES=$(find . -name "*.html" \
+            -not -path "*/node_modules/*" \
+            -not -path "*/.git/*" 2>/dev/null)
+          if [ -z "$FILES" ]; then
+            echo "ERROR: No HTML files found"
             exit 1
           fi
-          echo "Validating: $FILE"
-          npx html-validate "$FILE"
-          echo "HTML validation passed"
+          FAIL=0
+          for FILE in $FILES; do
+            echo "Validating: $FILE"
+            npx html-validate "$FILE" || FAIL=1
+          done
+          if [ $FAIL -eq 1 ]; then
+            echo "HTML validation FAILED"
+            exit 1
+          fi
+          echo "All HTML files passed validation"
 
   # ── JOB 5: SUPABASE SECURITY CHECK ──────────────────────
   supabase-security-check:
@@ -325,7 +335,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v4.2.2
 
       - name: Check Supabase config
         run: |
@@ -371,7 +381,7 @@ jobs:
     if: always()
     steps:
       - name: Post PR comment
-        uses: actions/github-script@v8.0.0
+        uses: actions/github-script@v7.0.1
         if: github.event_name == 'pull_request'
         with:
           script: |
