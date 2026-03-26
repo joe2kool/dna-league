@@ -97,36 +97,50 @@
   .mode-name { font-family:'Bebas Neue'; font-size:18px; letter-spacing:2px; color:var(--text); }
   .mode-desc { font-size:12px; color:var(--text2); margin-top:4px; line-height:1.4; }
   .draft-layout { display:grid; grid-template-columns:320px 1fr; gap:1.5rem; }
+  /* ── MOBILE DRAWER ──────────────────────────── */
+  .drawer-nav-item {
+    display:flex; align-items:center; gap:0.875rem;
+    width:100%; padding:0.875rem 1.25rem;
+    background:none; border:none; cursor:pointer;
+    font-family:'Barlow Condensed'; font-size:16px; letter-spacing:1.5px;
+    text-transform:uppercase; color:var(--text2);
+    text-align:left; transition:all 0.15s;
+    border-left:3px solid transparent;
+  }
+  .drawer-nav-item:hover { background:rgba(255,255,255,0.04); color:var(--text); }
+  .drawer-nav-item.active { color:var(--gold); border-left-color:var(--gold); background:rgba(168,189,212,0.05); }
+  .drawer-nav-icon { font-size:18px; width:24px; text-align:center; flex-shrink:0; }
+
   /* ── MOBILE RESPONSIVE ──────────────────────── */
   @media (max-width: 768px) {
-    /* Nav */
-    nav { padding:0 0.75rem; flex-wrap:wrap; }
-    .nav-logo { padding:0.75rem 1rem 0.75rem 0; margin-right:0.75rem; border-right:none; }
-    .logo-text .dna { font-size:20px; }
-    .logo-text .the, .logo-text .league { font-size:9px; }
-    .logo-icon { width:34px; height:34px; font-size:14px; }
-    .nav-tabs { flex:1; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; gap:0; }
-    .nav-tabs::-webkit-scrollbar { display:none; }
-    .nav-tab { font-size:11px; padding:0.9rem 0.9rem; letter-spacing:1px; white-space:nowrap; }
-    #nav-user-name { font-size:12px; }
-    #nav-user-role { font-size:9px; }
-    .btn.btn-outline.btn-sm[onclick="handleSignOut()"] { padding:6px 10px; font-size:10px; }
+    /* Nav — hide desktop tabs, show hamburger */
+    nav { padding:0 0.875rem; min-height:56px; }
+    #hamburger-btn { display:flex !important; flex-direction:column; justify-content:center; }
+    .nav-logo { padding:0.625rem 0.875rem 0.625rem 0; border-right:none; margin-right:0; }
+    .logo-text .dna { font-size:18px; }
+    .logo-text .the, .logo-text .league { font-size:9px; letter-spacing:3px; }
+    .logo-icon { width:32px; height:32px; font-size:13px; }
+    #nav-tabs-desktop { display:none !important; }
+    #nav-user-area { display:none !important; }
 
     /* Layout */
     main { padding:1rem; }
-    .page-header { margin-bottom:1.5rem; }
-    .page-header h1 { font-size:clamp(28px,8vw,42px); }
+    .page-header { margin-bottom:1.25rem; gap:0.75rem; }
+    .page-header h1 { font-size:clamp(26px,8vw,38px); letter-spacing:2px; }
 
     /* Home */
-    .stats-strip { grid-template-columns:repeat(2,1fr); gap:0.75rem; }
-    .stat-tile-val { font-size:32px; }
+    .stats-strip { grid-template-columns:repeat(2,1fr); gap:0.625rem; margin-bottom:1.25rem; }
+    .stat-tile { padding:1rem; }
+    .stat-tile-val { font-size:34px; }
+    .stat-tile-lbl { font-size:10px; }
+    .stat-tile-sub { font-size:11px; margin-top:4px; }
     div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns:1fr !important; }
+    .cs-grid { grid-template-columns:repeat(2,1fr); gap:0.625rem; }
 
     /* Draft */
-    .slot-count-bar { gap:0.5rem; padding:0.75rem 1rem; }
-    .slot-count-bar label { font-size:10px; }
-    .mode-select { grid-template-columns:1fr 1fr; gap:0.5rem; }
-    .mode-btn { padding:0.75rem 0.5rem; }
+    .slot-count-bar { gap:0.625rem; padding:0.75rem 1rem; flex-wrap:wrap; }
+    .mode-select { grid-template-columns:1fr 1fr; gap:0.625rem; }
+    .mode-btn { padding:0.875rem 0.5rem; }
     .mode-btn .mode-icon { font-size:22px; margin-bottom:4px; }
     .mode-btn .mode-name { font-size:14px; }
     .mode-btn .mode-desc { font-size:10px; }
@@ -134,17 +148,17 @@
 
     /* Players */
     .profiles-grid { grid-template-columns:1fr; }
-    .profile-card-stats { grid-template-columns:repeat(4,1fr); }
     .pc-stats { grid-template-columns:repeat(4,1fr); }
+    .profile-card-stats { grid-template-columns:repeat(4,1fr); }
 
     /* Seasons */
-    .season-card-header { flex-direction:column; align-items:flex-start; gap:0.75rem; padding:1rem; }
-    .season-card-left { gap:0.75rem; }
-    .season-number { font-size:36px; min-width:40px; }
-    .season-tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; }
-    .season-tab { font-size:11px; padding:6px 10px; white-space:nowrap; }
-    .roster-grid { grid-template-columns:repeat(2,1fr); }
-    .team-assignment-row { flex-wrap:wrap; gap:6px; }
+    .season-card-header { flex-direction:column; align-items:flex-start; gap:0.625rem; padding:1rem; }
+    .season-number { font-size:38px; min-width:44px; }
+    .season-tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+    .season-tabs::-webkit-scrollbar { display:none; }
+    .season-tab { white-space:nowrap; font-size:11px; padding:6px 10px; }
+    .roster-grid { grid-template-columns:repeat(2,1fr); gap:6px; }
+    .team-assignment-row { flex-wrap:wrap; }
     .ta-player { min-width:100%; }
     .ta-team { width:100%; }
     .ta-team select { width:100%; }
@@ -154,7 +168,8 @@
     .schedule-controls .form-group { min-width:100%; }
     .schedule-summary-bar { grid-template-columns:repeat(2,1fr); gap:0.5rem; }
     .sched-stat-val { font-size:22px; }
-    .player-week-row { grid-template-columns:140px 1fr; }
+    .sched-stat-lbl { font-size:9px; }
+    .player-week-row { grid-template-columns:150px 1fr; }
     .pw-player { padding:8px 8px; gap:6px; }
     .pw-player-name { font-size:13px; }
     .pw-player-team { font-size:9px; }
@@ -162,41 +177,38 @@
     .pw-opp-name { font-size:12px; }
     .week-label { font-size:16px; }
     .sched-save-bar { flex-direction:column; align-items:flex-start; gap:8px; }
+    .week-header { padding:0.75rem 1rem; }
 
-    /* Modals */
-    .modal-overlay { padding:0.5rem; align-items:flex-end; }
-    .modal { border-radius:16px 16px 0 0; max-height:92vh; }
-    .view-modal-overlay { padding:0.5rem; align-items:flex-end; }
-    .view-modal { border-radius:16px 16px 0 0; max-height:92vh; }
+    /* Modals — slide up from bottom */
+    .modal-overlay { padding:0; align-items:flex-end; }
+    .modal { border-radius:20px 20px 0 0; max-height:92vh; max-width:100%; }
+    .modal-header { border-radius:20px 20px 0 0; }
+    .view-modal-overlay { padding:0; align-items:flex-end; }
+    .view-modal { border-radius:20px 20px 0 0; max-height:92vh; max-width:100%; }
     .form-row { grid-template-columns:1fr; }
     .vm-stat-grid { grid-template-columns:repeat(2,1fr); }
     .vm-award-grid { grid-template-columns:1fr; }
 
     /* Home widget */
     .home-schedule-widget { margin-top:1rem; }
-
-    /* Auth screen */
-    #auth-screen { padding:1rem; }
   }
 
   @media (max-width: 480px) {
     .stats-strip { grid-template-columns:repeat(2,1fr); }
-    .stat-tile { padding:0.875rem; }
     .stat-tile-val { font-size:28px; }
     .mode-select { grid-template-columns:1fr; }
-    .profiles-grid { grid-template-columns:1fr; }
-    .roster-grid { grid-template-columns:1fr; }
     .pc-stats { grid-template-columns:repeat(2,1fr); }
     .profile-card-stats { grid-template-columns:repeat(2,1fr); }
     .player-week-row { grid-template-columns:1fr; }
     .pw-player { border-right:none; border-bottom:1px solid rgba(255,255,255,0.05); }
-    .nav-tab { font-size:10px; padding:0.8rem 0.6rem; }
-    .page-header h1 { font-size:clamp(24px,9vw,36px); }
+    .page-header h1 { font-size:clamp(22px,9vw,30px); }
+    .roster-grid { grid-template-columns:1fr; }
     .week-header { flex-wrap:wrap; gap:4px; }
     .season-card-header { padding:0.875rem; }
     .modal-body { padding:1rem; }
     .modal-footer { padding:0.75rem 1rem; }
     .vm-stat-grid { grid-template-columns:repeat(2,1fr); }
+    .cs-grid { grid-template-columns:repeat(2,1fr); }
   }
   .player-builder { display:flex; flex-direction:column; gap:8px; }
   .player-row { display:flex; gap:8px; align-items:center; background:var(--surface3); border-radius:8px; padding:8px 12px; border:1px solid rgba(255,255,255,0.04); }
@@ -475,7 +487,59 @@
 <!-- APP SCREEN -->
 <div id="app-screen" style="display:none;">
 
-<nav>
+<!-- MOBILE DRAWER OVERLAY -->
+<div id="nav-drawer-overlay" onclick="closeNavDrawer()" style="display:none;position:fixed;inset:0;z-index:150;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);"></div>
+
+<!-- MOBILE DRAWER -->
+<div id="nav-drawer" style="position:fixed;top:0;left:0;bottom:0;z-index:160;width:280px;background:var(--surface);border-right:1px solid var(--border);transform:translateX(-100%);transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;overflow:hidden;">
+  <!-- Drawer header -->
+  <div style="padding:1.25rem 1.25rem 1rem;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:0.875rem;">
+    <div class="logo-icon" style="width:36px;height:36px;font-size:15px;flex-shrink:0;">DNA</div>
+    <div class="logo-text">
+      <div class="the">The</div>
+      <div class="dna">DNA League</div>
+      <div class="league">MLB The Show</div>
+    </div>
+  </div>
+  <!-- Drawer user info -->
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:0.75rem;">
+    <div id="drawer-avatar" style="width:38px;height:38px;border-radius:50%;background:var(--chrome2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:16px;color:var(--bg);flex-shrink:0;"></div>
+    <div>
+      <div id="drawer-user-name" style="font-family:'Barlow Condensed';font-size:15px;font-weight:700;color:var(--text);"></div>
+      <div id="drawer-user-role" style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;"></div>
+    </div>
+  </div>
+  <!-- Drawer nav items -->
+  <nav aria-label="Drawer navigation" style="flex:1;padding:0.75rem 0;overflow-y:auto;">
+    <button type="button" class="drawer-nav-item active" id="drawer-tab-home" onclick="showPageMobile('home',this)">
+      <span class="drawer-nav-icon">&#x1F3E0;</span><span>Home</span>
+    </button>
+    <button type="button" class="drawer-nav-item" id="drawer-tab-draft" onclick="showPageMobile('draft',this)">
+      <span class="drawer-nav-icon">&#x26A1;</span><span>Draft Order</span>
+    </button>
+    <button type="button" class="drawer-nav-item" id="drawer-tab-seasons" onclick="showPageMobile('seasons',this)">
+      <span class="drawer-nav-icon">&#x1F3C6;</span><span>Seasons</span>
+    </button>
+    <button type="button" class="drawer-nav-item" id="drawer-tab-schedule" onclick="showPageMobile('schedule',this)">
+      <span class="drawer-nav-icon">&#x1F4C5;</span><span>Schedule</span>
+    </button>
+    <button type="button" class="drawer-nav-item" id="drawer-tab-profiles" onclick="showPageMobile('profiles',this)">
+      <span class="drawer-nav-icon">&#x1F464;</span><span>Players</span>
+    </button>
+  </nav>
+  <!-- Drawer sign out -->
+  <div style="padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,0.06);">
+    <button type="button" class="btn btn-outline" style="width:100%;justify-content:center;" onclick="handleSignOut()">Sign Out</button>
+  </div>
+</div>
+
+<nav aria-label="Main navigation">
+  <!-- Hamburger button (mobile only) -->
+  <button type="button" id="hamburger-btn" onclick="openNavDrawer()" style="display:none;background:none;border:none;cursor:pointer;padding:0.5rem;margin-right:0.5rem;flex-shrink:0;" aria-label="Open menu">
+    <div style="width:22px;height:2px;background:var(--text);margin-bottom:5px;border-radius:2px;transition:all 0.2s;"></div>
+    <div style="width:22px;height:2px;background:var(--text);margin-bottom:5px;border-radius:2px;transition:all 0.2s;"></div>
+    <div style="width:22px;height:2px;background:var(--text);border-radius:2px;transition:all 0.2s;"></div>
+  </button>
   <div class="nav-logo">
     <div class="logo-icon">DNA</div>
     <div class="logo-text">
@@ -484,14 +548,14 @@
       <div class="league">MLB The Show</div>
     </div>
   </div>
-  <div class="nav-tabs">
+  <div class="nav-tabs" id="nav-tabs-desktop">
     <button type="button" class="nav-tab active" onclick="showPage('home',this)">Home</button>
     <button type="button" class="nav-tab" onclick="showPage('draft',this)">Draft Order</button>
     <button type="button" class="nav-tab" onclick="showPage('seasons',this)">Seasons</button>
     <button type="button" class="nav-tab" onclick="showPage('schedule',this)">Schedule</button>
     <button type="button" class="nav-tab" onclick="showPage('profiles',this)">Players</button>
   </div>
-  <div style="margin-left:auto;display:flex;align-items:center;gap:1rem;padding:0 0.5rem;">
+  <div style="margin-left:auto;display:flex;align-items:center;gap:1rem;padding:0 0.5rem;" id="nav-user-area">
     <div style="text-align:right;">
       <div id="nav-user-name" style="font-family:'Barlow Condensed';font-size:14px;color:var(--text);letter-spacing:1px;"></div>
       <div id="nav-user-role" style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;"></div>
@@ -959,6 +1023,10 @@ function showPage(id, tabEl) {
   document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
   document.getElementById('page-' + id).classList.add('active');
   tabEl.classList.add('active');
+  // Sync drawer
+  document.querySelectorAll('.drawer-nav-item').forEach(function(t){ t.classList.remove('active'); });
+  var drawerTab = document.getElementById('drawer-tab-' + id);
+  if (drawerTab) drawerTab.classList.add('active');
   if (id === 'home')     updateDashboard();
   if (id === 'draft')    { renderSlots(); renderSuggestions(); }
   if (id === 'profiles') renderProfiles();
@@ -2991,7 +3059,57 @@ function renderHomeScheduleWidget() {
   body.innerHTML = html;
 }
 
-// ════════════════════════════════════════════════
+// ── MOBILE DRAWER ────────────────────────────────
+function openNavDrawer() {
+  document.getElementById('nav-drawer').style.transform = 'translateX(0)';
+  document.getElementById('nav-drawer-overlay').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+function closeNavDrawer() {
+  document.getElementById('nav-drawer').style.transform = 'translateX(-100%)';
+  document.getElementById('nav-drawer-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function showPageMobile(id, drawerTabEl) {
+  // Update drawer active state
+  document.querySelectorAll('.drawer-nav-item').forEach(function(t){ t.classList.remove('active'); });
+  if (drawerTabEl) drawerTabEl.classList.add('active');
+  // Sync desktop tabs
+  var pageMap = { home:0, draft:1, seasons:2, schedule:3, profiles:4 };
+  var desktopTabs = document.querySelectorAll('.nav-tab');
+  desktopTabs.forEach(function(t){ t.classList.remove('active'); });
+  if (pageMap[id] !== undefined && desktopTabs[pageMap[id]]) {
+    desktopTabs[pageMap[id]].classList.add('active');
+  }
+  closeNavDrawer();
+  // Show the page
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.getElementById('page-' + id).classList.add('active');
+  if (id === 'home')     updateDashboard();
+  if (id === 'draft')    { renderSlots(); renderSuggestions(); }
+  if (id === 'profiles') renderProfiles();
+  if (id === 'seasons')  initSeasonsPage();
+  if (id === 'schedule') initSchedulePage();
+}
+
+function updateDrawerUser() {
+  if (!currentMember) return;
+  var name = currentMember.display_name || '';
+  var role = currentMember.role || 'member';
+  var initials = name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase() || '?';
+  var avatar = document.getElementById('drawer-avatar');
+  var player = state.players.find(function(p){ return p.name === name; });
+  if (avatar) {
+    avatar.textContent = initials;
+    if (player && player.color) avatar.style.background = player.color;
+  }
+  var nameEl = document.getElementById('drawer-user-name');
+  var roleEl = document.getElementById('drawer-user-role');
+  if (nameEl) nameEl.textContent = name;
+  if (roleEl) roleEl.textContent = role;
+}
+
 // ── SUPABASE CONFIG ──────────────────────────────
 var SUPABASE_URL  = 'https://orhpiuwptucgktioigju.supabase.co';
 var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9yaHBpdXdwdHVjZ2t0aW9pZ2p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NTIwNjIsImV4cCI6MjA5MDAyODA2Mn0.crGOk7q2k6lr4RDgGCBmgKF8hh1BykSTcRiAefmf7pQ';
@@ -3093,6 +3211,7 @@ async function loadLeagueContext() {
     currentLeague = mRes.data.leagues;
     document.getElementById('nav-user-name').textContent = currentMember.display_name;
     document.getElementById('nav-user-role').textContent = currentMember.role;
+    updateDrawerUser();
   }
   await syncPlayersFromDB();
   loadState();
