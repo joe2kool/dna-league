@@ -164,7 +164,7 @@ jobs:
           import re, sys, os, glob
 
           html_files = glob.glob('**/*.html', recursive=True)
-          html_files = [f for f in html_files if 'node_modules' not in f]
+          html_files = [f for f in html_files if 'node_modules' not in f and '.git' not in f]
 
           if not html_files:
               print("ERROR: No HTML files found")
@@ -312,8 +312,8 @@ jobs:
         run: |
           echo "=== HTML Validation ==="
           FILES=$(find . -name "*.html" \
-            --exclude-dir=node_modules \
-            --exclude-dir=.git 2>/dev/null)
+            -not -path "*/node_modules/*" \
+            -not -path "*/.git/*" 2>/dev/null)
           if [ -z "$FILES" ]; then
             echo "ERROR: No HTML files found"
             exit 1
