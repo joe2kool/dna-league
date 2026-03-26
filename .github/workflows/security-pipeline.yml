@@ -182,7 +182,9 @@ jobs:
 
           with open('extracted-app.js', 'w', encoding='utf-8') as f:
               if all_scripts:
-                  f.write('\n'.join(all_scripts))
+                  # Wrap each block in an IIFE to prevent cross-file variable conflicts
+                  wrapped = ['(function(){\n' + s + '\n})();' for s in all_scripts]
+                  f.write('\n\n'.join(wrapped))
               else:
                   f.write('// no inline scripts found\n')
 
