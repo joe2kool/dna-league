@@ -510,7 +510,7 @@
     </div>
   </div>
   <!-- Drawer nav items -->
-  <nav style="flex:1;padding:0.75rem 0;overflow-y:auto;">
+  <nav aria-label="Drawer navigation" style="flex:1;padding:0.75rem 0;overflow-y:auto;">
     <button type="button" class="drawer-nav-item active" id="drawer-tab-home" onclick="showPageMobile('home',this)">
       <span class="drawer-nav-icon">&#x1F3E0;</span><span>Home</span>
     </button>
@@ -533,7 +533,7 @@
   </div>
 </div>
 
-<nav>
+<nav aria-label="Main navigation">
   <!-- Hamburger button (mobile only) -->
   <button type="button" id="hamburger-btn" onclick="openNavDrawer()" style="display:none;background:none;border:none;cursor:pointer;padding:0.5rem;margin-right:0.5rem;flex-shrink:0;" aria-label="Open menu">
     <div style="width:22px;height:2px;background:var(--text);margin-bottom:5px;border-radius:2px;transition:all 0.2s;"></div>
