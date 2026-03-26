@@ -298,13 +298,18 @@ function populateSeasonDropdown() {
 function renderSetupDraftOrder() {
   const el = document.getElementById('setup-order-preview');
   try {
-    const raw = localStorage.getItem('dna_state');
-    if (!raw) return;
+    const raw = localStorage.getItem('dna_league');
+    if (!raw) {
+      el.innerHTML = '<p style="color:var(--text2);font-size:13px;">No draft order found. Go to the main app → <strong style="color:var(--chrome1);">Draft Order tab</strong> → generate a draft order, then return here.</p>';
+      return;
+    }
     const state = JSON.parse(raw);
-    const results = state.draftResults;
-    if (!results || !results.length) return;
+    const results = state?.lastResult;
+    if (!results || !results.length) {
+      el.innerHTML = '<p style="color:var(--text2);font-size:13px;">No draft order found. Go to the main app → <strong style="color:var(--chrome1);">Draft Order tab</strong> → generate a draft order, then return here.</p>';
+      return;
+    }
 
-    // Auto-populate draft name
     document.getElementById('setup-name').value = 'Team Draft — ' + new Date().toLocaleDateString();
 
     el.innerHTML = results.map((r, i) => {
@@ -315,10 +320,11 @@ function renderSetupDraftOrder() {
         <div class="dop-num">${i + 1}</div>
         <div class="dop-avatar" style="background:${color}">${init}</div>
         <div class="dop-name">${r.name || 'Unknown'}</div>
+        ${r.record ? `<div style="font-size:11px;color:var(--text2);margin-left:auto;">${r.record}</div>` : ''}
       </div>`;
     }).join('');
   } catch(e) {
-    el.innerHTML = '<p style="color:var(--text2);font-size:13px;">Could not load draft order.</p>';
+    el.innerHTML = '<p style="color:var(--red);font-size:13px;">Error reading draft order: ' + e.message + '</p>';
   }
 }
 
@@ -363,9 +369,9 @@ async function launchDraft() {
   // Build draft order slots from localStorage draft results
   let slots = [];
   try {
-    const raw = localStorage.getItem('dna_state');
+    const raw = localStorage.getItem('dna_league');
     const state = raw ? JSON.parse(raw) : null;
-    const results = state?.draftResults || [];
+    const results = state?.lastResult || [];
     const players = state?.players || [];
 
     if (!results.length) {

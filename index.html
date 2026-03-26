@@ -3276,6 +3276,16 @@ async function saveProfileToDB(data, editingId) {
   }
 }
 
+// Reload state when user returns to this tab (e.g. after visiting draft.html)
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible') {
+    loadState();
+    loadSeasonState();
+    renderProfiles();
+    updateDashboard();
+  }
+});
+
 // ── INIT ─────────────────────────────────────────
 bootstrap();
 </script>
