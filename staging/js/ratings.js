@@ -27,86 +27,58 @@ const DnaRatings = (() => {
   const adapters = {
 
     mlbtheshow: {
-      baseUrl: 'https://mlb26.theshow.com/apis',
+      baseUrl:   'https://mlb26.theshow.com/apis',
+      // Cloudflare Worker URL — set this after deploying dna-worker.js
+      // to Cloudflare Workers (free tier). Until set, falls back to static.
+      workerUrl: DNA_CONFIG.ratings.workerUrl || '',
 
       async fetchTeams() {
+        // Try Worker first for live team overalls
+        if (this.workerUrl) {
+          try {
+            const res = await fetch(`${this.workerUrl}/teams`, {
+              signal: AbortSignal.timeout(8000),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.teams && Object.keys(data.teams).length > 0) {
+                console.log('MLB The Show 26: loaded team overalls from Worker');
+                // Merge live overalls into static base (static has league/division info)
+                const base = _getStaticMLBRatings();
+                for (const [abbr, info] of Object.entries(data.teams)) {
+                  if (base[abbr]) base[abbr].overall = info.overall;
+                }
+                return base;
+              }
+            }
+          } catch(e) {
+            console.warn('Worker /teams failed, using static:', e.message);
+          }
+        }
         return _getStaticMLBRatings();
       },
 
-      // The Items API only supports type + page — no team filter.
-      // We fetch multiple pages and filter by team_short_name client-side.
-      // We stop early once we have 5+ Live Series cards for the team.
       async fetchRoster(teamAbbr) {
-        const MAX_PAGES  = 15; // cap to avoid too many requests
-        const PER_PAGE   = 25; // items per page (API default is 25)
-        const liveCards  = [];
-
-        try {
-          // First check: how many total pages are there?
-          const firstUrl = `${this.baseUrl}/items.json?type=mlb_card&page=1`;
-          const firstRes = await fetch(firstUrl, {
-            signal:  AbortSignal.timeout(8000),
-            headers: { 'Accept': 'application/json' },
-          });
-          if (!firstRes.ok) throw new Error(`HTTP ${firstRes.status}`);
-          const firstData = await firstRes.json();
-          const totalPages = Math.min(firstData.total_pages || 1, MAX_PAGES);
-
-          // Process first page
-          this._filterLiveCards(firstData.items || [], teamAbbr, liveCards);
-          if (liveCards.length >= 5) {
-            return _parseMLBShowRoster(liveCards);
-          }
-
-          // Fetch remaining pages in parallel batches of 5
-          const BATCH = 5;
-          for (let startPage = 2; startPage <= totalPages; startPage += BATCH) {
-            const endPage = Math.min(startPage + BATCH - 1, totalPages);
-            const batch = [];
-            for (let p = startPage; p <= endPage; p++) {
-              batch.push(
-                fetch(`${this.baseUrl}/items.json?type=mlb_card&page=${p}`, {
-                  signal: AbortSignal.timeout(8000),
-                  headers: { 'Accept': 'application/json' },
-                })
-                .then(r => r.ok ? r.json() : { items: [] })
-                .catch(() => ({ items: [] }))
-              );
+        // Try Worker first
+        if (this.workerUrl) {
+          try {
+            const res = await fetch(`${this.workerUrl}/roster?team=${encodeURIComponent(teamAbbr)}`, {
+              signal: AbortSignal.timeout(8000),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.players && data.players.length > 0) {
+                console.log(`MLB The Show 26 Worker: ${data.players.length} players for ${teamAbbr}`);
+                return data.players;
+              }
             }
-            const results = await Promise.all(batch);
-            for (const data of results) {
-              this._filterLiveCards(data.items || [], teamAbbr, liveCards);
-            }
-            if (liveCards.length >= 5) break;
+          } catch(e) {
+            console.warn(`Worker /roster failed for ${teamAbbr}, using static:`, e.message);
           }
-
-          if (liveCards.length > 0) {
-            console.log(`MLB The Show 26 API: ${liveCards.length} Live Series cards for ${teamAbbr}`);
-            return _parseMLBShowRoster(liveCards);
-          }
-        } catch(e) {
-          console.warn(`MLB The Show 26 API error for ${teamAbbr}:`, e.message);
         }
-
-        console.warn(`Falling back to static data for ${teamAbbr}`);
+        // Fallback to static
+        console.warn(`Using static roster for ${teamAbbr}`);
         return _getStaticRoster(teamAbbr);
-      },
-
-      // Filter items matching this team's Live Series cards into the array
-      _filterLiveCards(items, teamAbbr, out) {
-        for (const item of items) {
-          if (!item.ovr || !item.name) continue;
-          // Match team by short name (e.g. "LAD", "NYY")
-          const teamMatch = item.team_short_name === teamAbbr ||
-                           item.team === teamAbbr;
-          if (!teamMatch) continue;
-          // Only Live Series cards
-          const series = (item.series || '').toLowerCase();
-          const isLive = series.includes('live series') ||
-                        series.includes('live_series') ||
-                        series === 'live';
-          if (isLive) out.push(item);
-        }
       },
     },
 
