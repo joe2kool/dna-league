@@ -1,14 +1,15 @@
 # ============================================================
-# THE DNA LEAGUE — Security Pipeline v5
+# THE DNA LEAGUE — Security Pipeline v6
+# Runs on: PRs to main, PRs to staging, pushes to main/staging
 # ============================================================
 
 name: Security Pipeline
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, staging ]
   push:
-    branches: [ main ]
+    branches: [ main, staging ]
 
 permissions:
   contents: read
@@ -397,8 +398,17 @@ jobs:
             const rows = Object.entries(results)
               .map(([k, v]) => `| ${k} | ${icon(v)} ${v.toUpperCase()} |`)
               .join('\n');
+
+            const base   = context.payload.pull_request.base.ref;
+            const isMain = base === 'main';
+            const envLine = isMain
+              ? '🚀 **Target:** Production (`main`) → https://joe2kool.github.io/dna-league/'
+              : '🧪 **Target:** Staging (`staging`) → https://joe2kool.github.io/dna-league/staging/';
+
             const body = [
               '## 🔒 Security Pipeline Results',
+              '',
+              envLine,
               '',
               '| Check | Result |',
               '|---|---|',

@@ -1,0 +1,76 @@
+# ============================================================
+# THE DNA LEAGUE — Production Deploy
+# Deploys the main branch to the root of GitHub Pages.
+# Triggered automatically when a PR merges to main.
+#
+# Production URL: https://joe2kool.github.io/dna-league/
+# ============================================================
+
+name: Deploy Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout main branch
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '22'
+
+      - name: Confirm Node version
+        run: node --version
+
+      - name: Prepare production build
+        run: |
+          mkdir -p production-build
+
+          rsync -av \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='production-build' \
+            . production-build/
+
+          echo "Production build contents:"
+          ls -la production-build/
+
+      - name: Deploy to gh-pages root
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir:  ./production-build
+          keep_files:   true   # keep the /staging/ subfolder intact
+          commit_message: 'deploy: production @ ${{ github.sha }}'
+
+      - name: Post deployment summary
+        uses: actions/github-script@v7.0.1
+        with:
+          script: |
+            const sha        = context.sha;
+            const shortSha   = sha.slice(0, 7);
+            const prodUrl    = 'https://joe2kool.github.io/dna-league/';
+            const stagingUrl = 'https://joe2kool.github.io/dna-league/staging/';
+
+            core.info(`✅ Production deployed: ${prodUrl} @ ${shortSha}`);
+            core.info(`🧪 Staging still live: ${stagingUrl}`);
