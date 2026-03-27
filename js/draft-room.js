@@ -84,27 +84,52 @@ const DraftRoom = (() => {
   }
 
   function _onTimerExpired() {
-    // Timer ran out — skip current picker (they can still pick later)
     if (!_draft) return;
     const cur = _getCurrentPick();
     if (!cur) return;
-    // Mark as skipped, move to next
-    cur.skipped = true;
-    _advancePick();
-    DraftBoard.render(_draft);
-    _broadcast({ type: 'skip', pickNumber: cur.pickNumber });
-    DraftUI.toast(`Time expired — ${cur.memberName} skipped. They can still pick later.`);
+
+    // Show a toast — if commissioner is present they can confirm skip or reset
+    // Auto-skip only happens after a grace period if no action is taken
+    DraftUI.toast(`⏰ Time expired for ${cur.memberName}!`, 5000);
+
+    // Show skip confirmation banner if commissioner is watching
+    if (DnaAuth.isAdmin(_member)) {
+      if (confirm(`Time expired for ${cur.memberName}.\n\nSkip them (they can pick later)?\n\nPress Cancel to reset their timer instead.`)) {
+        cur.skipped = true;
+        _draft.slots[_draft.slots.indexOf(cur)] = cur;
+        _saveDraftState();
+        _advancePick();
+        DraftBoard.render(_draft);
+        _broadcast({ type: 'skip', pickNumber: cur.pickNumber, memberName: cur.memberName });
+      } else {
+        // Reset timer — give them another full duration
+        startTimer();
+        DraftUI.toast(`Timer reset for ${cur.memberName}`);
+      }
+    } else {
+      // Non-commissioner view — just notify, commissioner handles it
+      DraftUI.toast(`Waiting for commissioner to advance the draft...`, 8000);
+    }
   }
 
   // ── PICK LOGIC ────────────────────────────────────────────
+  // Normal pick: first non-picked, non-skipped slot
+  // Skipped pick mode: first skipped slot that still hasn't picked
   function _getCurrentPick() {
     if (!_draft?.slots) return null;
-    // Find first slot that hasn't picked and isn't skipped (current on-clock)
+    if (_draft.status === 'skipped_picks') {
+      // Allow skipped players to pick in their original order
+      return _draft.slots.find(s => s.skipped && !s.pickedTeam) || null;
+    }
     return _draft.slots.find(s => !s.pickedTeam && !s.skipped) || null;
   }
 
   function _getNextPick() {
     if (!_draft?.slots) return null;
+    if (_draft.status === 'skipped_picks') {
+      const skipped = _draft.slots.filter(s => s.skipped && !s.pickedTeam);
+      return skipped[1] || null;
+    }
     const active = _draft.slots.filter(s => !s.pickedTeam && !s.skipped);
     return active[1] || null;
   }
@@ -112,14 +137,23 @@ const DraftRoom = (() => {
   function canPick(memberId) {
     const cur = _getCurrentPick();
     if (!cur) return false;
-    // Current picker OR commissioner override
-    return cur.memberId === memberId || DnaAuth.isAdmin(_member);
+    // The on-clock player can always pick
+    if (cur.memberId === memberId) return true;
+    // Commissioner/admin can pick for anyone (override)
+    if (DnaAuth.isAdmin(_member)) return true;
+    return false;
   }
 
   async function makePick(teamAbbr) {
     const cur = _getCurrentPick();
-    if (!cur) return;
-    if (!canPick(_member?.id)) {
+    if (!cur) {
+      DraftUI.toast('No active pick slot');
+      return;
+    }
+    // Commissioner picking for someone else — require confirmation
+    if (cur.memberId !== _member?.id && DnaAuth.isAdmin(_member)) {
+      if (!confirm(`Pick ${teamAbbr} on behalf of ${cur.memberName}?`)) return;
+    } else if (!canPick(_member?.id)) {
       DraftUI.toast('It\'s not your turn');
       return;
     }
@@ -131,6 +165,7 @@ const DraftRoom = (() => {
     // Apply pick
     cur.pickedTeam = teamAbbr;
     cur.pickedAt   = new Date().toISOString();
+    cur.skipped    = false; // clear skip flag if they were skipped
     _draft.availableTeams = _draft.availableTeams.filter(t => t !== teamAbbr);
 
     // Auto-save to season team assignments
@@ -149,10 +184,30 @@ const DraftRoom = (() => {
     if (remaining.length === 0 && skipped.length === 0) {
       _completeDraft();
     } else if (remaining.length === 0 && skipped.length > 0) {
-      // All non-skipped done — let skipped players pick now
-      DraftUI.toast('All picks complete! Skipped players may now pick in order.');
+      // All non-skipped done — now handle skipped players in order
       _draft.status = 'skipped_picks';
       _saveDraftState();
+      stopTimer(); // no timer pressure for skipped picks
+      DraftUI.updatePauseBtn(false);
+      DraftUI.toast(`Main draft complete! ${skipped.length} skipped player(s) may now pick.`);
+      const nextSkipped = _getCurrentPick();
+      if (nextSkipped) {
+        document.getElementById('dr-on-clock-name').textContent = nextSkipped.memberName + ' (skipped)';
+        if (nextSkipped.memberId === _member?.id || DnaAuth.isAdmin(_member)) {
+          DraftUI.showYourTurnBanner();
+        }
+      }
+    } else if (_draft.status === 'skipped_picks') {
+      // Another skipped player just picked — check if all done
+      const stillSkipped = _draft.slots.filter(s => s.skipped && !s.pickedTeam);
+      if (stillSkipped.length === 0) {
+        _completeDraft();
+      } else {
+        DraftBoard.render(_draft);
+        DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
+        updateOnClock();
+        return;
+      }
     } else {
       _advancePick();
     }

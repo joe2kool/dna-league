@@ -14,8 +14,8 @@
 <!-- TOAST -->
 <div id="dr-toast"></div>
 
-<!-- TEAM DETAIL PANEL (overlay) -->
-<div id="dr-team-detail" style="display:none;position:fixed;"></div>
+<!-- TEAM DETAIL PANEL (slides in over teams grid) -->
+<div id="dr-team-detail" style="display:none;position:fixed;right:0;top:56px;bottom:0;width:min(340px,100vw);background:var(--surface);border-left:1px solid var(--border);z-index:100;overflow-y:auto;padding:1.25rem;box-shadow:-8px 0 30px rgba(0,0,0,0.5);"></div>
 
 <div class="draft-page">
 
@@ -157,6 +157,10 @@
           <button type="button" class="btn btn-outline btn-sm" id="dr-pause-btn"
             onclick="DraftRoom.isPaused() ? DraftRoom.resumeDraft() : DraftRoom.pauseDraft()">
             ⏸ Pause Draft
+          </button>
+          <button type="button" class="btn btn-outline btn-sm"
+            onclick="manualSkipCurrent()">
+            ⏭ Skip Current
           </button>
           <button type="button" class="btn btn-red btn-sm"
             onclick="DraftRoom.undoLastPick()">
@@ -525,6 +529,29 @@ function applyTeamFilter(search = '') {
   }
 
   DraftUI.renderAvailableTeams(available, draft.teamRatings || _teamRatings);
+}
+
+// ── COMMISSIONER: MANUAL SKIP ────────────────────────────
+function manualSkipCurrent() {
+  const draft = DraftRoom.getDraft();
+  const cur   = DraftRoom.getCurrentPick();
+  if (!cur) { DraftUI.toast('No active pick to skip'); return; }
+  if (!confirm(`Skip ${cur.memberName}?\n\nThey will be moved to the end and can pick once everyone else has gone.`)) return;
+  cur.skipped = true;
+  DraftRoom.stopTimer();
+  DraftBoard.render(draft);
+  DraftUI.toast(`${cur.memberName} skipped — they can pick after everyone else`);
+  // Trigger advance
+  const remaining = draft.slots.filter(s => !s.pickedTeam && !s.skipped);
+  if (remaining.length === 0) {
+    draft.status = 'skipped_picks';
+    DraftUI.toast('Main picks complete! Skipped players may now pick.');
+    updateOnClock();
+  } else {
+    DraftRoom.startTimer();
+    updateOnClock();
+    checkYourTurn();
+  }
 }
 
 // ── COMMISSIONER: END EARLY ───────────────────────────────

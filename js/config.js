@@ -28,8 +28,8 @@ const DNA_CONFIG = {
   ratings: {
     sport:      'baseball',
     game:       'mlbtheshow',
-    gameYear:   2025,
-    apiBase:    'https://mlb25.theshow.com/apis',
+    gameYear:   2026,
+    apiBase:    'https://mlb26.theshow.com/apis',
     // Community mirror used as fallback (CORS-friendly)
     mirrorBase: 'https://mlb-the-show-api.p.rapidapi.com',
   },

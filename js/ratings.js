@@ -27,27 +27,29 @@ const DnaRatings = (() => {
   const adapters = {
 
     mlbtheshow: {
-      // MLB The Show publishes public JSON endpoints
-      // We use the community-mirrored version which supports CORS
-      baseUrl: 'https://mlb25.theshow.com/apis',
+      // MLB The Show 26 public API
+      baseUrl: 'https://mlb26.theshow.com/apis',
 
       async fetchTeams() {
-        // MLB The Show doesn't have a direct team ratings endpoint,
-        // so we build team overalls from roster data + known overalls
-        // using a static seed that gets refreshed from the API when possible
         return _getStaticMLBRatings();
       },
 
       async fetchRoster(teamAbbr) {
         try {
-          // Try the official MLB The Show API
-          const url = `${this.baseUrl}/items?type=mlb_card&team_name=${encodeURIComponent(teamAbbr)}&page=1`;
-          const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-          if (!res.ok) throw new Error('API error');
+          // Live Series cards only — these are the correct Diamond Dynasty ratings
+          // series_type=live_series ensures we get current Live Series cards, not exhibition
+          const url = `${this.baseUrl}/items?type=mlb_card&series_type=live_series&team_name=${encodeURIComponent(teamAbbr)}&page=1`;
+          const res = await fetch(url, {
+            signal: AbortSignal.timeout(6000),
+            headers: { 'Accept': 'application/json' },
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const data = await res.json();
-          return _parseMLBShowRoster(data.items || []);
+          const parsed = _parseMLBShowRoster(data.items || []);
+          if (parsed.length > 0) return parsed;
+          throw new Error('No Live Series cards found, falling back to static');
         } catch(e) {
-          console.warn('MLB The Show API unavailable, using static data:', e.message);
+          console.warn(`MLB The Show 26 API unavailable for ${teamAbbr}, using static data:`, e.message);
           return _getStaticRoster(teamAbbr);
         }
       },
