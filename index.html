@@ -3215,9 +3215,11 @@ async function loadLeagueContext() {
     document.getElementById('nav-user-role').textContent = currentMember.role;
     updateDrawerUser();
   }
-  await syncPlayersFromDB();
+  // Load localStorage FIRST so local- players are already in state
   loadState();
   loadSeasonState();
+  // Then merge DB players in — this adds real accounts without wiping local ones
+  await syncPlayersFromDB();
   renderSlots();
   updateDashboard();
   document.getElementById('slot-count').value = state.slotCount;
@@ -3232,12 +3234,14 @@ async function syncPlayersFromDB() {
     .eq('league_id', currentLeague.id)
     .order('joined_at', { ascending: true });
   if (res.error) { console.error('syncPlayers:', res.error.message); return; }
+  var changed = false;
   res.data.forEach(function(m) {
     var existing = null;
     for (var i = 0; i < state.players.length; i++) {
       if (state.players[i].id === m.id) { existing = state.players[i]; break; }
     }
     if (!existing) {
+      // New DB player not yet in local state — add them
       state.players.push({
         id: m.id, name: m.display_name, realname: m.real_name || '',
         color: m.avatar_color || '#6a9ec7', team: m.favorite_mlb_team || '',
@@ -3245,15 +3249,18 @@ async function syncPlayersFromDB() {
         draftHistory: [], standingsHistory: [],
         championships: 0, playoffs: 0, mvp: 0, cyyoung: 0, wins: '', losses: ''
       });
+      changed = true;
     } else {
-      existing.name = m.display_name;
-      existing.realname = m.real_name || '';
-      existing.color = m.avatar_color || existing.color;
-      existing.team = m.favorite_mlb_team || '';
-      existing.role = m.role;
+      // Update fields from DB but preserve local-only fields (draftHistory, stats etc.)
+      existing.name    = m.display_name;
+      existing.realname= m.real_name || '';
+      existing.color   = m.avatar_color || existing.color;
+      existing.team    = m.favorite_mlb_team || '';
+      existing.role    = m.role;
     }
   });
-  saveState();
+  // Only save if we added new players — don't overwrite if nothing changed
+  if (changed) saveState();
 }
 
 async function saveProfileToDB(data, editingId) {
