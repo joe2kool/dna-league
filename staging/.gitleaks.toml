@@ -1,0 +1,45 @@
+# ============================================================
+# THE DNA LEAGUE — Gitleaks Configuration v2
+# Valid gitleaks v8 syntax
+# ============================================================
+
+title = "DNA League Secret Scanner"
+
+[extend]
+  useDefault = true
+
+[[rules]]
+  id          = "supabase-service-role"
+  description = "Supabase service_role key - bypasses ALL Row Level Security"
+  regex       = '''service_role'''
+  tags        = ["supabase", "critical"]
+
+[[rules]]
+  id          = "database-connection-string"
+  description = "Database connection string with embedded credentials"
+  regex       = '''postgresql://[^:]+:[^@]+@'''
+  tags        = ["database", "credentials"]
+
+[[rules]]
+  id          = "generic-api-key"
+  description = "Generic API key assignment"
+  regex       = '''(?i)(api[_-]?key|apikey)\s*[:=]\s*['"][a-zA-Z0-9]{20,}['"]'''
+  tags        = ["api-key"]
+  [rules.allowlist]
+    # Allow in the main app HTML file (anon key is intentionally public)
+    paths     = ['''index\.html''', '''dna-league\.html''']
+    stopwords = ["SUPABASE_ANON", "anon", "publishable"]
+
+[allowlist]
+  description = "Global allowlist"
+  paths = [
+    '''\.md$''',
+    '''\.txt$''',
+    '''CHANGELOG''',
+    '''package-lock\.json''',
+  ]
+  regexes = [
+    '''YOUR_.*_HERE''',
+    '''<REPLACE_ME>''',
+    '''example\.com''',
+  ]

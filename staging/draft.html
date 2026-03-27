@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Live Draft — The DNA League</title>
+<link rel="stylesheet" href="css/draft.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<!-- TOAST -->
+<div id="dr-toast"></div>
+
+<!-- TEAM DETAIL PANEL (slides in over teams grid) -->
+<div id="dr-team-detail" style="display:none;position:fixed;right:0;top:56px;bottom:0;width:min(340px,100vw);background:var(--surface);border-left:1px solid var(--border);z-index:100;overflow-y:auto;padding:1.25rem;box-shadow:-8px 0 30px rgba(0,0,0,0.5);"></div>
+
+<div class="draft-page">
+
+  <!-- NAV -->
+  <nav class="draft-nav" aria-label="Draft navigation">
+    <a href="index.html" class="draft-nav-logo" title="Back to League">
+      <div class="logo-icon">DNA</div>
+      <div class="logo-text">
+        <div class="dna">DNA League</div>
+        <div class="sub">MLB The Show</div>
+      </div>
+    </a>
+    <div class="draft-nav-title" id="dr-nav-title">Team Draft</div>
+    <div id="dr-nav-status" class="draft-nav-status status-setup">Setup</div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+      <span id="dr-nav-user" style="font-family:'Barlow Condensed';font-size:13px;color:var(--text2);letter-spacing:1px;"></span>
+    </div>
+  </nav>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- SETUP SCREEN                                   -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div id="screen-setup" class="draft-setup">
+
+    <div style="margin-bottom:2rem;">
+      <h1 style="font-family:'Bebas Neue';font-size:48px;letter-spacing:3px;line-height:1;">
+        Draft <span style="color:var(--gold);">Setup</span>
+      </h1>
+      <p style="color:var(--text2);margin-top:6px;">Configure the draft then launch the live room</p>
+    </div>
+
+    <!-- Season & Timer -->
+    <div class="setup-card">
+      <div class="setup-card-header">
+        <div class="setup-card-title">Draft Settings</div>
+      </div>
+      <div class="setup-card-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <div class="form-group">
+            <label>Season</label>
+            <select id="setup-season"></select>
+          </div>
+          <div class="form-group">
+            <label>Timer per pick (seconds)</label>
+            <input type="number" id="setup-timer" value="90" min="30" max="300" step="15">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Draft Name</label>
+          <input type="text" id="setup-name" placeholder="e.g. Season 1 Team Draft">
+        </div>
+      </div>
+    </div>
+
+    <!-- Draft Order Preview -->
+    <div class="setup-card">
+      <div class="setup-card-header">
+        <div class="setup-card-title">Draft Order</div>
+        <span style="font-size:12px;color:var(--text2);">From Draft Order Generator</span>
+      </div>
+      <div class="setup-card-body">
+        <div id="setup-order-preview">
+          <p style="color:var(--text2);font-size:13px;">
+            Generate a draft order in the main app first, then return here to launch the draft.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Team Pool -->
+    <div class="setup-card">
+      <div class="setup-card-header">
+        <div class="setup-card-title">Available Teams</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span id="setup-pool-count" style="font-size:12px;color:var(--text2);">0 selected</span>
+          <button type="button" class="btn btn-outline btn-sm" onclick="setupSelectAllTeams(true)">All</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="setupSelectAllTeams(false)">None</button>
+        </div>
+      </div>
+      <div class="setup-card-body">
+        <p style="font-size:12px;color:var(--text2);margin-bottom:1rem;">
+          Select which teams are available to draft. Curate this list before launching.
+        </p>
+        <div id="setup-team-pool" class="team-pool-grid"></div>
+      </div>
+    </div>
+
+    <!-- Launch -->
+    <div style="display:flex;gap:10px;justify-content:flex-end;padding-bottom:3rem;">
+      <a href="index.html" class="btn btn-outline">← Back to League</a>
+      <button type="button" class="btn btn-gold" onclick="launchDraft()" id="setup-launch-btn">
+        ⚡ Launch Live Draft
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- LIVE DRAFT ROOM                                -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div id="screen-draft" style="display:none;flex:1;display:none;">
+    <div class="draft-body" style="position:relative;">
+
+      <!-- LEFT: Pick Board -->
+      <div class="draft-left">
+
+        <!-- Timer + On Clock -->
+        <div class="dr-timer-wrap" id="dr-timer-wrap">
+          <div class="dr-timer-ring-wrap">
+            <svg width="100" height="100" viewBox="0 0 100 100">
+              <circle class="dr-timer-track" cx="50" cy="50" r="44"/>
+              <circle class="dr-timer-prog" id="dr-timer-ring" cx="50" cy="50" r="44"
+                stroke-dasharray="276.46" stroke-dashoffset="0"/>
+            </svg>
+            <div class="dr-timer-val" id="dr-timer-val">1:30</div>
+          </div>
+          <div class="dr-timer-info">
+            <div class="dr-on-clock-label">On the clock</div>
+            <div class="dr-on-clock-name" id="dr-on-clock-name">—</div>
+            <div class="dr-up-next-label" id="dr-up-next-label"></div>
+          </div>
+        </div>
+
+        <!-- Your Turn Banner -->
+        <div class="dr-your-turn" id="dr-your-turn" style="display:none;">
+          🏆 IT'S YOUR TURN — SELECT YOUR TEAM
+        </div>
+
+        <!-- Board header -->
+        <div class="draft-section-header">
+          <div class="draft-section-title">Pick Board</div>
+          <div id="dr-picks-progress" style="font-size:12px;color:var(--text2);"></div>
+        </div>
+
+        <!-- Board rows -->
+        <div id="dr-board"></div>
+
+        <!-- Commissioner controls -->
+        <div class="dr-controls" id="dr-controls" style="display:none;">
+          <button type="button" class="btn btn-outline btn-sm" id="dr-pause-btn"
+            onclick="DraftRoom.isPaused() ? DraftRoom.resumeDraft() : DraftRoom.pauseDraft()">
+            ⏸ Pause Draft
+          </button>
+          <button type="button" class="btn btn-outline btn-sm"
+            onclick="manualSkipCurrent()">
+            ⏭ Skip Current
+          </button>
+          <button type="button" class="btn btn-red btn-sm"
+            onclick="DraftRoom.undoLastPick()">
+            ↩ Undo Pick
+          </button>
+          <button type="button" class="btn btn-outline btn-sm"
+            onclick="endDraftEarly()">
+            ⏹ End Draft
+          </button>
+        </div>
+      </div>
+
+      <!-- RIGHT: Available Teams -->
+      <div class="draft-right">
+
+        <!-- Pick panel (shown when it's your turn) -->
+        <div class="dr-pick-panel" id="dr-pick-panel" style="display:none;">
+          <div class="dr-pick-panel-title">Select your team</div>
+          <p style="font-size:12px;color:var(--text2);">Click a team card to draft it. Tap "Top 5 ▸" to see key players first.</p>
+        </div>
+
+        <!-- Filter + search -->
+        <div class="dr-teams-filter">
+          <button type="button" class="dr-filter-btn active" onclick="filterTeams('all',this)">All</button>
+          <button type="button" class="dr-filter-btn" onclick="filterTeams('AL',this)">AL</button>
+          <button type="button" class="dr-filter-btn" onclick="filterTeams('NL',this)">NL</button>
+          <button type="button" class="dr-filter-btn" onclick="filterTeams('top10',this)">Top 10</button>
+          <input type="text" class="dr-teams-search" id="dr-search"
+            placeholder="Search teams..." oninput="filterTeamsBySearch(this.value)">
+        </div>
+
+        <div class="draft-section-header" style="padding:8px 1.25rem;">
+          <div class="draft-section-title">Available Teams</div>
+          <span id="dr-available-count" style="font-size:11px;color:var(--text2);"></span>
+        </div>
+
+        <!-- Teams grid -->
+        <div id="dr-teams-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECAP SCREEN -->
+  <div id="dr-recap" style="display:none;"></div>
+
+</div><!-- /draft-page -->
+
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/ratings.js"></script>
+<script src="js/draft-board.js"></script>
+<script src="js/draft-room.js"></script>
+<script>
+// ============================================================
+// draft.html — page controller
+// ============================================================
+
+const db = supabase.createClient(DNA_CONFIG.supabase.url, DNA_CONFIG.supabase.anon);
+DnaAuth.init(db);
+
+let _member      = null;
+let _teamRatings = {};
+let _allAvailable= [];
+let _filterLeague= 'all';
+
+// ── BOOT ──────────────────────────────────────────────────
+async function boot() {
+  const session = await DnaAuth.getSession();
+  if (!session) {
+    // Not signed in — redirect to main app
+    window.location.href = 'index.html';
+    return;
+  }
+  _member = await DnaAuth.loadMember(session.user.id);
+  if (_member) {
+    document.getElementById('dr-nav-user').textContent =
+      _member.display_name + ' · ' + _member.role;
+  }
+  DraftRoom.init(db, _member);
+
+  // Load team ratings in background
+  DnaRatings.getTeamRatings().then(ratings => {
+    _teamRatings = ratings;
+    // If draft already running, update the teams display
+    const saved = DraftRoom.loadSavedDraft();
+    if (saved && saved.status === 'active') {
+      DraftUI.renderAvailableTeams(saved.availableTeams, _teamRatings);
+    }
+    renderSetupTeamPool();
+  });
+
+  // Check for an active saved draft
+  const saved = DraftRoom.loadSavedDraft();
+  if (saved && saved.status !== 'completed') {
+    const resume = confirm(
+      `There is an active draft in progress: "${saved.name || 'Team Draft'}"\n\nResume it?`
+    );
+    if (resume) {
+      enterDraftRoom(saved);
+      return;
+    }
+    DraftRoom.clearDraft();
+  }
+
+  // Show setup screen
+  showSetup();
+}
+
+// ── SETUP ─────────────────────────────────────────────────
+function showSetup() {
+  document.getElementById('screen-setup').style.display = '';
+  document.getElementById('screen-draft').style.display  = 'none';
+  document.getElementById('dr-recap').style.display      = 'none';
+  document.getElementById('dr-nav-status').textContent   = 'Setup';
+  document.getElementById('dr-nav-status').className     = 'draft-nav-status status-setup';
+
+  populateSeasonDropdown();
+  renderSetupDraftOrder();
+  renderSetupTeamPool();
+}
+
+function populateSeasonDropdown() {
+  const sel = document.getElementById('setup-season');
+  sel.innerHTML = '<option value="">No season linked</option>';
+  try {
+    const raw = localStorage.getItem('dna_seasons');
+    if (!raw) return;
+    const { seasons } = JSON.parse(raw);
+    (seasons || []).forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = s.name + ' (' + s.status + ')';
+      if (s.status === 'upcoming' || s.status === 'active') opt.selected = true;
+      sel.appendChild(opt);
+    });
+  } catch(e) {}
+}
+
+function renderSetupDraftOrder() {
+  const el = document.getElementById('setup-order-preview');
+  try {
+    const raw = localStorage.getItem('dna_league');
+    if (!raw) {
+      el.innerHTML = '<p style="color:var(--text2);font-size:13px;">No draft order found. Go to the main app → <strong style="color:var(--chrome1);">Draft Order tab</strong> → generate a draft order, then return here.</p>';
+      return;
+    }
+    const state = JSON.parse(raw);
+    const results = state?.lastResult;
+    if (!results || !results.length) {
+      el.innerHTML = '<p style="color:var(--text2);font-size:13px;">No draft order found. Go to the main app → <strong style="color:var(--chrome1);">Draft Order tab</strong> → generate a draft order, then return here.</p>';
+      return;
+    }
+
+    document.getElementById('setup-name').value = 'Team Draft — ' + new Date().toLocaleDateString();
+
+    el.innerHTML = results.map((r, i) => {
+      const player = (state.players || []).find(p => p.name === r.name);
+      const color  = player?.color || '#6a9ec7';
+      const init   = (r.name || '?').split(' ').map(w => w[0] || '').join('').slice(0,2).toUpperCase();
+      return `<div class="dop-row">
+        <div class="dop-num">${i + 1}</div>
+        <div class="dop-avatar" style="background:${color}">${init}</div>
+        <div class="dop-name">${r.name || 'Unknown'}</div>
+        ${r.record ? `<div style="font-size:11px;color:var(--text2);margin-left:auto;">${r.record}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    el.innerHTML = '<p style="color:var(--red);font-size:13px;">Error reading draft order: ' + e.message + '</p>';
+  }
+}
+
+function renderSetupTeamPool() {
+  const grid = document.getElementById('setup-team-pool');
+  grid.innerHTML = DNA_CONFIG.mlbTeams.map(t => {
+    const ovr = _teamRatings[t.abbr]?.overall || '';
+    return `<div class="pool-team selected" id="pt-${t.abbr}" onclick="togglePoolTeam('${t.abbr}')">
+      <div class="pt-abbr">${t.abbr}</div>
+      ${ovr ? `<div class="pt-ovr">${ovr}</div>` : ''}
+    </div>`;
+  }).join('');
+  updatePoolCount();
+}
+
+function togglePoolTeam(abbr) {
+  const el = document.getElementById('pt-' + abbr);
+  if (el) el.classList.toggle('selected');
+  updatePoolCount();
+}
+
+function setupSelectAllTeams(select) {
+  document.querySelectorAll('.pool-team').forEach(el => {
+    if (select) el.classList.add('selected');
+    else el.classList.remove('selected');
+  });
+  updatePoolCount();
+}
+
+function updatePoolCount() {
+  const n = document.querySelectorAll('.pool-team.selected').length;
+  document.getElementById('setup-pool-count').textContent = n + ' selected';
+}
+
+// ── LAUNCH ────────────────────────────────────────────────
+async function launchDraft() {
+  if (!DnaAuth.canManage(_member)) {
+    DraftUI.toast('Commissioner or admin required to launch draft');
+    return;
+  }
+
+  // Build draft order slots from localStorage draft results
+  let slots = [];
+  try {
+    const raw = localStorage.getItem('dna_league');
+    const state = raw ? JSON.parse(raw) : null;
+    const results = state?.lastResult || [];
+    const players = state?.players || [];
+
+    if (!results.length) {
+      alert('No draft order found. Generate a draft order in the main app first.');
+      return;
+    }
+
+    slots = results.map((r, i) => {
+      const player = players.find(p => p.name === r.name);
+      return {
+        pickNumber: i + 1,
+        memberId:   player?.id || null,
+        memberName: r.name,
+        color:      player?.color || '#6a9ec7',
+        pickedTeam: null,
+        pickedAt:   null,
+        skipped:    false,
+      };
+    });
+  } catch(e) {
+    alert('Error reading draft order: ' + e.message);
+    return;
+  }
+
+  // Get selected team pool
+  const availableTeams = Array.from(document.querySelectorAll('.pool-team.selected'))
+    .map(el => el.id.replace('pt-', ''));
+
+  if (availableTeams.length < slots.length) {
+    if (!confirm(`Only ${availableTeams.length} teams selected for ${slots.length} pickers. Some players may not get a team. Continue?`)) return;
+  }
+
+  const timerSeconds = parseInt(document.getElementById('setup-timer').value) || 90;
+  const seasonId     = document.getElementById('setup-season').value || null;
+  const name         = document.getElementById('setup-name').value || 'Team Draft';
+
+  const draft = {
+    id:             'draft-' + Date.now(),
+    name,
+    seasonId,
+    seasonName:     seasonId ? document.getElementById('setup-season').selectedOptions[0]?.text?.split(' (')[0] : null,
+    status:         'active',
+    timerSeconds,
+    slots,
+    availableTeams,
+    teamRatings:    _teamRatings,
+    createdAt:      new Date().toISOString(),
+    completedAt:    null,
+  };
+
+  enterDraftRoom(draft);
+}
+
+// ── DRAFT ROOM ────────────────────────────────────────────
+function enterDraftRoom(draft) {
+  document.getElementById('screen-setup').style.display = 'none';
+  document.getElementById('screen-draft').style.display = '';
+  document.getElementById('dr-nav-status').textContent  = draft.status === 'paused' ? 'Paused' : 'Live';
+  document.getElementById('dr-nav-status').className    = 'draft-nav-status ' + (draft.status === 'paused' ? 'status-paused' : 'status-active');
+  document.getElementById('dr-nav-title').textContent   = draft.name || 'Team Draft';
+
+  // Show commissioner controls
+  if (DnaAuth.canManage(_member)) {
+    document.getElementById('dr-controls').style.display = '';
+  }
+
+  DraftRoom.loadDraft(draft);
+  DraftRoom.subscribeRealtime(draft.id);
+
+  // Initial renders
+  DraftBoard.render(draft);
+  _allAvailable = draft.availableTeams.slice();
+  DraftUI.renderAvailableTeams(draft.availableTeams, draft.teamRatings || _teamRatings);
+  updateOnClock();
+
+  // Start timer if active
+  if (draft.status === 'active') {
+    DraftRoom.startTimer();
+    checkYourTurn();
+  }
+
+  // Listen for Supabase realtime updates to refresh on-clock display
+  document.addEventListener('draftPickMade', updateOnClock);
+}
+
+function updateOnClock() {
+  const draft = DraftRoom.getDraft();
+  if (!draft) return;
+  const cur  = DraftRoom.getCurrentPick();
+  const next = DraftRoom.getNextPick();
+  const total = draft.slots.length;
+  const done  = draft.slots.filter(s => s.pickedTeam).length;
+
+  document.getElementById('dr-on-clock-name').textContent  = cur ? cur.memberName : 'Draft Complete';
+  document.getElementById('dr-up-next-label').textContent  = next ? 'Up next: ' + next.memberName : '';
+  document.getElementById('dr-picks-progress').textContent = done + ' / ' + total + ' picks made';
+
+  updateOnClockAvailable();
+}
+
+function updateOnClockAvailable() {
+  const draft = DraftRoom.getDraft();
+  if (!draft) return;
+  document.getElementById('dr-available-count').textContent =
+    draft.availableTeams.length + ' teams remaining';
+}
+
+function checkYourTurn() {
+  const cur = DraftRoom.getCurrentPick();
+  if (cur && _member && cur.memberId === _member.id) {
+    DraftUI.showYourTurnBanner();
+  } else {
+    DraftUI.hideYourTurnBanner();
+  }
+}
+
+// ── TEAM FILTER ───────────────────────────────────────────
+function filterTeams(league, btn) {
+  _filterLeague = league;
+  document.querySelectorAll('.dr-filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  applyTeamFilter();
+}
+
+function filterTeamsBySearch(query) {
+  applyTeamFilter(query);
+}
+
+function applyTeamFilter(search = '') {
+  const draft = DraftRoom.getDraft();
+  if (!draft) return;
+  let available = draft.availableTeams.slice();
+
+  if (_filterLeague !== 'all' && _filterLeague !== 'top10') {
+    available = available.filter(abbr => {
+      const t = DNA_CONFIG.mlbTeams.find(t => t.abbr === abbr);
+      return t?.league === _filterLeague;
+    });
+  }
+  if (_filterLeague === 'top10') {
+    available = available
+      .sort((a,b) => (draft.teamRatings?.[b]?.overall || 0) - (draft.teamRatings?.[a]?.overall || 0))
+      .slice(0, 10);
+  }
+  if (search) {
+    const q = search.toLowerCase();
+    available = available.filter(abbr => {
+      const t = DNA_CONFIG.mlbTeams.find(t => t.abbr === abbr);
+      return abbr.toLowerCase().includes(q) || t?.name.toLowerCase().includes(q) || t?.city?.toLowerCase().includes(q);
+    });
+  }
+
+  DraftUI.renderAvailableTeams(available, draft.teamRatings || _teamRatings);
+}
+
+// ── COMMISSIONER: MANUAL SKIP ────────────────────────────
+function manualSkipCurrent() {
+  const draft = DraftRoom.getDraft();
+  const cur   = DraftRoom.getCurrentPick();
+  if (!cur) { DraftUI.toast('No active pick to skip'); return; }
+  if (!confirm(`Skip ${cur.memberName}?\n\nThey will be moved to the end and can pick once everyone else has gone.`)) return;
+  cur.skipped = true;
+  DraftRoom.stopTimer();
+  DraftBoard.render(draft);
+  DraftUI.toast(`${cur.memberName} skipped — they can pick after everyone else`);
+  // Trigger advance
+  const remaining = draft.slots.filter(s => !s.pickedTeam && !s.skipped);
+  if (remaining.length === 0) {
+    draft.status = 'skipped_picks';
+    DraftUI.toast('Main picks complete! Skipped players may now pick.');
+    updateOnClock();
+  } else {
+    DraftRoom.startTimer();
+    updateOnClock();
+    checkYourTurn();
+  }
+}
+
+// ── COMMISSIONER: END EARLY ───────────────────────────────
+function endDraftEarly() {
+  if (!DnaAuth.canManage(_member)) return;
+  if (!confirm('End the draft now? Remaining picks will be left incomplete.')) return;
+  DraftRoom.stopTimer();
+  const draft = DraftRoom.getDraft();
+  if (draft) {
+    draft.status = 'completed';
+    draft.completedAt = new Date().toISOString();
+  }
+  DraftUI.showRecap(DraftRoom.getDraft());
+  document.getElementById('dr-recap').style.display = '';
+  document.getElementById('screen-draft').style.display = 'none';
+}
+
+// ── START ──────────────────────────────────────────────────
+boot();
+</script>
+<div id="staging-banner" style="
+  position:fixed;bottom:0;left:0;right:0;z-index:9999;
+  background:rgba(201,168,76,0.95);color:#080b10;
+  font-family:'Barlow Condensed',sans-serif;font-size:13px;
+  letter-spacing:2px;text-transform:uppercase;
+  padding:8px 1rem;text-align:center;
+  display:flex;align-items:center;justify-content:center;gap:1rem;">
+  ⚠ STAGING ENVIRONMENT — Not for production use
+  <a href="https://joe2kool.github.io/dna-league/"
+     style="color:#080b10;font-weight:700;text-decoration:underline;">
+    View Production →
+  </a>
+</div>
+</body>
+</html>

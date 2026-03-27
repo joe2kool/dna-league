@@ -1,0 +1,3306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>The DNA League</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg:#0a0d12; --surface:#0f1318; --surface2:#151c24; --surface3:#1c2530;
+    --gold:#a8bdd4; --gold2:#d0e4f5; --red:#d94040; --green:#2ecc71;
+    --blue:#6a9ec7; --text:#dde6ef; --text2:#7a93aa;
+    --border:rgba(168,189,212,0.2); --glow:0 0 30px rgba(168,189,212,0.12);
+    --chrome1:#c8daea; --chrome2:#8fafc8; --chrome3:#4a7a9b;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Barlow',sans-serif; min-height:100vh; overflow-x:hidden; }
+  body::before {
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:linear-gradient(rgba(168,189,212,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(168,189,212,0.04) 1px,transparent 1px);
+    background-size:50px 50px;
+  }
+  nav { position:sticky; top:0; z-index:100; background:rgba(8,11,16,0.92); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); padding:0 2rem; display:flex; align-items:center; flex-wrap:nowrap; overflow:hidden; }
+  .nav-logo { display:flex; align-items:center; gap:1rem; padding:1rem 2rem 1rem 0; border-right:1px solid var(--border); margin-right:1.5rem; }
+  .logo-icon { width:42px; height:42px; background:linear-gradient(135deg,var(--chrome2),var(--chrome1),var(--gold2)); clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue'; font-size:18px; color:var(--bg); flex-shrink:0; }
+  .logo-text { line-height:1; }
+  .logo-text .the { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:4px; color:var(--text2); text-transform:uppercase; }
+  .logo-text .dna { font-family:'Bebas Neue'; font-size:26px; letter-spacing:3px; color:var(--gold); }
+  .logo-text .league { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:4px; color:var(--text2); text-transform:uppercase; }
+  .nav-tabs { display:flex; }
+  .nav-tab { font-family:'Barlow Condensed'; font-size:14px; letter-spacing:2px; text-transform:uppercase; color:var(--text2); padding:1.2rem 1.5rem; cursor:pointer; border:none; background:none; border-bottom:3px solid transparent; transition:all 0.2s; white-space:nowrap; }
+  .nav-tab:hover { color:var(--text); }
+  .nav-tab.active { color:var(--gold); border-bottom-color:var(--gold); }
+  main { position:relative; z-index:1; padding:2rem; max-width:1400px; margin:0 auto; }
+  .page { display:none; }
+  .page.active { display:block; }
+  .page-header { margin-bottom:2.5rem; display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:1rem; }
+  .page-header h1 { font-family:'Bebas Neue'; font-size:clamp(36px,5vw,60px); letter-spacing:3px; line-height:1; }
+  .page-header h1 span { color:var(--gold); }
+  .page-header p { font-size:14px; color:var(--text2); margin-top:6px; }
+  .card-title { font-family:'Barlow Condensed'; font-size:13px; letter-spacing:3px; text-transform:uppercase; color:var(--text2); }
+  .divider { height:1px; background:rgba(255,255,255,0.06); margin:1rem 0; }
+  .card { background:var(--surface2); border:1px solid rgba(255,255,255,0.06); border-radius:12px; padding:1.5rem; }
+  .card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; padding-bottom:1rem; border-bottom:1px solid rgba(255,255,255,0.06); }
+  .btn { font-family:'Barlow Condensed'; font-size:13px; letter-spacing:2px; text-transform:uppercase; padding:10px 20px; border-radius:6px; border:none; cursor:pointer; transition:all 0.2s; display:inline-flex; align-items:center; gap:8px; }
+  .btn-gold { background:linear-gradient(135deg,var(--chrome3),var(--chrome2),var(--chrome1)); color:var(--bg); font-weight:700; letter-spacing:1.5px; }
+  .btn-gold:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(168,189,212,0.3); }
+  .btn-outline { background:transparent; border:1px solid var(--border); color:var(--text2); }
+  .btn-outline:hover { border-color:var(--gold); color:var(--gold); }
+  .btn-ghost { background:transparent; color:var(--text2); padding:8px 12px; }
+  .btn-ghost:hover { color:var(--red); }
+  .btn-sm { font-size:11px; padding:7px 14px; }
+  input, select { background:var(--surface3); border:1px solid rgba(255,255,255,0.08); color:var(--text); font-family:'Barlow'; font-size:14px; border-radius:6px; padding:9px 12px; outline:none; transition:border 0.2s; width:100%; }
+  input:focus, select:focus { border-color:var(--gold); }
+  input::placeholder { color:var(--text2); }
+  select option { background:var(--surface3); }
+  label { font-family:'Barlow Condensed'; font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--text2); display:block; margin-bottom:6px; }
+  .tag { display:inline-block; font-family:'Barlow Condensed'; font-size:11px; letter-spacing:1px; text-transform:uppercase; padding:3px 8px; border-radius:4px; }
+  .tag-gold { background:rgba(168,189,212,0.15); color:var(--chrome1); }
+  .tag-red  { background:rgba(217,64,64,0.15);  color:var(--red); }
+  .tag-green{ background:rgba(46,204,113,0.15); color:var(--green); }
+  .tag-blue { background:rgba(58,123,213,0.15); color:var(--blue); }
+  .empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:200px; color:var(--text2); text-align:center; gap:1rem; }
+  .empty-icon { font-size:48px; opacity:0.4; }
+  .empty-text { font-family:'Barlow Condensed'; font-size:16px; letter-spacing:2px; text-transform:uppercase; }
+  .stats-strip { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1rem; margin-bottom:2rem; }
+  .stat-tile { background:var(--surface2); border-radius:10px; border:1px solid rgba(255,255,255,0.06); padding:1.25rem; position:relative; overflow:hidden; }
+  .stat-tile::after { content:''; position:absolute; top:-20px; right:-20px; width:80px; height:80px; border-radius:50%; background:var(--chrome1); opacity:0.05; }
+  .stat-tile-val { font-family:'Bebas Neue'; font-size:42px; color:var(--gold); line-height:1; }
+  .stat-tile-lbl { font-family:'Barlow Condensed'; font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--text2); margin-top:4px; }
+  .stat-tile-sub { font-size:12px; color:var(--text2); margin-top:8px; }
+  .activity-list { display:flex; flex-direction:column; }
+  .activity-item { display:flex; gap:1rem; align-items:flex-start; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .activity-dot { width:8px; height:8px; border-radius:50%; background:linear-gradient(135deg,var(--chrome2),var(--chrome1)); flex-shrink:0; margin-top:5px; }
+  .activity-text { font-size:13px; }
+  .activity-time { font-size:12px; color:var(--text2); margin-top:3px; }
+  .cs-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:1rem; }
+  .cs-tile { background:var(--surface2); border-radius:10px; border:1px dashed rgba(255,255,255,0.1); padding:1.25rem; text-align:center; display:flex; flex-direction:column; align-items:center; gap:0.6rem; }
+  .cs-icon { font-size:28px; opacity:0.5; }
+  .cs-name { font-family:'Barlow Condensed'; font-size:14px; letter-spacing:2px; text-transform:uppercase; color:var(--text2); }
+  .cs-badge { font-size:10px; letter-spacing:1px; text-transform:uppercase; padding:2px 7px; border-radius:4px; background:rgba(255,255,255,0.05); color:var(--text2); }
+  .slot-count-bar { display:flex; align-items:center; gap:1rem; background:var(--surface2); border-radius:10px; padding:1rem 1.5rem; margin-bottom:1.5rem; border:1px solid rgba(255,255,255,0.06); flex-wrap:wrap; }
+  .slot-count-bar label { margin:0; white-space:nowrap; }
+  .slot-count-bar input[type=range] { flex:1; min-width:120px; appearance:none; background:var(--surface3); height:4px; border-radius:2px; border:none; padding:0; cursor:pointer; }
+  .slot-count-bar input[type=range]::-webkit-slider-thumb { appearance:none; width:16px; height:16px; background:linear-gradient(135deg,var(--chrome2),var(--chrome1)); border-radius:50%; cursor:pointer; }
+  .slot-count-val { font-family:'Bebas Neue'; font-size:22px; color:var(--gold); min-width:36px; text-align:center; }
+  .mode-select { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem; }
+  .mode-btn { padding:1.25rem; border-radius:10px; cursor:pointer; border:2px solid rgba(255,255,255,0.06); background:var(--surface2); transition:all 0.2s; text-align:center; }
+  .mode-btn:hover { border-color:rgba(168,189,212,0.4); }
+  .mode-btn.active { border-color:var(--gold); background:rgba(168,189,212,0.06); }
+  .mode-icon { font-size:28px; margin-bottom:8px; }
+  .mode-name { font-family:'Bebas Neue'; font-size:18px; letter-spacing:2px; color:var(--text); }
+  .mode-desc { font-size:12px; color:var(--text2); margin-top:4px; line-height:1.4; }
+  .draft-layout { display:grid; grid-template-columns:320px 1fr; gap:1.5rem; }
+  /* ── MOBILE DRAWER ──────────────────────────── */
+  .drawer-nav-item {
+    display:flex !important; flex-direction:row; align-items:center; gap:0.875rem;
+    width:100%; padding:0.875rem 1.25rem;
+    background:none; border:none; border-left:3px solid transparent;
+    cursor:pointer; text-align:left; transition:all 0.15s;
+    font-family:'Barlow Condensed'; font-size:17px; letter-spacing:1.5px;
+    text-transform:uppercase; color:var(--text2);
+    box-sizing:border-box;
+  }
+  .drawer-nav-item:hover { background:rgba(255,255,255,0.05); color:var(--text); }
+  .drawer-nav-item.active { color:var(--gold); border-left-color:var(--gold); background:rgba(168,189,212,0.06); }
+  .drawer-nav-icon { font-size:20px; width:28px; text-align:center; flex-shrink:0; line-height:1; }
+  #nav-drawer nav { display:flex !important; flex-direction:column !important; align-items:stretch; }
+
+  /* ── MOBILE RESPONSIVE ──────────────────────── */
+  @media (max-width: 768px) {
+    /* Nav — hide desktop tabs, show hamburger */
+    nav { padding:0 0.875rem; min-height:56px; }
+    #hamburger-btn { display:flex !important; flex-direction:column; justify-content:center; }
+    .nav-logo { padding:0.625rem 0.875rem 0.625rem 0; border-right:none; margin-right:0; }
+    .logo-text .dna { font-size:18px; }
+    .logo-text .the, .logo-text .league { font-size:9px; letter-spacing:3px; }
+    .logo-icon { width:32px; height:32px; font-size:13px; }
+    #nav-tabs-desktop { display:none !important; }
+    #nav-user-area { display:none !important; }
+
+    /* Layout */
+    main { padding:1rem; }
+    .page-header { margin-bottom:1.25rem; gap:0.75rem; }
+    .page-header h1 { font-size:clamp(26px,8vw,38px); letter-spacing:2px; }
+
+    /* Home */
+    .stats-strip { grid-template-columns:repeat(2,1fr); gap:0.625rem; margin-bottom:1.25rem; }
+    .stat-tile { padding:1rem; }
+    .stat-tile-val { font-size:34px; }
+    .stat-tile-lbl { font-size:10px; }
+    .stat-tile-sub { font-size:11px; margin-top:4px; }
+    div[style*="grid-template-columns:1fr 1fr"] { grid-template-columns:1fr !important; }
+    .cs-grid { grid-template-columns:repeat(2,1fr); gap:0.625rem; }
+
+    /* Draft */
+    .slot-count-bar { gap:0.625rem; padding:0.75rem 1rem; flex-wrap:wrap; }
+    .mode-select { grid-template-columns:1fr 1fr; gap:0.625rem; }
+    .mode-btn { padding:0.875rem 0.5rem; }
+    .mode-btn .mode-icon { font-size:22px; margin-bottom:4px; }
+    .mode-btn .mode-name { font-size:14px; }
+    .mode-btn .mode-desc { font-size:10px; }
+    .draft-layout { grid-template-columns:1fr; }
+
+    /* Players */
+    .profiles-grid { grid-template-columns:1fr; }
+    .pc-stats { grid-template-columns:repeat(4,1fr); }
+    .profile-card-stats { grid-template-columns:repeat(4,1fr); }
+
+    /* Seasons */
+    .season-card-header { flex-direction:column; align-items:flex-start; gap:0.625rem; padding:1rem; }
+    .season-number { font-size:38px; min-width:44px; }
+    .season-tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+    .season-tabs::-webkit-scrollbar { display:none; }
+    .season-tab { white-space:nowrap; font-size:11px; padding:6px 10px; }
+    .roster-grid { grid-template-columns:repeat(2,1fr); gap:6px; }
+    .team-assignment-row { flex-wrap:wrap; }
+    .ta-player { min-width:100%; }
+    .ta-team { width:100%; }
+    .ta-team select { width:100%; }
+
+    /* Schedule */
+    .schedule-controls { flex-direction:column; gap:0.75rem; }
+    .schedule-controls .form-group { min-width:100%; }
+    .schedule-summary-bar { grid-template-columns:repeat(2,1fr); gap:0.5rem; }
+    .sched-stat-val { font-size:22px; }
+    .sched-stat-lbl { font-size:9px; }
+    .player-week-row { grid-template-columns:150px 1fr; }
+    .pw-player { padding:8px 8px; gap:6px; }
+    .pw-player-name { font-size:13px; }
+    .pw-player-team { font-size:9px; }
+    .pw-opponents { padding:6px 8px; }
+    .pw-opp-name { font-size:12px; }
+    .week-label { font-size:16px; }
+    .sched-save-bar { flex-direction:column; align-items:flex-start; gap:8px; }
+    .week-header { padding:0.75rem 1rem; }
+
+    /* Modals — slide up from bottom */
+    .modal-overlay { padding:0; align-items:flex-end; }
+    .modal { border-radius:20px 20px 0 0; max-height:92vh; max-width:100%; }
+    .modal-header { border-radius:20px 20px 0 0; }
+    .view-modal-overlay { padding:0; align-items:flex-end; }
+    .view-modal { border-radius:20px 20px 0 0; max-height:92vh; max-width:100%; }
+    .form-row { grid-template-columns:1fr; }
+    .vm-stat-grid { grid-template-columns:repeat(2,1fr); }
+    .vm-award-grid { grid-template-columns:1fr; }
+
+    /* Home widget */
+    .home-schedule-widget { margin-top:1rem; }
+  }
+
+  @media (max-width: 480px) {
+    .stats-strip { grid-template-columns:repeat(2,1fr); }
+    .stat-tile-val { font-size:28px; }
+    .mode-select { grid-template-columns:1fr; }
+    .pc-stats { grid-template-columns:repeat(2,1fr); }
+    .profile-card-stats { grid-template-columns:repeat(2,1fr); }
+    .player-week-row { grid-template-columns:1fr; }
+    .pw-player { border-right:none; border-bottom:1px solid rgba(255,255,255,0.05); }
+    .page-header h1 { font-size:clamp(22px,9vw,30px); }
+    .roster-grid { grid-template-columns:1fr; }
+    .week-header { flex-wrap:wrap; gap:4px; }
+    .season-card-header { padding:0.875rem; }
+    .modal-body { padding:1rem; }
+    .modal-footer { padding:0.75rem 1rem; }
+    .vm-stat-grid { grid-template-columns:repeat(2,1fr); }
+    .cs-grid { grid-template-columns:repeat(2,1fr); }
+  }
+  .player-builder { display:flex; flex-direction:column; gap:8px; }
+  .player-row { display:flex; gap:8px; align-items:center; background:var(--surface3); border-radius:8px; padding:8px 12px; border:1px solid rgba(255,255,255,0.04); }
+  .player-num { font-family:'Bebas Neue'; font-size:20px; color:var(--gold); min-width:28px; flex-shrink:0; }
+  .player-row .name-input { flex:1; background:transparent; border:none; padding:0; font-size:14px; width:auto; min-width:0; }
+  .player-row .name-input:focus { border:none; outline:none; }
+  .record-inputs { display:flex; gap:6px; align-items:center; flex-shrink:0; }
+  .record-inputs .rec-input { width:50px; text-align:center; font-size:13px; padding:4px 6px; }
+  .record-sep { color:var(--text2); font-size:12px; }
+  .results-area { min-height:280px; }
+  .draft-result-list { list-style:none; display:flex; flex-direction:column; gap:8px; }
+  .draft-result-item { display:flex; align-items:center; gap:1rem; background:var(--surface3); border-radius:8px; padding:12px 16px; border:1px solid rgba(255,255,255,0.04); animation:slideIn 0.4s both; }
+  @keyframes slideIn { from{opacity:0;transform:translateX(-20px)} to{opacity:1;transform:translateX(0)} }
+  .pick-number { font-family:'Bebas Neue'; font-size:28px; color:var(--gold); min-width:48px; text-align:center; line-height:1; flex-shrink:0; }
+  .pick-1 .pick-number { font-size:36px; color:var(--gold2); }
+  .pick-2 .pick-number { color:#c0c0c0; }
+  .pick-3 .pick-number { color:#cd7f32; }
+  .pick-badge { width:8px; height:40px; border-radius:4px; background:var(--surface2); flex-shrink:0; }
+  .pick-1 .pick-badge { background:linear-gradient(var(--gold2),var(--gold)); }
+  .pick-2 .pick-badge { background:#c0c0c0; }
+  .pick-3 .pick-badge { background:#cd7f32; }
+  .pick-info { flex:1; min-width:0; }
+  .pick-name { font-family:'Barlow Condensed'; font-size:18px; font-weight:600; }
+  .pick-record { font-size:12px; color:var(--text2); margin-top:2px; }
+  .odds-wrap { text-align:right; min-width:90px; flex-shrink:0; }
+  .odds-bar-row { display:flex; align-items:center; gap:8px; }
+  .odds-bar { flex:1; height:4px; background:var(--surface2); border-radius:2px; overflow:hidden; min-width:50px; }
+  .odds-bar-fill { height:100%; background:linear-gradient(90deg,var(--chrome3),var(--chrome1)); border-radius:2px; }
+  .odds-pct { font-size:11px; color:var(--text2); min-width:34px; text-align:right; }
+  .suggestion-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .chip { background:var(--surface3); border:1px solid rgba(255,255,255,0.06); border-radius:20px; padding:4px 12px; font-size:12px; cursor:pointer; transition:all 0.15s; }
+  .chip:hover { border-color:var(--gold); color:var(--gold); }
+  .profiles-toolbar { display:flex; gap:1rem; align-items:center; flex-wrap:wrap; margin-bottom:1.5rem; }
+  .profiles-toolbar input { flex:1; min-width:200px; max-width:300px; }
+  .profiles-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:1.25rem; }
+
+  /* ── PLAYER CARD ── */
+  .profile-card { background:var(--surface2); border-radius:14px; border:1px solid rgba(255,255,255,0.06); overflow:hidden; transition:all 0.25s; cursor:pointer; }
+  .profile-card:hover { border-color:rgba(168,189,212,0.3); transform:translateY(-3px); box-shadow:0 16px 40px rgba(0,0,0,0.5), var(--glow); }
+
+  /* Header banner with color accent */
+  .pc-banner { height:6px; width:100%; }
+
+  .pc-header { padding:1.25rem 1.25rem 1rem; display:flex; align-items:center; gap:1rem; }
+  .pc-avatar { width:58px; height:58px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue'; font-size:24px; color:var(--bg); flex-shrink:0; position:relative; }
+  .pc-avatar-ring { position:absolute; inset:-3px; border-radius:50%; border:2px solid transparent; }
+  .pc-info { flex:1; min-width:0; }
+  .pc-name { font-family:'Bebas Neue'; font-size:24px; letter-spacing:1px; line-height:1; }
+  .pc-realname { font-size:12px; color:var(--text2); margin-top:2px; }
+  .pc-team { font-size:11px; color:var(--text2); margin-top:3px; letter-spacing:.5px; }
+  .pc-champ-badge { flex-shrink:0; text-align:center; }
+  .pc-champ-num { font-family:'Bebas Neue'; font-size:32px; color:var(--chrome1); line-height:1; }
+  .pc-champ-lbl { font-size:9px; color:var(--text2); text-transform:uppercase; letter-spacing:1px; }
+
+  /* Stats row */
+  .pc-stats { display:grid; grid-template-columns:repeat(4,1fr); border-top:1px solid rgba(255,255,255,0.05); }
+  .pc-stat { padding:10px 6px; text-align:center; border-right:1px solid rgba(255,255,255,0.05); }
+  .pc-stat:last-child { border-right:none; }
+  .pc-stat-val { font-family:'Bebas Neue'; font-size:20px; color:var(--gold); line-height:1; }
+  .pc-stat-lbl { font-size:9px; color:var(--text2); text-transform:uppercase; letter-spacing:1px; margin-top:3px; }
+
+  /* Awards row */
+  .pc-awards { display:flex; gap:6px; padding:8px 1.25rem; flex-wrap:wrap; align-items:center; border-top:1px solid rgba(255,255,255,0.05); min-height:40px; }
+  .award-pip { display:inline-flex; align-items:center; gap:4px; font-family:'Barlow Condensed'; font-size:12px; font-weight:600; padding:3px 9px; border-radius:20px; letter-spacing:.5px; }
+  .award-pip.gold  { background:rgba(208,228,245,0.18); color:var(--gold2); }
+  .award-pip.blue  { background:rgba(58,123,213,0.18); color:#7ab0f5; }
+  .award-pip.green { background:rgba(46,204,113,0.18); color:#55d98d; }
+  .award-pip.red   { background:rgba(217,64,64,0.18);  color:#f07070; }
+
+  /* Draft history mini-bar */
+  .pc-draft-strip { padding:8px 1.25rem 10px; border-top:1px solid rgba(255,255,255,0.05); }
+  .pc-draft-label { font-family:'Barlow Condensed'; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--text2); margin-bottom:6px; }
+  .pc-draft-pips { display:flex; gap:4px; flex-wrap:wrap; }
+  .draft-pip { font-family:'Bebas Neue'; font-size:13px; width:26px; height:26px; border-radius:5px; display:flex; align-items:center; justify-content:center; background:var(--surface3); color:var(--text2); border:1px solid rgba(255,255,255,0.06); }
+  .draft-pip.p1 { background:rgba(208,228,245,0.25); color:var(--gold2); border-color:rgba(168,189,212,0.4); }
+  .draft-pip.p2 { background:rgba(192,192,192,0.15); color:#c8c8c8; }
+  .draft-pip.p3 { background:rgba(205,127,50,0.15); color:#d4893c; }
+
+  /* Actions */
+  .pc-actions { padding:0.75rem 1.25rem; display:flex; gap:8px; justify-content:flex-end; border-top:1px solid rgba(255,255,255,0.05); }
+
+  /* VIEW MODAL */
+  .view-modal-overlay { position:fixed; inset:0; z-index:300; background:rgba(0,0,0,0.8); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:1.5rem; opacity:0; pointer-events:none; transition:opacity 0.25s; }
+  .view-modal-overlay.open { opacity:1; pointer-events:all; }
+  .view-modal { background:var(--surface); border-radius:18px; border:1px solid rgba(168,189,212,0.2); width:100%; max-width:680px; max-height:90vh; overflow-y:auto; transform:scale(0.95); transition:transform 0.25s; box-shadow:0 50px 100px rgba(0,0,0,0.7), var(--glow); }
+  .view-modal-overlay.open .view-modal { transform:scale(1); }
+  .vm-banner { height:8px; width:100%; border-radius:18px 18px 0 0; }
+  .vm-header { padding:1.5rem; display:flex; align-items:center; gap:1.25rem; border-bottom:1px solid rgba(255,255,255,0.06); }
+  .vm-avatar { width:72px; height:72px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue'; font-size:30px; color:var(--bg); flex-shrink:0; }
+  .vm-name { font-family:'Bebas Neue'; font-size:36px; letter-spacing:2px; line-height:1; }
+  .vm-meta { font-size:13px; color:var(--text2); margin-top:4px; }
+  .vm-close { margin-left:auto; }
+  .vm-body { padding:1.5rem; display:flex; flex-direction:column; gap:1.5rem; }
+  .vm-section-title { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--text2); margin-bottom:10px; }
+  .vm-stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .vm-stat-box { background:var(--surface3); border-radius:10px; padding:14px 10px; text-align:center; border:1px solid rgba(255,255,255,0.04); }
+  .vm-stat-val { font-family:'Bebas Neue'; font-size:30px; line-height:1; }
+  .vm-stat-lbl { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:1px; margin-top:4px; }
+  .vm-award-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  .vm-award-box { background:var(--surface3); border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:12px; border:1px solid rgba(255,255,255,0.04); }
+  .vm-award-icon { font-size:24px; flex-shrink:0; }
+  .vm-award-val { font-family:'Bebas Neue'; font-size:28px; line-height:1; }
+  .vm-award-lbl { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:1px; }
+  .modal-overlay { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.75); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; padding:1.5rem; opacity:0; pointer-events:none; transition:opacity 0.25s; }
+  .modal-overlay.open { opacity:1; pointer-events:all; }
+  .modal { background:var(--surface); border-radius:16px; border:1px solid rgba(168,189,212,0.18); width:100%; max-width:620px; max-height:90vh; overflow-y:auto; transform:scale(0.96); transition:transform 0.25s; box-shadow:0 40px 80px rgba(0,0,0,0.6),var(--glow); }
+  .modal-overlay.open .modal { transform:scale(1); }
+  .modal-header { padding:1.5rem; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; background:var(--surface); z-index:1; }
+  .modal-header h2 { font-family:'Bebas Neue'; font-size:28px; letter-spacing:2px; }
+  .modal-body { padding:1.5rem; display:flex; flex-direction:column; gap:1.25rem; }
+  .modal-footer { padding:1rem 1.5rem; border-top:1px solid rgba(255,255,255,0.06); display:flex; justify-content:flex-end; gap:10px; position:sticky; bottom:0; background:var(--surface); }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  .form-group { display:flex; flex-direction:column; }
+  .history-table { width:100%; border-collapse:collapse; }
+  .history-table th { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--text2); text-align:left; padding:8px 12px; border-bottom:1px solid rgba(255,255,255,0.06); }
+  .history-table td { padding:10px 12px; font-size:13px; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
+  .history-table tr:last-child td { border-bottom:none; }
+  .pick-chip { display:inline-block; font-family:'Bebas Neue'; font-size:15px; padding:2px 8px; border-radius:4px; background:rgba(168,189,212,0.15); color:var(--chrome1); }
+  #toast { position:fixed; bottom:2rem; right:2rem; z-index:999; background:var(--surface3); border:1px solid var(--border); border-radius:8px; padding:12px 20px; font-family:'Barlow Condensed'; font-size:14px; letter-spacing:1px; opacity:0; transform:translateY(10px); transition:all 0.3s; pointer-events:none; }
+  #toast.show { opacity:1; transform:translateY(0); }
+  /* ── SEASON MANAGEMENT ─────────────────────────── */
+  .season-card { background:var(--surface2); border-radius:12px; border:1px solid rgba(255,255,255,0.06); overflow:hidden; margin-bottom:1rem; transition:all 0.2s; }
+  .season-card.active-season { border-color:rgba(46,204,113,0.3); box-shadow:0 0 20px rgba(46,204,113,0.08); }
+  .season-card.playoffs-season { border-color:rgba(201,168,76,0.3); box-shadow:0 0 20px rgba(201,168,76,0.08); }
+  .season-card-header { display:flex; align-items:center; justify-content:space-between; padding:1.25rem 1.5rem; }
+  .season-card-left { display:flex; align-items:center; gap:1rem; }
+  .season-number { font-family:'Bebas Neue'; font-size:48px; color:var(--gold); line-height:1; min-width:52px; }
+  .season-info { }
+  .season-name { font-family:'Barlow Condensed'; font-size:22px; font-weight:700; }
+  .season-game { font-size:12px; color:var(--text2); margin-top:2px; }
+  .season-dates { font-size:12px; color:var(--text2); margin-top:2px; }
+  .status-pill { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:2px; text-transform:uppercase; padding:4px 12px; border-radius:20px; font-weight:600; }
+  .status-upcoming  { background:rgba(168,189,212,0.15); color:var(--chrome1); }
+  .status-active    { background:rgba(46,204,113,0.15);  color:var(--green); }
+  .status-playoffs  { background:rgba(201,168,76,0.15);  color:var(--gold2); }
+  .status-completed { background:rgba(255,255,255,0.08); color:var(--text2); }
+  .status-cancelled { background:rgba(217,64,64,0.12);   color:var(--red); }
+
+  .season-card-body { border-top:1px solid rgba(255,255,255,0.06); padding:1.25rem 1.5rem; }
+  .season-tabs { display:flex; gap:0; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:1.25rem; }
+  .season-tab { font-family:'Barlow Condensed'; font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--text2); padding:8px 16px; cursor:pointer; border:none; background:none; border-bottom:2px solid transparent; transition:all 0.15s; }
+  .season-tab:hover { color:var(--text); }
+  .season-tab.active { color:var(--gold); border-bottom-color:var(--gold); }
+
+  .roster-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; }
+  .roster-item { display:flex; align-items:center; gap:10px; background:var(--surface3); border-radius:8px; padding:8px 12px; border:1px solid rgba(255,255,255,0.04); }
+  .roster-item.confirmed { border-color:rgba(46,204,113,0.25); background:rgba(46,204,113,0.05); }
+  .roster-item.pending   { border-color:rgba(201,168,76,0.2); }
+  .roster-name { font-family:'Barlow Condensed'; font-size:15px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .roster-status-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .dot-confirmed { background:var(--green); }
+  .dot-pending   { background:var(--gold); }
+  .dot-invited   { background:var(--text2); }
+
+  .team-assignment-row { display:flex; align-items:center; gap:10px; background:var(--surface3); border-radius:8px; padding:8px 12px; border:1px solid rgba(255,255,255,0.04); margin-bottom:6px; }
+  .team-assignment-row:last-child { margin-bottom:0; }
+  .ta-player { font-family:'Barlow Condensed'; font-size:15px; font-weight:600; flex:1; display:flex; align-items:center; gap:8px; }
+  .ta-team { flex:1; }
+  .ta-team select { font-size:13px; padding:6px 8px; }
+
+  .transition-btn { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:1px; text-transform:uppercase; padding:5px 12px; border-radius:5px; border:none; cursor:pointer; transition:all 0.15s; }
+  .transition-btn:hover { opacity:0.85; transform:translateY(-1px); }
+
+  /* Season creation modal extras */
+  .modal-section-title { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--text2); margin-bottom:8px; padding-top:4px; }
+
+  /* Roster picker */
+  .roster-picker-grid { display:flex; flex-direction:column; gap:6px; max-height:400px; overflow-y:auto; }
+  .roster-picker-item { display:flex; align-items:center; gap:10px; background:var(--surface3); border-radius:8px; padding:10px 12px; border:1px solid rgba(255,255,255,0.04); cursor:pointer; transition:all 0.15s; user-select:none; }
+  .roster-picker-item:hover { border-color:rgba(168,189,212,0.3); background:rgba(168,189,212,0.05); }
+  .roster-picker-item input[type=checkbox] { width:18px; height:18px; accent-color:var(--chrome2); cursor:pointer; flex-shrink:0; }
+  .roster-picker-item:has(input:checked) { border-color:rgba(46,204,113,0.3); background:rgba(46,204,113,0.05); }
+
+  /* ── SCHEDULE PAGE ─────────────────────────────── */
+  .schedule-controls { display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap; background:var(--surface2); border-radius:10px; padding:1.25rem 1.5rem; margin-bottom:1.5rem; border:1px solid rgba(255,255,255,0.06); }
+  .schedule-controls .form-group { flex:1; min-width:140px; }
+  .week-block { background:var(--surface2); border-radius:12px; border:1px solid rgba(255,255,255,0.06); overflow:hidden; margin-bottom:1rem; }
+  .week-header { display:flex; align-items:center; justify-content:space-between; padding:0.9rem 1.25rem; background:var(--surface3); border-bottom:1px solid rgba(255,255,255,0.06); cursor:pointer; user-select:none; }
+  .week-header:hover { background:rgba(168,189,212,0.06); }
+  .week-label { font-family:'Bebas Neue'; font-size:20px; letter-spacing:2px; color:var(--gold); }
+  .week-meta { font-size:12px; color:var(--text2); }
+  .week-chevron { color:var(--text2); font-size:12px; transition:transform 0.2s; }
+  .week-block.collapsed .week-chevron { transform:rotate(-90deg); }
+  .week-body { padding:0.75rem 1.25rem 1rem; }
+  .week-block.collapsed .week-body { display:none; }
+  .matchup-row { display:flex; align-items:center; gap:1rem; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .matchup-row:last-child { border-bottom:none; }
+  .matchup-team { flex:1; font-family:'Barlow Condensed'; font-size:16px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .avatar-sm { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue'; font-size:12px; color:var(--bg); flex-shrink:0; }
+  .matchup-vs { font-family:'Bebas Neue'; font-size:14px; color:var(--text2); padding:0 0.5rem; flex-shrink:0; }
+  .matchup-series { font-size:11px; color:var(--text2); letter-spacing:1px; text-transform:uppercase; flex-shrink:0; }
+  .bye-row { display:flex; align-items:center; gap:10px; padding:10px 0; color:var(--text2); font-size:13px; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .bye-row:last-child { border-bottom:none; }
+  .bye-badge { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:2px; text-transform:uppercase; padding:2px 8px; border-radius:4px; background:rgba(255,255,255,0.06); color:var(--text2); }
+  .schedule-summary-bar { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+  .sched-stat { background:var(--surface2); border-radius:8px; border:1px solid rgba(255,255,255,0.06); padding:1rem; text-align:center; }
+  .sched-stat-val { font-family:'Bebas Neue'; font-size:30px; color:var(--gold); line-height:1; }
+  .sched-stat-lbl { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:1px; margin-top:4px; }
+  .schedule-lock-banner { display:flex; align-items:center; gap:10px; background:rgba(46,204,113,0.08); border:1px solid rgba(46,204,113,0.2); border-radius:8px; padding:10px 16px; font-size:13px; color:var(--green); margin-bottom:1.5rem; }
+
+  /* Player-centric schedule rows */
+  .player-week-row { display:grid; grid-template-columns:220px 1fr; gap:0; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .player-week-row:last-child { border-bottom:none; }
+  .player-week-row:nth-child(even) .pw-player { background:rgba(255,255,255,0.015); }
+  .player-week-row:nth-child(even) .pw-opponents { background:rgba(255,255,255,0.015); }
+  .pw-player { padding:12px 14px; display:flex; align-items:center; gap:10px; border-right:1px solid rgba(255,255,255,0.06); }
+  .pw-player-info { min-width:0; }
+  .pw-player-name { font-family:'Barlow Condensed'; font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pw-player-team { font-size:10px; color:var(--text2); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pw-opponents { padding:10px 14px; display:flex; flex-direction:column; gap:6px; justify-content:center; }
+  .pw-opp-row { display:flex; align-items:center; gap:8px; }
+  .pw-opp-label { font-family:'Barlow Condensed'; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--text2); min-width:28px; }
+  .pw-opp-name { font-family:'Barlow Condensed'; font-size:14px; font-weight:600; }
+  .pw-opp-team { font-size:10px; color:var(--text2); margin-left:4px; }
+  .pw-bye { padding:12px 14px; display:flex; align-items:center; gap:8px; color:var(--text2); font-size:13px; font-style:italic; }
+  .pw-series-badge { font-family:'Barlow Condensed'; font-size:10px; letter-spacing:1px; padding:2px 7px; border-radius:4px; background:rgba(168,189,212,0.12); color:var(--chrome1); flex-shrink:0; }
+
+  /* Schedule save bar */
+  .sched-save-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--surface3); border-radius:8px; padding:10px 14px; margin-bottom:1rem; border:1px solid rgba(46,204,113,0.2); }
+  .sched-save-info { flex:1; min-width:0; }
+  .sched-save-name { font-family:'Barlow Condensed'; font-size:14px; font-weight:600; color:var(--text); }
+  .sched-save-meta { font-size:11px; color:var(--text2); margin-top:2px; }
+  .sched-saved-badge { font-family:'Barlow Condensed'; font-size:10px; letter-spacing:2px; text-transform:uppercase; padding:3px 8px; border-radius:4px; background:rgba(46,204,113,0.15); color:var(--green); flex-shrink:0; }
+  /* Home schedule widget */
+  .home-schedule-widget { background:var(--surface2); border-radius:12px; border:1px solid rgba(255,255,255,0.06); overflow:hidden; margin-top:1.5rem; }
+  .hsw-header { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; border-bottom:1px solid rgba(255,255,255,0.06); }
+  .hsw-title { font-family:'Barlow Condensed'; font-size:13px; letter-spacing:3px; text-transform:uppercase; color:var(--text2); }
+  .hsw-week-label { font-family:'Bebas Neue'; font-size:18px; letter-spacing:2px; color:var(--gold); padding:8px 1.25rem 4px; }
+  .hsw-matchup { display:flex; align-items:center; gap:10px; padding:8px 1.25rem; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .hsw-matchup:last-child { border-bottom:none; }
+  .hsw-player { display:flex; align-items:center; gap:8px; flex:1; min-width:0; }
+  .hsw-pname { font-family:'Barlow Condensed'; font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .hsw-pteam { font-size:10px; color:var(--text2); }
+  .hsw-vs { font-family:'Bebas Neue'; font-size:12px; color:var(--text2); flex-shrink:0; padding:0 4px; }
+
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:rgba(168,189,212,0.3); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen" style="display:none;position:fixed;inset:0;z-index:999;background:var(--bg);align-items:center;justify-content:center;padding:2rem;">
+  <div style="width:100%;max-width:420px;">
+    <div style="text-align:center;margin-bottom:2rem;">
+      <div style="width:56px;height:56px;background:linear-gradient(135deg,var(--chrome2),var(--chrome1));clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:inline-flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:22px;color:var(--bg);margin-bottom:1rem;">DNA</div>
+      <div style="font-family:'Bebas Neue';font-size:32px;letter-spacing:3px;color:var(--gold);">The DNA League</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:4px;">MLB The Show League Management</div>
+    </div>
+    <div style="background:var(--surface2);border-radius:14px;border:1px solid rgba(168,189,212,0.18);padding:2rem;">
+      <div id="auth-mode" data-mode="login"></div>
+      <h2 id="auth-title" style="font-family:'Bebas Neue';font-size:26px;letter-spacing:2px;margin-bottom:1.5rem;color:var(--text);">Sign In</h2>
+      <div id="auth-name-row" style="display:none;margin-bottom:1rem;">
+        <label>Display Name</label>
+        <input type="text" id="auth-displayname" placeholder="What the league calls you">
+      </div>
+      <div style="margin-bottom:1rem;">
+        <label>Email Address</label>
+        <input type="email" id="auth-email" placeholder="your@email.com">
+      </div>
+      <div style="margin-bottom:1.5rem;">
+        <label>Password</label>
+        <input type="password" id="auth-password" placeholder="Min 8 characters" onkeydown="if(event.key==='Enter')handleAuth()">
+      </div>
+      <div id="auth-error" style="display:none;background:rgba(217,64,64,0.12);border:1px solid rgba(217,64,64,0.3);border-radius:6px;padding:10px 14px;font-size:13px;color:#f07070;margin-bottom:1rem;"></div>
+      <button type="button" id="auth-submit" class="btn btn-gold" style="width:100%;justify-content:center;font-size:15px;padding:12px;" onclick="handleAuth()">Sign In</button>
+      <div style="text-align:center;margin-top:1.25rem;font-size:13px;color:var(--text2);">
+        <span id="auth-switch-text">Don't have an account? </span>
+        <span id="auth-switch-link" style="color:var(--gold);cursor:pointer;text-decoration:underline;" onclick="switchAuthMode('signup')">Create one</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="app-screen" style="display:none;">
+
+<!-- MOBILE DRAWER OVERLAY -->
+<div id="nav-drawer-overlay" onclick="closeNavDrawer()" style="display:none;position:fixed;inset:0;z-index:150;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);"></div>
+
+<!-- MOBILE DRAWER -->
+<div id="nav-drawer" style="position:fixed;top:0;left:0;height:100%;height:100dvh;z-index:160;width:min(280px,85vw);background:var(--surface);border-right:1px solid var(--border);transform:translateX(-100%);transition:transform 0.28s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;overflow:hidden;padding-bottom:env(safe-area-inset-bottom,0);">
+  <!-- Drawer header -->
+  <div onclick="showPageMobile('home',document.getElementById('drawer-tab-home'))" style="padding:1.25rem 1.25rem 1rem;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:0.875rem;flex-shrink:0;cursor:pointer;" title="Home">
+    <div class="logo-icon" style="width:36px;height:36px;font-size:15px;flex-shrink:0;">DNA</div>
+    <div class="logo-text">
+      <div class="the">The</div>
+      <div class="dna">DNA League</div>
+      <div class="league">MLB The Show</div>
+    </div>
+  </div>
+  <!-- Drawer user info -->
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;gap:0.75rem;flex-shrink:0;">
+    <div id="drawer-avatar" style="width:42px;height:42px;border-radius:50%;background:var(--chrome2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:17px;color:var(--bg);flex-shrink:0;"></div>
+    <div>
+      <div id="drawer-user-name" style="font-family:'Barlow Condensed';font-size:16px;font-weight:700;color:var(--text);"></div>
+      <div id="drawer-user-role" style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:2px;"></div>
+    </div>
+  </div>
+  <!-- Drawer nav items -->
+  <nav aria-label="Drawer navigation" style="flex:1;padding:0.5rem 0;overflow-y:auto;display:flex;flex-direction:column;">
+    <button type="button" class="drawer-nav-item active" id="drawer-tab-home" onclick="showPageMobile('home',this)">
+      <span class="drawer-nav-icon">&#x1F3E0;</span><span>Home</span>
+    </button>
+    <button type="button" class="drawer-nav-item" id="drawer-tab-draft" onclick="showPageMobile('draft',this)">
+      <span class="drawer-nav-icon">&#x26A1;</span><span>Draft Order</span>
+    </button>
+    <button type="button" class="drawer-nav-item" id="drawer-tab-seasons" onclick="showPageMobile('seasons',this)">
+      <span class="drawer-nav-icon">&#x1F3C6;</span><span>Seasons</span>
+    </button>
+    <button type="button" class="drawer-nav-item" id="drawer-tab-schedule" onclick="showPageMobile('schedule',this)">
+      <span class="drawer-nav-icon">&#x1F4C5;</span><span>Schedule</span>
+    </button>
+    <button type="button" class="drawer-nav-item" id="drawer-tab-profiles" onclick="showPageMobile('profiles',this)">
+      <span class="drawer-nav-icon">&#x1F464;</span><span>Players</span>
+    </button>
+  </nav>
+  <!-- Drawer sign out -->
+  <div style="padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
+    <button type="button" class="btn btn-outline" style="width:100%;justify-content:center;" onclick="handleSignOut()">Sign Out</button>
+  </div>
+</div>
+
+<nav aria-label="Main navigation">
+  <!-- Hamburger button (mobile only) -->
+  <button type="button" id="hamburger-btn" onclick="openNavDrawer()" style="display:none;background:none;border:none;cursor:pointer;padding:0.5rem;margin-right:0.5rem;flex-shrink:0;" aria-label="Open menu">
+    <div style="width:22px;height:2px;background:var(--text);margin-bottom:5px;border-radius:2px;transition:all 0.2s;"></div>
+    <div style="width:22px;height:2px;background:var(--text);margin-bottom:5px;border-radius:2px;transition:all 0.2s;"></div>
+    <div style="width:22px;height:2px;background:var(--text);border-radius:2px;transition:all 0.2s;"></div>
+  </button>
+  <div class="nav-logo" onclick="showPage('home',document.querySelectorAll('.nav-tab')[0])" style="cursor:pointer;" title="Home">
+    <div class="logo-icon">DNA</div>
+    <div class="logo-text">
+      <div class="the">The</div>
+      <div class="dna">DNA League</div>
+      <div class="league">MLB The Show</div>
+    </div>
+  </div>
+  <div class="nav-tabs" id="nav-tabs-desktop">
+    <button type="button" class="nav-tab active" onclick="showPage('home',this)">Home</button>
+    <button type="button" class="nav-tab" onclick="showPage('draft',this)">Draft Order</button>
+    <button type="button" class="nav-tab" onclick="showPage('seasons',this)">Seasons</button>
+    <button type="button" class="nav-tab" onclick="showPage('schedule',this)">Schedule</button>
+    <button type="button" class="nav-tab" onclick="showPage('profiles',this)">Players</button>
+  </div>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:1rem;padding:0 0.5rem;" id="nav-user-area">
+    <div style="text-align:right;">
+      <div id="nav-user-name" style="font-family:'Barlow Condensed';font-size:14px;color:var(--text);letter-spacing:1px;"></div>
+      <div id="nav-user-role" style="font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;"></div>
+    </div>
+    <button type="button" class="btn btn-outline btn-sm" onclick="handleSignOut()">Sign Out</button>
+  </div>
+</nav>
+
+<main>
+
+  <!-- HOME -->
+  <div id="page-home" class="page active">
+    <div class="page-header">
+      <div>
+        <h1>Welcome to <span>The DNA League</span></h1>
+        <p>Your hub for MLB The Show custom league management</p>
+      </div>
+      <span class="tag tag-gold">Season 1</span>
+    </div>
+    <div class="stats-strip">
+      <div class="stat-tile"><div class="stat-tile-val" id="dash-players">0</div><div class="stat-tile-lbl">Players Registered</div><div class="stat-tile-sub">in the league</div></div>
+      <div class="stat-tile"><div class="stat-tile-val" id="dash-drafts">0</div><div class="stat-tile-lbl">Drafts Generated</div><div class="stat-tile-sub">this season</div></div>
+      <div class="stat-tile"><div class="stat-tile-val">32</div><div class="stat-tile-lbl">Max Draft Slots</div><div class="stat-tile-sub">fully customizable</div></div>
+      <div class="stat-tile"><div class="stat-tile-val">2</div><div class="stat-tile-lbl">Draft Modes</div><div class="stat-tile-sub">true random &amp; weighted</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Recent Activity</div></div>
+        <div class="activity-list" id="activity-list">
+          <div class="empty-state" style="min-height:120px;"><div class="empty-icon">&#x1F4CB;</div><div class="empty-text">No activity yet</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Quick Actions</div></div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button type="button" class="btn btn-gold" style="justify-content:center;" onclick="showPage('draft',document.querySelectorAll('.nav-tab')[1])">&#x26A1; Generate Draft Order</button>
+          <a href="draft.html" class="btn btn-outline" style="justify-content:center;">&#x1F3AF; Launch Live Draft Room</a>
+          <button type="button" class="btn btn-outline" style="justify-content:center;" onclick="showPage('profiles',document.querySelectorAll('.nav-tab')[2])">&#x1F464; Manage Players</button>
+        </div>
+        <div class="divider"></div>
+        <div class="card-title" style="margin-bottom:1rem;">Coming Soon</div>
+        <div class="cs-grid">
+          <div class="cs-tile"><div class="cs-icon">&#x1F3C6;</div><div class="cs-name">Standings</div><div class="cs-badge">Soon</div></div>
+          <div class="cs-tile"><div class="cs-icon">&#x1F4CA;</div><div class="cs-name">Stats Tracker</div><div class="cs-badge">Soon</div></div>
+          <div class="cs-tile"><div class="cs-icon">&#x1F3AE;</div><div class="cs-name">Game Results</div><div class="cs-badge">Soon</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Home schedule widget -->
+    <div id="home-schedule-widget" class="home-schedule-widget" style="display:none;">
+      <div class="hsw-header">
+        <div class="hsw-title" id="hsw-title">&#x1F4C5; Week 1 Matchups</div>
+        <span onclick="showPage('schedule',document.querySelectorAll('.nav-tab')[3])" style="font-family:'Barlow Condensed';font-size:12px;letter-spacing:1px;color:var(--gold);cursor:pointer;">View Full Schedule &#x2192;</span>
+      </div>
+      <div id="hsw-body"></div>
+    </div>
+  </div>
+
+  <!-- DRAFT -->
+  <div id="page-draft" class="page">
+    <div class="page-header">
+      <div><h1>Draft <span>Order</span> Generator</h1><p>Configure slots then generate a randomized order</p></div>
+    </div>
+    <div class="slot-count-bar">
+      <label>Draft Slots</label>
+      <input type="range" id="slot-count" min="2" max="32" value="8" oninput="updateSlots(this.value)">
+      <div class="slot-count-val" id="slot-val">8</div>
+      <button type="button" class="btn btn-outline btn-sm" onclick="syncFromProfiles()">Import from Profiles</button>
+    </div>
+    <div class="mode-select">
+      <div class="mode-btn active" id="mode-random" onclick="selectMode('random')">
+        <div class="mode-icon">&#x1F3B2;</div>
+        <div class="mode-name">True Random</div>
+        <div class="mode-desc">All players have exactly equal odds &mdash; pure lottery.</div>
+      </div>
+      <div class="mode-btn" id="mode-weighted" onclick="selectMode('weighted')">
+        <div class="mode-icon">&#x2696;&#xFE0F;</div>
+        <div class="mode-name">Weighted</div>
+        <div class="mode-desc">Worse record last season = better odds for an early pick.</div>
+      </div>
+    </div>
+    <div class="draft-layout">
+      <div>
+        <div class="card" style="padding:1.25rem;">
+          <div class="card-header">
+            <div class="card-title">Slot Configuration</div>
+            <div id="weighted-legend" style="display:none;"><span class="tag tag-blue">W &ndash; L</span></div>
+          </div>
+          <div class="player-builder" id="player-builder"></div>
+          <div id="suggestion-area" style="display:none;margin-top:1rem;">
+            <div style="font-family:'Barlow Condensed';font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);margin-bottom:6px;">Saved Players</div>
+            <div class="suggestion-chips" id="suggestion-chips"></div>
+          </div>
+          <div style="margin-top:1.25rem;display:flex;gap:8px;">
+            <button type="button" class="btn btn-gold" style="flex:1;justify-content:center;" onclick="generateDraft()">&#x26A1; Generate Draft</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="clearAll()">Clear</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Draft Order</div>
+            <div style="display:flex;gap:8px;" id="result-actions"></div>
+          </div>
+          <div class="results-area" id="results-area">
+            <div class="empty-state"><div class="empty-icon">&#x26BE;</div><div class="empty-text">Configure slots and generate a draft</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAYERS -->
+  <div id="page-profiles" class="page">
+    <div class="page-header">
+      <div><h1>Player <span>Profiles</span></h1><p>Manage league members and track their history</p></div>
+      <button type="button" class="btn btn-gold" onclick="openProfileModal(null)">+ Add Player</button>
+    </div>
+    <div class="profiles-toolbar">
+      <input type="text" id="profile-search" placeholder="Search players..." oninput="renderProfiles()">
+      <div style="margin-left:auto;font-family:'Barlow Condensed';font-size:13px;color:var(--text2);letter-spacing:1px;"><span id="profile-count">0</span> players</div>
+    </div>
+    <div class="profiles-grid" id="profiles-grid"></div>
+    <div id="profiles-empty" class="empty-state" style="display:none;">
+      <div class="empty-icon">&#x1F464;</div><div class="empty-text">No players yet &mdash; add your first</div>
+    </div>
+  </div>
+
+  <!-- SCHEDULE -->
+  <div id="page-schedule" class="page">
+    <div class="page-header">
+      <div><h1>Season <span>Schedule</span></h1><p>Full round robin &mdash; every team plays every other team once</p></div>
+      <div style="display:flex;gap:8px;align-items:center;" id="schedule-header-actions"></div>
+    </div>
+
+    <!-- Lock banner shown when season is active -->
+    <div id="schedule-lock-banner" style="display:none;" class="schedule-lock-banner">
+      <span>&#x1F512;</span>
+      <span>Schedule is locked &mdash; season is active. Start a new season to regenerate.</span>
+    </div>
+
+    <!-- Controls (commissioner+ only) -->
+    <div id="schedule-controls-panel" class="schedule-controls">
+      <div class="form-group">
+        <label>Season</label>
+        <select id="sched-season-select">
+          <option value="">Select season...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Matchups per team per week</label>
+        <select id="sched-matchups-per-week">
+          <option value="2" selected>2 opponents</option>
+          <option value="1">1 opponent</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Series length</label>
+        <select id="sched-series-length">
+          <option value="3" selected>Best of 3</option>
+          <option value="5">Best of 5</option>
+          <option value="1">Single game</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;padding-bottom:1px;">
+        <button type="button" class="btn btn-gold" onclick="generateSchedule()">&#x26A1; Generate Schedule</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="clearSchedule()" id="sched-clear-btn" style="display:none;">Clear</button>
+      </div>
+    </div>
+
+    <!-- Save bar (shown after schedule generated) -->
+    <div id="sched-save-bar" style="display:none;" class="sched-save-bar">
+      <div class="sched-save-info">
+        <div class="sched-save-name" id="sched-save-name">Unsaved schedule</div>
+        <div class="sched-save-meta" id="sched-save-meta">Generate a schedule then save it to this season</div>
+      </div>
+      <span class="sched-saved-badge" id="sched-saved-badge" style="display:none;">&#x2713; Saved</span>
+      <button type="button" class="btn btn-outline btn-sm" id="sched-export-btn" style="display:none;" onclick="exportSchedulePNG()">&#x1F4F7; Download PNG</button>
+      <button type="button" class="btn btn-gold btn-sm" id="sched-save-btn" style="display:none;" onclick="saveScheduleToSeason()">&#x1F4BE; Save Schedule</button>
+    </div>
+
+    <!-- Summary stats -->
+    <div id="schedule-summary" style="display:none;">
+      <div class="schedule-summary-bar">
+        <div class="sched-stat"><div class="sched-stat-val" id="ss-weeks">0</div><div class="sched-stat-lbl">Weeks</div></div>
+        <div class="sched-stat"><div class="sched-stat-val" id="ss-matchups">0</div><div class="sched-stat-lbl">Total Matchups</div></div>
+        <div class="sched-stat"><div class="sched-stat-val" id="ss-teams">0</div><div class="sched-stat-lbl">Teams</div></div>
+        <div class="sched-stat"><div class="sched-stat-val" id="ss-series">0</div><div class="sched-stat-lbl">Games Per Series</div></div>
+      </div>
+    </div>
+
+    <!-- Schedule output -->
+    <div id="schedule-output">
+      <div class="empty-state">
+        <div class="empty-icon">&#x1F4C5;</div>
+        <div class="empty-text">Configure options above and generate a schedule</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEASONS -->
+  <div id="page-seasons" class="page">
+    <div class="page-header">
+      <div><h1>Season <span>Management</span></h1><p>Create seasons, roster players, and assign MLB teams</p></div>
+      <div id="season-create-btn-wrap"></div>
+    </div>
+    <div id="seasons-list">
+      <div class="empty-state">
+        <div class="empty-icon">&#x1F3C6;</div>
+        <div class="empty-text">No seasons yet &mdash; create your first</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- SEASON MODAL -->
+<div class="modal-overlay" id="season-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="season-modal-title">Create Season</h2>
+      <button type="button" class="btn btn-ghost" onclick="closeSeasonModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Season Name *</label>
+          <input type="text" id="sm-name" placeholder="e.g. Season 1">
+        </div>
+        <div class="form-group">
+          <label>Season Number</label>
+          <input type="number" id="sm-number" placeholder="1" min="1">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Game Title</label>
+          <input type="text" id="sm-game" placeholder="MLB The Show 25">
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="sm-status">
+            <option value="upcoming">Upcoming</option>
+            <option value="active">Active</option>
+            <option value="playoffs">Playoffs</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Start Date</label>
+          <input type="date" id="sm-start">
+        </div>
+        <div class="form-group">
+          <label>End Date</label>
+          <input type="date" id="sm-end">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeSeasonModal()">Cancel</button>
+      <button type="button" class="btn btn-gold" onclick="saveSeason()">Save Season</button>
+    </div>
+  </div>
+</div>
+
+<!-- TEAM ASSIGNMENT MODAL -->
+<div class="modal-overlay" id="team-assign-modal">
+  <div class="modal" style="max-width:700px;">
+    <div class="modal-header">
+      <h2>Assign MLB Teams</h2>
+      <button type="button" class="btn btn-ghost" onclick="closeTeamAssignModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:1rem;">Assign each rostered player their MLB team for this season. Teams marked with a draft pick number were set via the draft.</div>
+      <div id="team-assign-body"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeTeamAssignModal()">Cancel</button>
+      <button type="button" class="btn btn-gold" onclick="saveTeamAssignments()">Save Assignments</button>
+    </div>
+  </div>
+</div>
+
+<!-- ROSTER PICKER MODAL -->
+<div class="modal-overlay" id="roster-picker-modal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h2 id="roster-picker-title">Add Players to Roster</h2>
+      <button type="button" class="btn btn-ghost" onclick="closeRosterPickerModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div id="roster-picker-body"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeRosterPickerModal()">Cancel</button>
+      <button type="button" class="btn btn-gold" onclick="confirmRosterPicker()">Add Selected Players</button>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW MODAL -->
+<div class="view-modal-overlay" id="view-modal">
+  <div class="view-modal">
+    <div class="vm-banner" id="vm-banner"></div>
+    <div class="vm-header">
+      <div class="vm-avatar" id="vm-avatar"></div>
+      <div>
+        <div class="vm-name" id="vm-name"></div>
+        <div class="vm-meta" id="vm-meta"></div>
+      </div>
+      <button type="button" class="btn btn-ghost vm-close" onclick="closeViewModal()">&#x2715;</button>
+    </div>
+    <div class="vm-body" id="vm-body"></div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="profile-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Add Player</h2>
+      <button type="button" class="btn btn-ghost" onclick="closeProfileModal()">&#x2715;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Display Name *</label>
+          <input type="text" id="f-name" placeholder="e.g. Big Mike">
+        </div>
+        <div class="form-group">
+          <label>Real Name</label>
+          <input type="text" id="f-realname" placeholder="Optional">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Favorite MLB Team</label>
+          <select id="f-team">
+            <option value="">Select team...</option>
+            <option>Arizona Diamondbacks</option><option>Atlanta Braves</option>
+            <option>Baltimore Orioles</option><option>Boston Red Sox</option>
+            <option>Chicago Cubs</option><option>Chicago White Sox</option>
+            <option>Cincinnati Reds</option><option>Cleveland Guardians</option>
+            <option>Colorado Rockies</option><option>Detroit Tigers</option>
+            <option>Houston Astros</option><option>Kansas City Royals</option>
+            <option>Los Angeles Angels</option><option>Los Angeles Dodgers</option>
+            <option>Miami Marlins</option><option>Milwaukee Brewers</option>
+            <option>Minnesota Twins</option><option>New York Mets</option>
+            <option>New York Yankees</option><option>Oakland Athletics</option>
+            <option>Philadelphia Phillies</option><option>Pittsburgh Pirates</option>
+            <option>San Diego Padres</option><option>San Francisco Giants</option>
+            <option>Seattle Mariners</option><option>St. Louis Cardinals</option>
+            <option>Tampa Bay Rays</option><option>Texas Rangers</option>
+            <option>Toronto Blue Jays</option><option>Washington Nationals</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Avatar Color</label>
+          <input type="color" id="f-color" value="#6a9ec7" style="height:40px;cursor:pointer;padding:2px;">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Last Season W</label>
+          <input type="number" id="f-wins" placeholder="0" min="0" max="162">
+        </div>
+        <div class="form-group">
+          <label>Last Season L</label>
+          <input type="number" id="f-losses" placeholder="0" min="0" max="162">
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="card-title" style="margin-bottom:4px;">League Achievements</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:1rem;">Career totals across all seasons</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>&#x1F3C6; Championships</label>
+          <input type="number" id="f-championships" placeholder="0" min="0">
+        </div>
+        <div class="form-group">
+          <label>&#x1F947; Playoff Appearances</label>
+          <input type="number" id="f-playoffs" placeholder="0" min="0">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>&#x2B50; League MVPs</label>
+          <input type="number" id="f-mvp" placeholder="0" min="0">
+        </div>
+        <div class="form-group">
+          <label>&#x1F3AF; Cy Young Awards</label>
+          <input type="number" id="f-cyyoung" placeholder="0" min="0">
+        </div>
+      </div>
+
+      <!-- Standings history (edit mode only) -->
+      <div id="modal-standings-section" style="display:none;">
+        <div class="divider"></div>
+        <div class="card-title" style="margin-bottom:4px;">Season Standings History</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:1rem;">Log a final standings position for each completed season. Average finish is calculated automatically.</div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="form-group" style="flex:1;min-width:120px;">
+            <label>Season / Year</label>
+            <input type="text" id="f-season-label" placeholder="e.g. Season 1">
+          </div>
+          <div class="form-group" style="width:110px;">
+            <label>Final Place</label>
+            <input type="number" id="f-season-finish" placeholder="e.g. 3" min="1">
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" style="flex-shrink:0;" onclick="addStandingsEntry()">+ Add</button>
+        </div>
+        <div id="standings-log-list" style="margin-top:12px;"></div>
+      </div>
+
+      <!-- Draft history (edit mode only) -->
+      <div id="modal-history-section" style="display:none;">
+        <div class="divider"></div>
+        <div class="card-title" style="margin-bottom:1rem;">Draft History</div>
+        <div id="modal-history-table"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" onclick="closeProfileModal()">Cancel</button>
+      <button type="button" class="btn btn-gold" onclick="saveProfile()">Save Player</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- end app-screen -->
+<div id="toast"></div>
+
+<script>
+var state = {
+  players: [],
+  draftMode: 'random',
+  slotCount: 8,
+  slotNames: [],
+  slotRecords: [],
+  draftsGenerated: 0,
+  lastResult: null,
+  activityLog: [],
+  editingProfileId: null
+};
+
+function saveState() {
+  try { localStorage.setItem('dna_league', JSON.stringify(state)); } catch(e) {}
+}
+
+function loadState() {
+  try {
+    var s = localStorage.getItem('dna_league');
+    if (s) {
+      var parsed = JSON.parse(s);
+      Object.keys(parsed).forEach(function(k) { state[k] = parsed[k]; });
+    }
+  } catch(e) {}
+}
+
+function showPage(id, tabEl) {
+  document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.nav-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.getElementById('page-' + id).classList.add('active');
+  tabEl.classList.add('active');
+  // Sync drawer
+  document.querySelectorAll('.drawer-nav-item').forEach(function(t){ t.classList.remove('active'); });
+  var drawerTab = document.getElementById('drawer-tab-' + id);
+  if (drawerTab) drawerTab.classList.add('active');
+  if (id === 'home')     updateDashboard();
+  if (id === 'draft')    { renderSlots(); renderSuggestions(); }
+  if (id === 'profiles') renderProfiles();
+  if (id === 'seasons')  initSeasonsPage();
+  if (id === 'schedule') initSchedulePage();
+}
+
+function selectMode(mode) {
+  state.draftMode = mode;
+  document.getElementById('mode-random').classList.toggle('active', mode === 'random');
+  document.getElementById('mode-weighted').classList.toggle('active', mode === 'weighted');
+  document.getElementById('weighted-legend').style.display = mode === 'weighted' ? '' : 'none';
+  renderSlots();
+}
+
+function updateSlots(val) {
+  state.slotCount = parseInt(val);
+  document.getElementById('slot-val').textContent = val;
+  renderSlots();
+}
+
+function renderSlots() {
+  var n = state.slotCount;
+  while (state.slotNames.length < n) state.slotNames.push('');
+  while (state.slotRecords.length < n) state.slotRecords.push({w:'', l:''});
+  state.slotNames.length = n;
+  state.slotRecords.length = n;
+
+  var builder = document.getElementById('player-builder');
+  builder.innerHTML = '';
+
+  for (var i = 0; i < n; i++) {
+    (function(idx) {
+      var row = document.createElement('div');
+      row.className = 'player-row';
+
+      var num = document.createElement('div');
+      num.className = 'player-num';
+      num.textContent = idx + 1;
+
+      var nameInp = document.createElement('input');
+      nameInp.type = 'text';
+      nameInp.className = 'name-input';
+      nameInp.placeholder = 'Player name...';
+      nameInp.value = state.slotNames[idx] || '';
+      nameInp.addEventListener('input', function() { state.slotNames[idx] = this.value; });
+
+      row.appendChild(num);
+      row.appendChild(nameInp);
+
+      if (state.draftMode === 'weighted') {
+        var ri = document.createElement('div');
+        ri.className = 'record-inputs';
+
+        var wInp = document.createElement('input');
+        wInp.type = 'number'; wInp.className = 'rec-input';
+        wInp.placeholder = 'W'; wInp.min = 0; wInp.max = 162;
+        wInp.value = state.slotRecords[idx].w || '';
+        wInp.title = 'Wins last season';
+        wInp.addEventListener('input', function() { state.slotRecords[idx].w = this.value; });
+
+        var sep = document.createElement('span');
+        sep.className = 'record-sep'; sep.textContent = '-';
+
+        var lInp = document.createElement('input');
+        lInp.type = 'number'; lInp.className = 'rec-input';
+        lInp.placeholder = 'L'; lInp.min = 0; lInp.max = 162;
+        lInp.value = state.slotRecords[idx].l || '';
+        lInp.title = 'Losses last season';
+        lInp.addEventListener('input', function() { state.slotRecords[idx].l = this.value; });
+
+        ri.appendChild(wInp); ri.appendChild(sep); ri.appendChild(lInp);
+        row.appendChild(ri);
+      }
+
+      builder.appendChild(row);
+    })(i);
+  }
+}
+
+function renderSuggestions() {
+  var area = document.getElementById('suggestion-area');
+  var chips = document.getElementById('suggestion-chips');
+  if (!state.players.length) { area.style.display = 'none'; return; }
+  area.style.display = '';
+  chips.innerHTML = state.players.map(function(p) {
+    return '<div class="chip" onclick="fillNextEmpty(\'' + escAttr(p.name) + '\')">' + escHtml(p.name) + '</div>';
+  }).join('');
+}
+
+function fillNextEmpty(name) {
+  var idx = -1;
+  for (var i = 0; i < state.slotNames.length; i++) {
+    if (!state.slotNames[i].trim()) { idx = i; break; }
+  }
+  if (idx === -1) { toast('All slots are filled'); return; }
+  state.slotNames[idx] = name;
+  var p = null;
+  for (var j = 0; j < state.players.length; j++) {
+    if (state.players[j].name === name) { p = state.players[j]; break; }
+  }
+  if (p && state.draftMode === 'weighted') {
+    state.slotRecords[idx] = { w: p.wins || '', l: p.losses || '' };
+  }
+  renderSlots();
+}
+
+function syncFromProfiles() {
+  if (!state.players.length) { toast('No profiles saved yet'); return; }
+  var n = Math.min(state.players.length, 32);
+  state.slotCount = n;
+  document.getElementById('slot-count').value = n;
+  document.getElementById('slot-val').textContent = n;
+  for (var i = 0; i < n; i++) {
+    state.slotNames[i] = state.players[i].name;
+    state.slotRecords[i] = { w: state.players[i].wins || '', l: state.players[i].losses || '' };
+  }
+  state.slotNames.length = n;
+  state.slotRecords.length = n;
+  renderSlots();
+  toast('Imported ' + n + ' players from profiles');
+}
+
+function clearAll() {
+  state.slotNames = [];
+  state.slotRecords = [];
+  for (var i = 0; i < state.slotCount; i++) { state.slotNames.push(''); state.slotRecords.push({w:'',l:''}); }
+  renderSlots();
+  document.getElementById('results-area').innerHTML = '<div class="empty-state"><div class="empty-icon">&#x26BE;</div><div class="empty-text">Configure slots and generate a draft</div></div>';
+  document.getElementById('result-actions').innerHTML = '';
+}
+
+function generateDraft() {
+  var names = [];
+  for (var i = 0; i < state.slotNames.length; i++) {
+    var n = state.slotNames[i].trim();
+    if (n) names.push(n);
+  }
+  if (names.length < 2) { toast('Need at least 2 players'); return; }
+  var order = state.draftMode === 'random' ? trueRandom(names) : weightedRandom(names);
+  state.lastResult = order;
+  state.draftsGenerated++;
+  logActivity('Draft generated \u2014 ' + names.length + ' players (' + state.draftMode + ')');
+  saveState();
+  updateDashboard();
+  renderResults(order);
+  document.getElementById('result-actions').innerHTML =
+    '<button type="button" type="button" class="btn btn-outline btn-sm" onclick="copyResults()">Copy</button>' +
+    '<button type="button" type="button" class="btn btn-outline btn-sm" onclick="saveDraftHistory()">Save</button>';
+  toast('Draft order generated!');
+}
+
+function trueRandom(names) {
+  var arr = names.slice();
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+  }
+  var pct = (100 / arr.length).toFixed(1);
+  return arr.map(function(name) { return { name: name, odds: pct, record: null }; });
+}
+
+function weightedRandom(names) {
+  var entries = names.map(function(name, i) {
+    var w = parseFloat(state.slotRecords[i] && state.slotRecords[i].w) || 0;
+    var l = parseFloat(state.slotRecords[i] && state.slotRecords[i].l) || 0;
+    var games = w + l;
+    var winPct = games ? w / games : 0.5;
+    var weight = Math.max(0.05, 1 - winPct) * 100 + 10;
+    return { name: name, weight: weight, record: games ? w + '-' + l : null };
+  });
+  var totalW = 0;
+  entries.forEach(function(e) { totalW += e.weight; });
+  entries.forEach(function(e) { e.odds = ((e.weight / totalW) * 100).toFixed(1); });
+  var result = [];
+  var pool = entries.slice();
+  while (pool.length) {
+    var tw = 0;
+    pool.forEach(function(e) { tw += e.weight; });
+    var r = Math.random() * tw, cumul = 0;
+    var chosen = pool[pool.length - 1];
+    for (var i = 0; i < pool.length; i++) {
+      cumul += pool[i].weight;
+      if (r <= cumul) { chosen = pool[i]; break; }
+    }
+    result.push(chosen);
+    pool.splice(pool.indexOf(chosen), 1);
+  }
+  return result;
+}
+
+function renderResults(order) {
+  var ul = document.createElement('ul');
+  ul.className = 'draft-result-list';
+  order.forEach(function(item, i) {
+    var li = document.createElement('li');
+    li.className = 'draft-result-item pick-' + (i + 1);
+    li.style.animationDelay = (i * 60) + 'ms';
+    var oddsHtml = state.draftMode === 'weighted'
+      ? '<div class="odds-wrap"><div class="odds-bar-row"><div class="odds-bar"><div class="odds-bar-fill" style="width:' + item.odds + '%"></div></div><div class="odds-pct">' + item.odds + '%</div></div><div style="font-size:10px;color:var(--text2);margin-top:3px;">draw odds</div></div>'
+      : '<span class="tag tag-gold">#' + (i + 1) + '</span>';
+    li.innerHTML =
+      '<div class="pick-number">' + (i + 1) + '</div>' +
+      '<div class="pick-badge"></div>' +
+      '<div class="pick-info">' +
+        '<div class="pick-name">' + escHtml(item.name) + '</div>' +
+        (item.record ? '<div class="pick-record">Last Season: ' + item.record + '</div>' : '') +
+      '</div>' + oddsHtml;
+    ul.appendChild(li);
+  });
+  var area = document.getElementById('results-area');
+  area.innerHTML = '';
+  area.appendChild(ul);
+}
+
+function copyResults() {
+  if (!state.lastResult) return;
+  var text = state.lastResult.map(function(r, i) {
+    return (i + 1) + '. ' + r.name + (r.record ? ' (' + r.record + ')' : '');
+  }).join('\n');
+  navigator.clipboard.writeText(text).then(function() { toast('Copied to clipboard'); });
+}
+
+function saveDraftHistory() {
+  if (!state.lastResult) return;
+  var date = new Date().toLocaleDateString();
+  state.lastResult.forEach(function(item, i) {
+    var profile = null;
+    for (var j = 0; j < state.players.length; j++) {
+      if (state.players[j].name === item.name) { profile = state.players[j]; break; }
+    }
+    if (profile) {
+      if (!profile.draftHistory) profile.draftHistory = [];
+      profile.draftHistory.unshift({ pick: i + 1, date: date, mode: state.draftMode });
+    }
+  });
+  saveState();
+  toast('Draft saved to player histories');
+}
+
+// PROFILES
+var AVATAR_COLORS = ['#6a9ec7','#d94040','#3a7bd5','#2ecc71','#9b59b6','#e67e22','#1abc9c','#e91e63'];
+var nextColor = 0;
+
+function openProfileModal(id) {
+  state.editingProfileId = id || null;
+  var histSection = document.getElementById('modal-history-section');
+  var standingsSection = document.getElementById('modal-standings-section');
+
+  if (id) {
+    var p = null;
+    for (var i = 0; i < state.players.length; i++) {
+      if (state.players[i].id === id) { p = state.players[i]; break; }
+    }
+    if (!p) return;
+    document.getElementById('modal-title').textContent = 'Edit Player';
+    document.getElementById('f-name').value = p.name || '';
+    document.getElementById('f-realname').value = p.realname || '';
+    document.getElementById('f-team').value = p.team || '';
+    document.getElementById('f-color').value = p.color || '#6a9ec7';
+    document.getElementById('f-wins').value = p.wins || '';
+    document.getElementById('f-losses').value = p.losses || '';
+    document.getElementById('f-championships').value = p.championships || '';
+    document.getElementById('f-playoffs').value = p.playoffs || '';
+    document.getElementById('f-mvp').value = p.mvp || '';
+    document.getElementById('f-cyyoung').value = p.cyyoung || '';
+
+    standingsSection.style.display = '';
+    document.getElementById('f-season-label').value = '';
+    document.getElementById('f-season-finish').value = '';
+    renderStandingsLog(p.standingsHistory || []);
+
+    var hist = p.draftHistory || [];
+    if (hist.length) {
+      histSection.style.display = '';
+      var rows = hist.map(function(h) {
+        return '<tr><td>' + h.date + '</td><td><span class="pick-chip">#' + h.pick + '</span></td><td><span class="tag tag-gold">' + (h.mode || 'random') + '</span></td></tr>';
+      }).join('');
+      document.getElementById('modal-history-table').innerHTML =
+        '<table class="history-table"><thead><tr><th>Date</th><th>Pick</th><th>Mode</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    } else {
+      histSection.style.display = 'none';
+    }
+  } else {
+    document.getElementById('modal-title').textContent = 'Add Player';
+    document.getElementById('f-name').value = '';
+    document.getElementById('f-realname').value = '';
+    document.getElementById('f-team').value = '';
+    document.getElementById('f-color').value = AVATAR_COLORS[nextColor % AVATAR_COLORS.length];
+    document.getElementById('f-wins').value = '';
+    document.getElementById('f-losses').value = '';
+    document.getElementById('f-championships').value = '';
+    document.getElementById('f-playoffs').value = '';
+    document.getElementById('f-mvp').value = '';
+    document.getElementById('f-cyyoung').value = '';
+    standingsSection.style.display = 'none';
+    histSection.style.display = 'none';
+  }
+
+  document.getElementById('profile-modal').classList.add('open');
+}
+
+function closeProfileModal() {
+  document.getElementById('profile-modal').classList.remove('open');
+}
+
+async function saveProfile() {
+  var name = document.getElementById('f-name').value.trim();
+  if (!name) { toast('Name is required'); return; }
+
+  var data = {
+    name: name,
+    realname: document.getElementById('f-realname').value.trim(),
+    team: document.getElementById('f-team').value,
+    color: document.getElementById('f-color').value,
+    wins: document.getElementById('f-wins').value,
+    losses: document.getElementById('f-losses').value,
+    championships: parseInt(document.getElementById('f-championships').value) || 0,
+    playoffs: parseInt(document.getElementById('f-playoffs').value) || 0,
+    mvp: parseInt(document.getElementById('f-mvp').value) || 0,
+    cyyoung: parseInt(document.getElementById('f-cyyoung').value) || 0
+  };
+
+  if (state.editingProfileId) {
+    // Editing existing — try to update DB record if it has a real UUID
+    // (real UUIDs come from Supabase auth, local-only IDs start with 'local-')
+    var isDbRecord = state.editingProfileId && !state.editingProfileId.startsWith('local-');
+    if (isDbRecord) {
+      var savedId = await saveProfileToDB(data, state.editingProfileId);
+      if (!savedId) return;
+    }
+    for (var i = 0; i < state.players.length; i++) {
+      if (state.players[i].id === state.editingProfileId) {
+        Object.keys(data).forEach(function(k) { state.players[i][k] = data[k]; });
+        break;
+      }
+    }
+    toast('Profile updated');
+  } else {
+    // New player added by commissioner — save locally with a local- prefix ID
+    // When this player signs up themselves they will get a real DB record
+    data.id = 'local-' + Date.now();
+    data.draftHistory = [];
+    data.standingsHistory = [];
+    data.joinDate = new Date().toLocaleDateString();
+    data.localOnly = true; // flag so we know it hasn't synced to DB yet
+    nextColor++;
+    state.players.push(data);
+    logActivity(name + ' added to league');
+    toast('Player added!');
+  }
+
+  saveState();
+  closeProfileModal();
+  renderProfiles();
+  renderSuggestions();
+  updateDashboard();
+}
+
+async function deleteProfile(id) {
+  if (!confirm('Remove this player from the league?')) return;
+
+  // Only delete from DB if it's a real Supabase record
+  if (id && !id.startsWith('local-')) {
+    var res = await db.from('league_members').delete().eq('id', id);
+    if (res.error) { toast('DB error: ' + res.error.message); return; }
+  }
+
+  state.players = state.players.filter(function(p) { return p.id !== id; });
+  saveState();
+  renderProfiles();
+  updateDashboard();
+  toast('Player removed');
+}
+
+function calcAvgFinish(history) {
+  if (!history || !history.length) return 'N/A';
+  var sum = 0;
+  history.forEach(function(e) { sum += e.finish; });
+  var avg = sum / history.length;
+  return '#' + (avg === Math.floor(avg) ? avg : avg.toFixed(1));
+}
+
+function addStandingsEntry() {
+  var label = document.getElementById('f-season-label').value.trim();
+  var finish = parseInt(document.getElementById('f-season-finish').value);
+  if (!label) { toast('Enter a season name or year'); return; }
+  if (!finish || finish < 1) { toast('Enter a valid finish position (1 or higher)'); return; }
+
+  var id = state.editingProfileId;
+  if (!id) return;
+  var p = null;
+  for (var i = 0; i < state.players.length; i++) {
+    if (state.players[i].id === id) { p = state.players[i]; break; }
+  }
+  if (!p) return;
+  if (!p.standingsHistory) p.standingsHistory = [];
+
+  for (var j = 0; j < p.standingsHistory.length; j++) {
+    if (p.standingsHistory[j].label === label) {
+      toast('"' + label + '" already logged. Delete it first to update.');
+      return;
+    }
+  }
+
+  p.standingsHistory.push({ label: label, finish: finish, addedAt: new Date().toLocaleDateString() });
+  p.standingsHistory.sort(function(a, b) { return a.label.localeCompare(b.label, undefined, { numeric: true }); });
+  saveState();
+  renderStandingsLog(p.standingsHistory);
+  document.getElementById('f-season-label').value = '';
+  document.getElementById('f-season-finish').value = '';
+  toast('Finish added for ' + label);
+}
+
+function deleteStandingsEntry(profileId, label) {
+  var p = null;
+  for (var i = 0; i < state.players.length; i++) {
+    if (state.players[i].id === profileId) { p = state.players[i]; break; }
+  }
+  if (!p) return;
+  p.standingsHistory = (p.standingsHistory || []).filter(function(e) { return e.label !== label; });
+  saveState();
+  renderStandingsLog(p.standingsHistory);
+  toast('Season entry removed');
+}
+
+function renderStandingsLog(history) {
+  var el = document.getElementById('standings-log-list');
+  if (!el) return;
+  if (!history || !history.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text2);padding:8px 0;">No seasons logged yet. Add one above.</div>';
+    return;
+  }
+  var id = state.editingProfileId || '';
+  var rows = history.map(function(e) {
+    return '<tr>' +
+      '<td>' + escHtml(e.label) + '</td>' +
+      '<td><span class="pick-chip">#' + e.finish + '</span></td>' +
+      '<td style="color:var(--text2);">' + (e.addedAt || '') + '</td>' +
+      '<td style="text-align:right;"><button type="button" class="btn btn-ghost" style="padding:2px 10px;font-size:18px;" onclick="deleteStandingsEntry(\'' + escAttr(id) + '\',\'' + escAttr(e.label) + '\')">&times;</button></td>' +
+    '</tr>';
+  }).join('');
+  el.innerHTML =
+    '<table class="history-table"><thead><tr><th>Season</th><th>Finish</th><th>Logged</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<div style="margin-top:10px;padding:10px 14px;background:var(--surface3);border-radius:8px;display:flex;align-items:center;justify-content:space-between;">' +
+      '<span style="font-family:\'Barlow Condensed\';font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);">Calculated Average Finish</span>' +
+      '<span style="font-family:\'Bebas Neue\';font-size:24px;color:var(--chrome1);">' + calcAvgFinish(history) + '</span>' +
+    '</div>';
+}
+
+function renderProfiles() {
+  var grid = document.getElementById('profiles-grid');
+  var empty = document.getElementById('profiles-empty');
+  var countEl = document.getElementById('profile-count');
+  var query = (document.getElementById('profile-search').value || '').toLowerCase();
+
+  var filtered = state.players.filter(function(p) {
+    return p.name.toLowerCase().indexOf(query) > -1 ||
+      (p.realname || '').toLowerCase().indexOf(query) > -1 ||
+      (p.team || '').toLowerCase().indexOf(query) > -1;
+  });
+
+  countEl.textContent = filtered.length;
+
+  if (!filtered.length) {
+    grid.style.display = 'none';
+    empty.style.display = 'flex';
+    return;
+  }
+  grid.style.display = 'grid';
+  empty.style.display = 'none';
+
+  grid.innerHTML = filtered.map(function(p) {
+    var hist = p.draftHistory || [];
+    var standings = p.standingsHistory || [];
+    var avgPick = hist.length ? (hist.reduce(function(s,h){return s+h.pick;},0)/hist.length).toFixed(1) : 'N/A';
+    var bestPick = hist.length ? Math.min.apply(null, hist.map(function(h){return h.pick;})) : 'N/A';
+    var initials = p.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+    var record = (p.wins || p.losses) ? (p.wins||0)+'-'+(p.losses||0) : 'N/A';
+    var avgFinish = calcAvgFinish(standings);
+    var color = p.color || '#6a9ec7';
+
+    // Awards
+    var awards = [];
+    if (p.championships) awards.push('<span class="award-pip gold">&#x1F3C6; ' + p.championships + ' ' + (p.championships === 1 ? 'Title' : 'Titles') + '</span>');
+    if (p.playoffs)      awards.push('<span class="award-pip blue">&#x1F947; ' + p.playoffs + ' ' + (p.playoffs === 1 ? 'Playoff' : 'Playoffs') + '</span>');
+    if (p.mvp)           awards.push('<span class="award-pip green">&#x2B50; ' + p.mvp + ' MVP</span>');
+    if (p.cyyoung)       awards.push('<span class="award-pip red">&#x1F3AF; ' + p.cyyoung + ' Cy Young</span>');
+    var awardsHtml = awards.length ? awards.join('') : '<span style="font-size:11px;color:var(--text2);font-style:italic;">No awards yet</span>';
+
+    // Recent draft pip icons (last 6)
+    var recentPicks = hist.slice(0, 6);
+    var pipsHtml = recentPicks.length
+      ? recentPicks.map(function(h) {
+          var cls = h.pick === 1 ? 'p1' : h.pick === 2 ? 'p2' : h.pick === 3 ? 'p3' : '';
+          return '<div class="draft-pip ' + cls + '" title="Pick #' + h.pick + ' on ' + h.date + '">' + h.pick + '</div>';
+        }).join('')
+      : '<span style="font-size:11px;color:var(--text2);font-style:italic;">No drafts yet</span>';
+
+    return '<div class="profile-card" onclick="openViewModal(\'' + p.id + '\')">' +
+      '<div class="pc-banner" style="background:linear-gradient(90deg,' + color + ',rgba(168,189,212,0.4),' + color + '22)"></div>' +
+      '<div class="pc-header">' +
+        '<div class="pc-avatar" style="background:' + color + '">' + initials + '</div>' +
+        '<div class="pc-info">' +
+          '<div class="pc-name">' + escHtml(p.name) + '</div>' +
+          (p.realname ? '<div class="pc-realname">' + escHtml(p.realname) + '</div>' : '') +
+          '<div class="pc-team">' + escHtml(p.team || 'No team') + ' &nbsp;&bull;&nbsp; ' + record + '</div>' +
+        '</div>' +
+        (p.championships ? '<div class="pc-champ-badge"><div class="pc-champ-num">&#x1F3C6;</div><div class="pc-champ-lbl">&times;' + p.championships + '</div></div>' : '') +
+      '</div>' +
+      '<div class="pc-stats">' +
+        '<div class="pc-stat"><div class="pc-stat-val">' + hist.length + '</div><div class="pc-stat-lbl">Drafts</div></div>' +
+        '<div class="pc-stat"><div class="pc-stat-val">' + avgPick + '</div><div class="pc-stat-lbl">Avg Pick</div></div>' +
+        '<div class="pc-stat"><div class="pc-stat-val">' + bestPick + '</div><div class="pc-stat-lbl">Best Pick</div></div>' +
+        '<div class="pc-stat"><div class="pc-stat-val" style="font-size:15px;">' + avgFinish + '</div><div class="pc-stat-lbl">Avg Finish</div></div>' +
+      '</div>' +
+      '<div class="pc-awards">' + awardsHtml + '</div>' +
+      '<div class="pc-draft-strip">' +
+        '<div class="pc-draft-label">Recent Draft Picks' + (hist.length > 6 ? ' (last 6)' : '') + '</div>' +
+        '<div class="pc-draft-pips">' + pipsHtml + '</div>' +
+      '</div>' +
+      '<div class="pc-actions" onclick="event.stopPropagation()">' +
+        '<button type="button" class="btn btn-ghost btn-sm" onclick="deleteProfile(\'' + p.id + '\')">&#x1F5D1;</button>' +
+        '<button type="button" class="btn btn-outline btn-sm" onclick="openProfileModal(\'' + p.id + '\')">Edit</button>' +
+        '<button type="button" class="btn btn-gold btn-sm" onclick="openViewModal(\'' + p.id + '\')">View</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function openViewModal(id) {
+  var p = null;
+  for (var i = 0; i < state.players.length; i++) {
+    if (state.players[i].id === id) { p = state.players[i]; break; }
+  }
+  if (!p) return;
+
+  var color = p.color || '#6a9ec7';
+  var hist = p.draftHistory || [];
+  var standings = p.standingsHistory || [];
+  var initials = p.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+  var avgPick = hist.length ? (hist.reduce(function(s,h){return s+h.pick;},0)/hist.length).toFixed(1) : 'N/A';
+  var bestPick = hist.length ? Math.min.apply(null, hist.map(function(h){return h.pick;})) : 'N/A';
+  var worstPick = hist.length ? Math.max.apply(null, hist.map(function(h){return h.pick;})) : 'N/A';
+  var avgFinish = calcAvgFinish(standings);
+  var record = (p.wins || p.losses) ? (p.wins||0)+'-'+(p.losses||0) : 'Not set';
+
+  document.getElementById('vm-banner').style.background = 'linear-gradient(90deg,' + color + ',rgba(168,189,212,0.35),' + color + '22)';
+  document.getElementById('vm-avatar').style.background = color;
+  document.getElementById('vm-avatar').textContent = initials;
+  document.getElementById('vm-name').textContent = p.name;
+  document.getElementById('vm-meta').innerHTML =
+    (p.realname ? escHtml(p.realname) + ' &nbsp;&bull;&nbsp; ' : '') +
+    escHtml(p.team || 'No team set') + ' &nbsp;&bull;&nbsp; Since ' + (p.joinDate || 'N/A');
+
+  var body = '';
+
+  // Career overview stats
+  body += '<div>' +
+    '<div class="vm-section-title">Career Overview</div>' +
+    '<div class="vm-stat-grid">' +
+      '<div class="vm-stat-box"><div class="vm-stat-val" style="color:var(--chrome1)">' + hist.length + '</div><div class="vm-stat-lbl">Total Drafts</div></div>' +
+      '<div class="vm-stat-box"><div class="vm-stat-val" style="color:var(--chrome1)">' + avgPick + '</div><div class="vm-stat-lbl">Avg Draft Pick</div></div>' +
+      '<div class="vm-stat-box"><div class="vm-stat-val" style="color:var(--chrome1)">' + bestPick + '</div><div class="vm-stat-lbl">Best Pick</div></div>' +
+      '<div class="vm-stat-box"><div class="vm-stat-val" style="color:var(--text2)">' + worstPick + '</div><div class="vm-stat-lbl">Worst Pick</div></div>' +
+      '<div class="vm-stat-box"><div class="vm-stat-val" style="color:var(--chrome1)">' + avgFinish + '</div><div class="vm-stat-lbl">Avg Standings</div></div>' +
+      '<div class="vm-stat-box"><div class="vm-stat-val" style="color:var(--text2);font-size:18px;">' + record + '</div><div class="vm-stat-lbl">Last Season W-L</div></div>' +
+    '</div>' +
+  '</div>';
+
+  // Awards
+  body += '<div>' +
+    '<div class="vm-section-title">Awards &amp; Achievements</div>' +
+    '<div class="vm-award-grid">' +
+      '<div class="vm-award-box"><div class="vm-award-icon">&#x1F3C6;</div><div><div class="vm-award-val" style="color:var(--chrome1)">' + (p.championships||0) + '</div><div class="vm-award-lbl">Championships</div></div></div>' +
+      '<div class="vm-award-box"><div class="vm-award-icon">&#x1F947;</div><div><div class="vm-award-val" style="color:#7ab0f5">' + (p.playoffs||0) + '</div><div class="vm-award-lbl">Playoff Appearances</div></div></div>' +
+      '<div class="vm-award-box"><div class="vm-award-icon">&#x2B50;</div><div><div class="vm-award-val" style="color:#55d98d">' + (p.mvp||0) + '</div><div class="vm-award-lbl">League MVPs</div></div></div>' +
+      '<div class="vm-award-box"><div class="vm-award-icon">&#x1F3AF;</div><div><div class="vm-award-val" style="color:#f07070">' + (p.cyyoung||0) + '</div><div class="vm-award-lbl">Cy Young Awards</div></div></div>' +
+    '</div>' +
+  '</div>';
+
+  // Standings history
+  body += '<div><div class="vm-section-title">Standings History</div>';
+  if (standings.length) {
+    var sRows = standings.map(function(e) {
+      return '<tr><td>' + escHtml(e.label) + '</td><td><span class="pick-chip">#' + e.finish + '</span></td><td style="color:var(--text2)">' + (e.addedAt||'') + '</td></tr>';
+    }).join('');
+    body += '<table class="history-table"><thead><tr><th>Season</th><th>Finish</th><th>Logged</th></tr></thead><tbody>' + sRows + '</tbody></table>' +
+      '<div style="margin-top:10px;padding:10px 14px;background:var(--surface3);border-radius:8px;display:flex;align-items:center;justify-content:space-between;">' +
+        '<span style="font-family:Barlow Condensed;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);">Calculated Average Finish</span>' +
+        '<span style="font-family:Bebas Neue;font-size:26px;color:var(--chrome1)">' + avgFinish + '</span>' +
+      '</div>';
+  } else {
+    body += '<div style="font-size:13px;color:var(--text2);padding:4px 0;">No seasons logged yet. Use Edit to add season finishes.</div>';
+  }
+  body += '</div>';
+
+  // Draft history
+  body += '<div><div class="vm-section-title">Draft History</div>';
+  if (hist.length) {
+    var dRows = hist.map(function(h) {
+      var cls = h.pick === 1 ? 'p1' : h.pick === 2 ? 'p2' : h.pick === 3 ? 'p3' : '';
+      return '<tr><td>' + h.date + '</td><td><div class="draft-pip ' + cls + '" style="display:inline-flex">' + h.pick + '</div></td><td><span class="tag tag-gold">' + (h.mode||'random') + '</span></td></tr>';
+    }).join('');
+    body += '<table class="history-table"><thead><tr><th>Date</th><th>Pick</th><th>Mode</th></tr></thead><tbody>' + dRows + '</tbody></table>';
+  } else {
+    body += '<div style="font-size:13px;color:var(--text2);padding:4px 0;">No drafts recorded yet.</div>';
+  }
+  body += '</div>';
+
+  document.getElementById('vm-body').innerHTML = body;
+  document.getElementById('view-modal').classList.add('open');
+}
+
+function closeViewModal() {
+  document.getElementById('view-modal').classList.remove('open');
+}
+function updateDashboard() {
+  document.getElementById('dash-players').textContent = state.players.length;
+  document.getElementById('dash-drafts').textContent = state.draftsGenerated;
+  renderHomeScheduleWidget();
+  var actEl = document.getElementById('activity-list');
+  if (!state.activityLog.length) {
+    actEl.innerHTML = '<div class="empty-state" style="min-height:120px;"><div class="empty-icon">&#x1F4CB;</div><div class="empty-text">No activity yet</div></div>';
+    return;
+  }
+  actEl.innerHTML = state.activityLog.slice(0,6).map(function(a) {
+    return '<div class="activity-item"><div class="activity-dot"></div><div><div class="activity-text">' + escHtml(a.text) + '</div><div class="activity-time">' + a.time + '</div></div></div>';
+  }).join('');
+}
+
+function logActivity(text) {
+  state.activityLog.unshift({ text: text, time: new Date().toLocaleTimeString() });
+  if (state.activityLog.length > 20) state.activityLog.length = 20;
+}
+
+function toast(msg) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(function() { el.classList.remove('show'); }, 2400);
+}
+
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escAttr(str) {
+  return String(str || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+}
+
+// ════════════════════════════════════════════════
+// SEASON MANAGEMENT
+// ════════════════════════════════════════════════
+
+var seasonState = {
+  seasons: [],          // [{id, name, number, game, status, startDate, endDate, roster, teamAssignments}]
+  editingSeasonId: null,
+  activeSeasonTab: {},  // {seasonId: 'roster'|'teams'|'settings'}
+  teamAssignEditing: null,
+};
+
+var MLB_TEAMS = [
+  'Arizona Diamondbacks','Atlanta Braves','Baltimore Orioles','Boston Red Sox',
+  'Chicago Cubs','Chicago White Sox','Cincinnati Reds','Cleveland Guardians',
+  'Colorado Rockies','Detroit Tigers','Houston Astros','Kansas City Royals',
+  'Los Angeles Angels','Los Angeles Dodgers','Miami Marlins','Milwaukee Brewers',
+  'Minnesota Twins','New York Mets','New York Yankees','Oakland Athletics',
+  'Philadelphia Phillies','Pittsburgh Pirates','San Diego Padres','San Francisco Giants',
+  'Seattle Mariners','St. Louis Cardinals','Tampa Bay Rays','Texas Rangers',
+  'Toronto Blue Jays','Washington Nationals'
+];
+
+function saveSeasonState() {
+  try { localStorage.setItem('dna_seasons', JSON.stringify(seasonState)); } catch(e) {}
+}
+function loadSeasonState() {
+  try {
+    var s = localStorage.getItem('dna_seasons');
+    if (s) {
+      var p = JSON.parse(s);
+      Object.keys(p).forEach(function(k) { seasonState[k] = p[k]; });
+    }
+  } catch(e) {}
+}
+
+// ── INIT ─────────────────────────────────────────
+function initSeasonsPage() {
+  // Show create button for commissioner+
+  var wrap = document.getElementById('season-create-btn-wrap');
+  if (canManageSchedule()) {
+    wrap.innerHTML = '<button type="button" class="btn btn-gold" onclick="openSeasonModal(null)">+ Create Season</button>';
+  } else {
+    wrap.innerHTML = '';
+  }
+  renderSeasonsList();
+}
+
+// ── RENDER SEASONS LIST ───────────────────────────
+function renderSeasonsList() {
+  var list = document.getElementById('seasons-list');
+
+  if (!seasonState.seasons.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">&#x1F3C6;</div><div class="empty-text">No seasons yet &mdash; create your first</div></div>';
+    return;
+  }
+
+  // Sort: active first, then by number descending
+  var sorted = seasonState.seasons.slice().sort(function(a, b) {
+    var order = { active:0, playoffs:1, upcoming:2, completed:3, cancelled:4 };
+    if ((order[a.status]||5) !== (order[b.status]||5)) return (order[a.status]||5) - (order[b.status]||5);
+    return (b.number||0) - (a.number||0);
+  });
+
+  list.innerHTML = sorted.map(function(s) {
+    return renderSeasonCard(s);
+  }).join('');
+}
+
+function renderSeasonCard(s) {
+  var statusClass = 'status-' + s.status;
+  var cardClass   = s.status === 'active' ? 'season-card active-season' :
+                    s.status === 'playoffs' ? 'season-card playoffs-season' : 'season-card';
+  var tab = seasonState.activeSeasonTab[s.id] || 'roster';
+  var roster = s.roster || [];
+  var teams  = s.teamAssignments || {};
+
+  var statusLabel = s.status.charAt(0).toUpperCase() + s.status.slice(1);
+  var dateStr = '';
+  if (s.startDate) dateStr = s.startDate + (s.endDate ? ' → ' + s.endDate : '');
+
+  // Status transition buttons
+  var transitions = '';
+  if (canManageSchedule()) {
+    if (s.status === 'upcoming') {
+      transitions += '<button type="button" class="transition-btn" style="background:rgba(46,204,113,0.15);color:var(--green);" onclick="transitionSeason(\'' + s.id + '\',\'active\')">Activate</button>';
+      transitions += '<button type="button" class="transition-btn" style="background:rgba(217,64,64,0.12);color:var(--red);margin-left:6px;" onclick="transitionSeason(\'' + s.id + '\',\'cancelled\')">Cancel</button>';
+    }
+    if (s.status === 'active') {
+      transitions += '<button type="button" class="transition-btn" style="background:rgba(201,168,76,0.15);color:var(--gold2);" onclick="transitionSeason(\'' + s.id + '\',\'playoffs\')">Start Playoffs</button>';
+    }
+    if (s.status === 'playoffs') {
+      transitions += '<button type="button" class="transition-btn" style="background:rgba(255,255,255,0.08);color:var(--text2);" onclick="transitionSeason(\'' + s.id + '\',\'completed\')">Complete Season</button>';
+    }
+  }
+
+  // Roster tab content
+  var rosterContent = '';
+  if (!roster.length) {
+    rosterContent = '<div style="font-size:13px;color:var(--text2);padding:4px 0;">No players rostered yet.</div>';
+    if (canManageSchedule()) {
+      rosterContent += '<button type="button" class="btn btn-outline btn-sm" style="margin-top:10px;" onclick="openRosterEditor(\'' + s.id + '\')">+ Add Players</button>';
+    }
+  } else {
+    rosterContent = '<div class="roster-grid">' + roster.map(function(r) {
+      var player = state.players.find(function(p) { return p.id === r.memberId; });
+      if (!player) return '';
+      var initials = player.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+      var dotClass = r.status === 'confirmed' ? 'dot-confirmed' : r.status === 'pending' ? 'dot-pending' : 'dot-invited';
+      var itemClass = r.status === 'confirmed' ? 'roster-item confirmed' : r.status === 'pending' ? 'roster-item pending' : 'roster-item';
+      return '<div class="' + itemClass + '">' +
+        '<div class="avatar-sm" style="background:' + (player.color||'#6a9ec7') + ';font-size:11px;">' + initials + '</div>' +
+        '<div class="roster-name">' + escHtml(player.name) + '</div>' +
+        '<div class="roster-status-dot ' + dotClass + '" title="' + r.status + '"></div>' +
+        (canManageSchedule() ? '<button type="button" class="btn btn-ghost" style="padding:2px 6px;font-size:14px;" onclick="event.stopPropagation();removeFromRoster(\'' + s.id + '\',\'' + r.memberId + '\')">&times;</button>' : '') +
+        '</div>';
+    }).join('') + '</div>';
+    if (canManageSchedule() && s.status === 'upcoming') {
+      rosterContent += '<div style="margin-top:10px;display:flex;gap:8px;">' +
+        '<button type="button" class="btn btn-outline btn-sm" onclick="openRosterEditor(\'' + s.id + '\')">Edit Roster</button>' +
+        '</div>';
+    }
+  }
+
+  // Teams tab content — exclude teams already assigned to other players
+  var takenTeams = {}; // team -> memberId
+  Object.keys(teams).forEach(function(id) {
+    if (teams[id]) takenTeams[teams[id]] = id;
+  });
+
+  var teamsContent = '<div style="max-height:380px;overflow-y:auto;">' +
+    (roster.length ? roster.map(function(r) {
+      var player = state.players.find(function(p) { return p.id === r.memberId; });
+      if (!player) return '';
+      var assigned = teams[r.memberId] || '';
+
+      var options = '<option value="">— Unassigned —</option>' +
+        MLB_TEAMS.map(function(t) {
+          var takenBy = takenTeams[t];
+          var isMine  = takenBy === r.memberId;
+          var isTaken = takenBy && !isMine;
+          if (isTaken) return ''; // hide teams taken by others
+          return '<option value="' + t + '"' + (assigned === t ? ' selected' : '') + '>' + t + '</option>';
+        }).join('');
+
+      return '<div class="team-assignment-row">' +
+        '<div class="ta-player">' +
+          '<div class="avatar-sm" style="background:' + (player.color||'#6a9ec7') + ';font-size:11px;">' +
+            player.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase() +
+          '</div>' +
+          escHtml(player.name) +
+        '</div>' +
+        '<div class="ta-team">' +
+          '<select id="ta-' + s.id + '-' + r.memberId + '" ' +
+            (canManageSchedule() ? 'onchange="updateTeamAssignmentLive(\'' + s.id + '\')"' : 'disabled') + '>' +
+            options +
+          '</select>' +
+        '</div>' +
+        (assigned ? '<span class="tag tag-gold" style="flex-shrink:0;font-size:10px;">' + escHtml(assigned.split(' ').pop()) + '</span>' : '') +
+        '</div>';
+    }).join('') : '<div style="font-size:13px;color:var(--text2);">Roster players first before assigning teams.</div>') +
+    '</div>';
+  if (canManageSchedule() && roster.length) {
+    teamsContent += '<div style="margin-top:12px;">' +
+      '<button type="button" class="btn btn-gold btn-sm" onclick="saveTeamAssignmentsDirect(\'' + s.id + '\')">Save Team Assignments</button>' +
+      '</div>';
+  }
+
+  // Settings tab
+  var settingsContent = '';
+  if (canManageSchedule()) {
+    var isEditable = s.status !== 'completed';
+    settingsContent = '<div style="display:flex;flex-direction:column;gap:16px;">';
+
+    // Edit + Reset team assignments row
+    settingsContent += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">';
+    if (isEditable) {
+      settingsContent += '<button type="button" class="btn btn-outline btn-sm" onclick="openSeasonModal(\'' + s.id + '\')">&#x270F; Edit Season Details</button>';
+    }
+    if (Object.keys(teams).length > 0) {
+      settingsContent += '<button type="button" class="btn btn-outline btn-sm" onclick="resetTeamAssignments(\'' + s.id + '\')" style="color:var(--gold);border-color:rgba(201,168,76,0.3);">&#x21BA; Reset Team Assignments</button>';
+    }
+    settingsContent += '</div>';
+
+    // Status info
+    var statusNote = {
+      upcoming:  'Season has not started yet. Roster, team assignments, and schedule can be freely modified.',
+      active:    'Season is in progress. Roster and schedule are locked.',
+      playoffs:  'Playoffs are underway.',
+      completed: 'This season is complete. All data is read-only.',
+      cancelled: 'This season was cancelled.'
+    }[s.status] || '';
+    if (statusNote) {
+      settingsContent += '<div style="font-size:12px;color:var(--text2);padding:8px 12px;background:var(--surface3);border-radius:6px;">' + statusNote + '</div>';
+    }
+
+    // Delete — available to commissioner+ for any status
+    settingsContent += '<div style="padding-top:4px;border-top:1px solid rgba(255,255,255,0.06);">';
+    settingsContent += '<div style="font-family:\'Barlow Condensed\';font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);margin-bottom:8px;">Danger Zone</div>';
+    settingsContent += '<button type="button" class="btn btn-sm" style="background:rgba(217,64,64,0.12);color:var(--red);border:1px solid rgba(217,64,64,0.25);" onclick="deleteSeason(\'' + s.id + '\')">&#x1F5D1; Delete Season</button>';
+    settingsContent += '<div style="font-size:11px;color:var(--text2);margin-top:6px;">Permanently removes all season data including roster, team assignments, and schedule.</div>';
+    settingsContent += '</div>';
+
+    settingsContent += '</div>';
+  } else {
+    settingsContent = '<div style="font-size:13px;color:var(--text2);">Season settings are managed by the commissioner.</div>';
+  }
+
+  return '<div class="' + cardClass + '" id="season-card-' + s.id + '">' +
+    '<div class="season-card-header">' +
+      '<div class="season-card-left">' +
+        '<div class="season-number">' + (s.number||'?') + '</div>' +
+        '<div class="season-info">' +
+          '<div class="season-name">' + escHtml(s.name) + '</div>' +
+          '<div class="season-game">' + escHtml(s.game||'MLB The Show') + '</div>' +
+          (dateStr ? '<div class="season-dates">' + dateStr + '</div>' : '') +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:10px;">' +
+        transitions +
+        '<span class="status-pill ' + statusClass + '">' + statusLabel + '</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="season-card-body">' +
+      '<div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.75rem;flex-wrap:wrap;">' +
+        '<div class="season-tabs">' +
+          '<button type="button" class="season-tab' + (tab==='roster'?' active':'') + '" onclick="switchSeasonTab(\'' + s.id + '\',\'roster\',this)">Roster <span style="font-size:11px;">(' + roster.filter(function(r){ return !!state.players.find(function(p){return p.id===r.memberId;}); }).length + ')</span></button>' +
+          '<button type="button" class="season-tab' + (tab==='teams'?' active':'') + '" onclick="switchSeasonTab(\'' + s.id + '\',\'teams\',this)">Teams</button>' +
+          '<button type="button" class="season-tab' + (tab==='settings'?' active':'') + '" onclick="switchSeasonTab(\'' + s.id + '\',\'settings\',this)">Settings</button>' +
+        '</div>' +
+        '<div style="margin-left:auto;font-size:12px;color:var(--text2);">' +
+          roster.filter(function(r){return r.status==='confirmed';}).length + ' confirmed &nbsp;/&nbsp; ' + roster.filter(function(r){ return !!state.players.find(function(p){return p.id===r.memberId;}); }).length + ' total' +
+        '</div>' +
+      '</div>' +
+      '<div id="season-tab-content-' + s.id + '">' +
+        (tab === 'roster' ? rosterContent : tab === 'teams' ? teamsContent : settingsContent) +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+function switchSeasonTab(seasonId, tab, tabEl) {
+  seasonState.activeSeasonTab[seasonId] = tab;
+  saveSeasonState();
+  // Re-render just this card
+  var season = seasonState.seasons.find(function(s) { return s.id === seasonId; });
+  if (!season) return;
+  var card = document.getElementById('season-card-' + seasonId);
+  if (!card) return;
+  var newCard = document.createElement('div');
+  newCard.innerHTML = renderSeasonCard(season);
+  card.parentNode.replaceChild(newCard.firstChild, card);
+}
+
+// ── SEASON CRUD ───────────────────────────────────
+function openSeasonModal(id) {
+  seasonState.editingSeasonId = id || null;
+  var s = id ? seasonState.seasons.find(function(x){return x.id===id;}) : null;
+  document.getElementById('season-modal-title').textContent = id ? 'Edit Season' : 'Create Season';
+  document.getElementById('sm-name').value   = s ? s.name : 'Season ' + (seasonState.seasons.length + 1);
+  document.getElementById('sm-number').value = s ? s.number : seasonState.seasons.length + 1;
+  document.getElementById('sm-game').value   = s ? (s.game||'') : 'MLB The Show 25';
+  document.getElementById('sm-status').value = s ? s.status : 'upcoming';
+  document.getElementById('sm-start').value  = s ? (s.startDate||'') : '';
+  document.getElementById('sm-end').value    = s ? (s.endDate||'') : '';
+  document.getElementById('season-modal').classList.add('open');
+}
+
+function closeSeasonModal() {
+  document.getElementById('season-modal').classList.remove('open');
+}
+
+function saveSeason() {
+  var name = document.getElementById('sm-name').value.trim();
+  if (!name) { toast('Season name is required'); return; }
+
+  var data = {
+    name:      name,
+    number:    parseInt(document.getElementById('sm-number').value) || 1,
+    game:      document.getElementById('sm-game').value.trim() || 'MLB The Show 25',
+    status:    document.getElementById('sm-status').value,
+    startDate: document.getElementById('sm-start').value || null,
+    endDate:   document.getElementById('sm-end').value || null,
+  };
+
+  if (seasonState.editingSeasonId) {
+    var idx = seasonState.seasons.findIndex(function(s){return s.id===seasonState.editingSeasonId;});
+    if (idx > -1) {
+      Object.keys(data).forEach(function(k){ seasonState.seasons[idx][k] = data[k]; });
+    }
+    toast('Season updated');
+  } else {
+    data.id              = 'season-' + Date.now();
+    data.roster          = [];
+    data.teamAssignments = {};
+    seasonState.seasons.push(data);
+    logActivity('Season "' + name + '" created');
+    toast('Season created!');
+  }
+
+  saveSeasonState();
+  closeSeasonModal();
+  renderSeasonsList();
+  updateDashboard();
+  populateSeasonDropdown();
+}
+
+function deleteSeason(id) {
+  var s = seasonState.seasons.find(function(x){return x.id===id;});
+  if (!s) return;
+
+  var confirmMsg;
+  if (s.status === 'active' || s.status === 'playoffs') {
+    confirmMsg = 'WARNING: "' + s.name + '" is currently ' + s.status + '.\n\nDeleting an active season will permanently remove all roster data, team assignments, and schedule.\n\nType DELETE to confirm.';
+    var input = prompt(confirmMsg);
+    if (!input || input.trim().toUpperCase() !== 'DELETE') {
+      toast('Delete cancelled — type DELETE to confirm');
+      return;
+    }
+  } else if (s.status === 'completed') {
+    confirmMsg = 'Delete completed season "' + s.name + '"?\n\nThis will permanently remove all historical data for this season. This cannot be undone.';
+    if (!confirm(confirmMsg)) return;
+  } else {
+    if (!confirm('Delete "' + s.name + '"? This cannot be undone.')) return;
+  }
+
+  seasonState.seasons = seasonState.seasons.filter(function(x){return x.id!==id;});
+  saveSeasonState();
+  renderSeasonsList();
+  populateSeasonDropdown();
+  logActivity('"' + s.name + '" was deleted');
+  toast('Season deleted');
+}
+
+function resetTeamAssignments(id) {
+  var s = seasonState.seasons.find(function(x){return x.id===id;});
+  if (!s) return;
+  if (!confirm('Reset all team assignments for "' + s.name + '"?\n\nAll MLB team selections will be cleared. Roster and schedule are not affected.')) return;
+  s.teamAssignments = {};
+  saveSeasonState();
+  renderSeasonsList();
+  toast('Team assignments cleared');
+}
+
+function transitionSeason(id, newStatus) {
+  var s = seasonState.seasons.find(function(x){return x.id===id;});
+  if (!s) return;
+
+  var label = { active:'activate', playoffs:'start playoffs for', completed:'complete', cancelled:'cancel' }[newStatus] || newStatus;
+  if (!confirm('Are you sure you want to ' + label + ' "' + s.name + '"?')) return;
+
+  s.status = newStatus;
+  saveSeasonState();
+  renderSeasonsList();
+  logActivity('"' + s.name + '" status changed to ' + newStatus);
+  updateDashboard();
+  toast('Season status updated to ' + newStatus);
+}
+
+// ── ROSTER MANAGEMENT ────────────────────────────
+function openRosterEditor(seasonId) {
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s) return;
+
+  seasonState.rosterEditingSeasonId = seasonId;
+
+  var available = state.players.filter(function(p) {
+    return !(s.roster||[]).find(function(r){return r.memberId===p.id;});
+  });
+
+  var modal = document.getElementById('roster-picker-modal');
+  var body  = document.getElementById('roster-picker-body');
+  var title = document.getElementById('roster-picker-title');
+
+  title.textContent = 'Add Players to ' + s.name;
+
+  if (!available.length) {
+    body.innerHTML = '<div style="font-size:13px;color:var(--text2);padding:8px 0;">All registered players are already on this roster.</div>';
+  } else {
+    body.innerHTML = '<div style="margin-bottom:12px;display:flex;gap:8px;">' +
+      '<button type="button" class="btn btn-outline btn-sm" onclick="rosterPickerSelectAll(true)">Select All</button>' +
+      '<button type="button" class="btn btn-outline btn-sm" onclick="rosterPickerSelectAll(false)">Deselect All</button>' +
+      '</div>' +
+      '<div class="roster-picker-grid">' +
+      available.map(function(p) {
+        var initials = p.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+        return '<label class="roster-picker-item" for="rp-' + p.id + '">' +
+          '<input type="checkbox" id="rp-' + p.id + '" value="' + p.id + '" class="rp-check">' +
+          '<div class="avatar-sm" style="background:' + (p.color||'#6a9ec7') + ';font-size:11px;">' + initials + '</div>' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="font-family:\'Barlow Condensed\';font-size:15px;font-weight:600;">' + escHtml(p.name) + '</div>' +
+            (p.team ? '<div style="font-size:11px;color:var(--text2);">' + escHtml(p.team) + '</div>' : '') +
+          '</div>' +
+        '</label>';
+      }).join('') +
+      '</div>';
+  }
+
+  modal.classList.add('open');
+}
+
+function rosterPickerSelectAll(checked) {
+  document.querySelectorAll('.rp-check').forEach(function(cb){ cb.checked = checked; });
+}
+
+function confirmRosterPicker() {
+  var seasonId = seasonState.rosterEditingSeasonId;
+  if (!seasonId) return;
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s) return;
+
+  var checked = Array.from(document.querySelectorAll('.rp-check:checked')).map(function(cb){ return cb.value; });
+  if (!checked.length) { toast('No players selected'); return; }
+
+  if (!s.roster) s.roster = [];
+  var added = 0;
+  checked.forEach(function(id) {
+    if (!s.roster.find(function(r){return r.memberId===id;})) {
+      s.roster.push({ memberId: id, status: 'invited' });
+      added++;
+    }
+  });
+
+  saveSeasonState();
+  closeRosterPickerModal();
+  renderSeasonsList();
+  toast('Added ' + added + ' player' + (added !== 1 ? 's' : '') + ' to roster');
+}
+
+function closeRosterPickerModal() {
+  document.getElementById('roster-picker-modal').classList.remove('open');
+  seasonState.rosterEditingSeasonId = null;
+}
+
+function removeFromRoster(seasonId, memberId) {
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s || !s.roster) return;
+  s.roster = s.roster.filter(function(r){return r.memberId!==memberId;});
+  if (s.teamAssignments) delete s.teamAssignments[memberId];
+  saveSeasonState();
+  renderSeasonsList();
+  toast('Player removed from roster');
+}
+
+// Allow a member to confirm their own participation
+function confirmParticipation(seasonId) {
+  if (!currentMember) return;
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s || !s.roster) return;
+  var entry = s.roster.find(function(r){return r.memberId===currentMember.id;});
+  if (!entry) return;
+  entry.status = 'confirmed';
+  saveSeasonState();
+  renderSeasonsList();
+  toast('Participation confirmed!');
+}
+
+// ── TEAM ASSIGNMENTS ─────────────────────────────
+// Called when a single team dropdown changes.
+// Saves ONLY that one assignment, then refreshes available options
+// in all OTHER dropdowns for this season — no full card re-render.
+function updateTeamAssignmentLive(seasonId) {
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s || !s.roster) return;
+  if (!s.teamAssignments) s.teamAssignments = {};
+
+  // Save current value of every dropdown that is currently rendered
+  s.roster.forEach(function(r) {
+    var sel = document.getElementById('ta-' + seasonId + '-' + r.memberId);
+    if (sel && sel.value !== '') {
+      s.teamAssignments[r.memberId] = sel.value;
+    }
+    // Do NOT overwrite with empty — only save positive selections
+  });
+
+  saveSeasonState();
+
+  // Build taken set from saved assignments only
+  var taken = {};
+  Object.keys(s.teamAssignments).forEach(function(id) {
+    if (s.teamAssignments[id]) taken[s.teamAssignments[id]] = id;
+  });
+
+  // Refresh each dropdown's options without touching its selected value
+  s.roster.forEach(function(r) {
+    var sel = document.getElementById('ta-' + seasonId + '-' + r.memberId);
+    if (!sel) return;
+    var currentVal = s.teamAssignments[r.memberId] || '';
+    var currentText = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+
+    // Rebuild options: show all teams except those taken by someone else
+    var html = '<option value="">— Unassigned —</option>';
+    MLB_TEAMS.forEach(function(t) {
+      var takenBy = taken[t];
+      var isMine  = takenBy === r.memberId;
+      var isTaken = takenBy && !isMine;
+      if (!isTaken) {
+        html += '<option value="' + t + '"' + (currentVal === t ? ' selected' : '') + '>' + t + '</option>';
+      }
+    });
+    sel.innerHTML = html;
+  });
+}
+
+function saveTeamAssignmentsDirect(seasonId) {
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s || !s.roster) return;
+  if (!s.teamAssignments) s.teamAssignments = {};
+
+  s.roster.forEach(function(r) {
+    var sel = document.getElementById('ta-' + seasonId + '-' + r.memberId);
+    if (sel) s.teamAssignments[r.memberId] = sel.value;
+  });
+
+  saveSeasonState();
+  toast('Team assignments saved');
+}
+
+function closeTeamAssignModal() {
+  document.getElementById('team-assign-modal').classList.remove('open');
+}
+function saveTeamAssignments() { closeTeamAssignModal(); }
+
+// ── ACTIVE SEASON HELPER ──────────────────────────
+// Returns the active or most recent upcoming season
+function getActiveSeason() {
+  var active = seasonState.seasons.find(function(s){ return s.status === 'active'; });
+  if (active) return active;
+  var upcoming = seasonState.seasons.filter(function(s){ return s.status === 'upcoming'; });
+  upcoming.sort(function(a,b){ return (b.number||0)-(a.number||0); });
+  return upcoming[0] || null;
+}
+
+// Returns roster player names for a given season (used by schedule generator)
+function getSeasonRoster(seasonId) {
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s || !s.roster || !s.roster.length) return [];
+  return s.roster.map(function(r) {
+    var p = state.players.find(function(pl){ return pl.id === r.memberId; });
+    return p ? p.name : null;
+  }).filter(Boolean);
+}
+
+// ════════════════════════════════════════════════
+// SCHEDULE GENERATOR
+// ════════════════════════════════════════════════
+
+var scheduleState = {
+  generatedWeeks: [],   // [{weekNum, matchups:[{home,away}], byes:[name]}]
+  seasonId: null,
+  seasonStatus: null,
+  seriesLength: 3,
+  matchupsPerWeek: 2,
+};
+
+function canManageSchedule() {
+  if (!currentMember) return false;
+  return ['admin','commissioner','co_commissioner'].indexOf(currentMember.role) > -1;
+}
+
+function initSchedulePage() {
+  var controlsPanel = document.getElementById('schedule-controls-panel');
+  var lockBanner    = document.getElementById('schedule-lock-banner');
+
+  // Show/hide controls based on role
+  controlsPanel.style.display = canManageSchedule() ? '' : 'none';
+
+  // Populate season dropdown from state.players league context
+  populateSeasonDropdown();
+
+  // Restore any previously generated schedule from state
+  if (scheduleState.generatedWeeks.length) {
+    renderSchedule(scheduleState.generatedWeeks, scheduleState.seriesLength);
+    updateSaveBar();
+    document.getElementById('sched-clear-btn').style.display = '';
+  }
+}
+
+function populateSeasonDropdown() {
+  var sel = document.getElementById('sched-season-select');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Select season...</option>';
+  seasonState.seasons.forEach(function(s) {
+    var opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name + ' (' + s.status + ')';
+    if (s.status === 'active') opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// ── SCHEDULE GENERATION ──────────────────────────
+// Round robin using the circle method.
+// Returns an array of matchup pairs: [{home, away}]
+// for each "slot" - a single pairing of every team.
+function generateAllPairings(teams) {
+  var n = teams.length;
+  var list = teams.slice();
+  var allPairings = []; // flat list of every {home, away} pair
+  var byeAssignments = []; // flat list of bye names
+
+  var hasBye = n % 2 !== 0;
+  if (hasBye) {
+    list.push('__BYE__');
+    n = list.length;
+  }
+
+  var numRounds = n - 1;
+
+  for (var r = 0; r < numRounds; r++) {
+    for (var i = 0; i < n / 2; i++) {
+      var home = list[i];
+      var away = list[n - 1 - i];
+      if (home === '__BYE__' || away === '__BYE__') {
+        byeAssignments.push({ roundIndex: r, team: home === '__BYE__' ? away : home });
+      } else {
+        allPairings.push({ home: home, away: away, roundIndex: r });
+      }
+    }
+    // Rotate: keep list[0] fixed, rotate rest
+    var last = list[n - 1];
+    for (var j = n - 1; j > 1; j--) {
+      list[j] = list[j - 1];
+    }
+    list[1] = last;
+  }
+
+  return { pairings: allPairings, byes: byeAssignments, numRounds: numRounds };
+}
+
+// Pack rounds into weeks.
+// With an even number of teams, the circle method guarantees
+// consecutive rounds have NO overlapping teams, so we can
+// always safely pair rounds without any conflict checking.
+function packIntoWeeks(rounds, matchupsPerWeek) {
+  var weeks = [];
+  var remaining = rounds.slice();
+  var weekNum = 1;
+
+  while (remaining.length > 0) {
+    var wm = [], wb = [];
+    // Take up to matchupsPerWeek rounds straight — no conflict check needed
+    // (circle method guarantees consecutive rounds are disjoint for even N)
+    var toTake = Math.min(matchupsPerWeek, remaining.length);
+    for (var i = 0; i < toTake; i++) {
+      var round = remaining.shift();
+      round.forEach(function(m) {
+        if (m.bye) wb.push(m.bye);
+        else wm.push(m);
+      });
+    }
+    if (wm.length || wb.length) {
+      weeks.push({ weekNum: weekNum++, matchups: wm, byes: wb });
+    }
+  }
+  return weeks;
+}
+
+function generateRoundRobin(teams) {
+  var n = teams.length;
+  var list = teams.slice();
+  var rounds = [];
+
+  var hasBye = n % 2 !== 0;
+  if (hasBye) { list.push('__BYE__'); n = list.length; }
+
+  var numRounds = n - 1;
+  for (var r = 0; r < numRounds; r++) {
+    var round = [];
+    for (var i = 0; i < n / 2; i++) {
+      var home = list[i];
+      var away = list[n - 1 - i];
+      if (home === '__BYE__' || away === '__BYE__') {
+        round.push({ bye: home === '__BYE__' ? away : home });
+      } else {
+        round.push({ home: home, away: away });
+      }
+    }
+    rounds.push(round);
+    var last = list[n - 1];
+    for (var j = n - 1; j > 1; j--) { list[j] = list[j - 1]; }
+    list[1] = last;
+  }
+  return rounds;
+}
+
+// ── MAIN GENERATE FUNCTION ────────────────────────
+function generateSchedule() {
+  var matchupsPerWeek = parseInt(document.getElementById('sched-matchups-per-week').value) || 2;
+  var seriesLength    = parseInt(document.getElementById('sched-series-length').value) || 3;
+  var seasonId        = document.getElementById('sched-season-select').value;
+
+  // Get team list from season roster if season selected, otherwise fall back to all players
+  var teams;
+  if (seasonId) {
+    teams = getSeasonRoster(seasonId);
+    if (!teams.length) {
+      toast('Selected season has no rostered players. Add players in the Seasons tab first.');
+      return;
+    }
+    // Check if season is locked (active or beyond)
+    var season = seasonState.seasons.find(function(s){return s.id===seasonId;});
+    if (season && season.status !== 'upcoming') {
+      toast('Schedule is locked — season is no longer in upcoming status.');
+      return;
+    }
+  } else {
+    teams = state.players.map(function(p) { return p.name; });
+    if (!teams.length) {
+      toast('No players found. Add players in the Players tab or select a season with a roster.');
+      return;
+    }
+  }
+
+  if (teams.length < 2) { toast('Need at least 2 players to generate a schedule'); return; }
+  if (teams.length > 32) { toast('Maximum 32 teams supported'); return; }
+
+  // Shuffle teams for random initial seeding
+  for (var i = teams.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = teams[i]; teams[i] = teams[j]; teams[j] = tmp;
+  }
+
+  var rounds = generateRoundRobin(teams);
+  var weeks  = packIntoWeeks(rounds, matchupsPerWeek);
+
+  scheduleState.generatedWeeks  = weeks;
+  scheduleState.seriesLength    = seriesLength;
+  scheduleState.matchupsPerWeek = matchupsPerWeek;
+  scheduleState.seasonId        = seasonId || null;
+  scheduleState.savedAt         = null; // mark as unsaved after new generation
+
+  saveState();
+  logActivity('Schedule generated — ' + weeks.length + ' weeks, ' + teams.length + ' teams');
+  updateDashboard();
+  renderSchedule(weeks, seriesLength);
+  updateSaveBar();
+  document.getElementById('sched-clear-btn').style.display = '';
+  toast('Schedule generated — ' + weeks.length + ' weeks!');
+}
+
+function clearSchedule() {
+  if (!confirm('Clear the current schedule?')) return;
+  scheduleState.generatedWeeks = [];
+  scheduleState.savedAt = null;
+  saveState();
+  document.getElementById('schedule-output').innerHTML =
+    '<div class="empty-state"><div class="empty-icon">&#x1F4C5;</div><div class="empty-text">Configure options above and generate a schedule</div></div>';
+  document.getElementById('schedule-summary').style.display = 'none';
+  document.getElementById('sched-clear-btn').style.display = 'none';
+  document.getElementById('sched-save-bar').style.display = 'none';
+  updateDashboard();
+  toast('Schedule cleared');
+}
+
+// ── RENDER SCHEDULE ───────────────────────────────
+function renderSchedule(weeks, seriesLength) {
+  if (!weeks || !weeks.length) return;
+
+  var totalMatchups = 0;
+  weeks.forEach(function(w) { totalMatchups += w.matchups.length; });
+  var uniqueTeams = new Set();
+  weeks.forEach(function(w) {
+    w.matchups.forEach(function(m) { uniqueTeams.add(m.home); uniqueTeams.add(m.away); });
+    w.byes.forEach(function(b) { uniqueTeams.add(b); });
+  });
+
+  // Build MLB team lookup: playerName -> mlbTeam
+  var mlbTeamLookup = {};
+  var activeSeason = scheduleState.seasonId
+    ? seasonState.seasons.find(function(s){ return s.id === scheduleState.seasonId; })
+    : getActiveSeason();
+  if (activeSeason && activeSeason.teamAssignments) {
+    Object.keys(activeSeason.teamAssignments).forEach(function(memberId) {
+      var player = state.players.find(function(p){ return p.id === memberId; });
+      if (player && activeSeason.teamAssignments[memberId]) {
+        mlbTeamLookup[player.name] = activeSeason.teamAssignments[memberId];
+      }
+    });
+  }
+
+  // Summary bar
+  document.getElementById('ss-weeks').textContent    = weeks.length;
+  document.getElementById('ss-matchups').textContent = totalMatchups;
+  document.getElementById('ss-teams').textContent    = uniqueTeams.size;
+  document.getElementById('ss-series').textContent   = seriesLength;
+  document.getElementById('schedule-summary').style.display = '';
+
+  var html = '';
+
+  weeks.forEach(function(w, wi) {
+    // Build a per-player opponents map for this week
+    // Each player appears as both home and away in different matchups
+    var playerOpponents = {}; // playerName -> [{opponent, mlbTeam}]
+
+    w.matchups.forEach(function(m) {
+      if (!playerOpponents[m.home]) playerOpponents[m.home] = [];
+      if (!playerOpponents[m.away]) playerOpponents[m.away] = [];
+      playerOpponents[m.home].push(m.away);
+      playerOpponents[m.away].push(m.home);
+    });
+
+    // Get sorted list of all players this week
+    var allPlayers = Object.keys(playerOpponents).sort();
+    var byePlayers = w.byes.slice();
+
+    var playerCount = allPlayers.length + byePlayers.length;
+    // Figure out expected matchups per player for this week
+    // A "full" week has matchupsPerWeek opponents per player
+    // A "reduced" week has fewer (last week of odd-round seasons)
+    var maxOpponents = 0;
+    allPlayers.forEach(function(p) {
+      var c = (playerOpponents[p] || []).length;
+      if (c > maxOpponents) maxOpponents = c;
+    });
+    var isReducedWeek = maxOpponents < scheduleState.matchupsPerWeek && scheduleState.matchupsPerWeek > 1;
+
+    var matchupCount = w.matchups.length;
+    var meta = playerCount + ' players &nbsp;&bull;&nbsp; ' + matchupCount + ' matchup' + (matchupCount !== 1 ? 's' : '');
+    if (byePlayers.length) meta += ' &nbsp;&bull;&nbsp; ' + byePlayers.length + ' bye' + (byePlayers.length !== 1 ? 's' : '');
+    if (isReducedWeek) meta += ' &nbsp;&bull;&nbsp; <span style="color:var(--gold);font-size:11px;">&#x26A0; Reduced week &mdash; 1 game each</span>';
+
+    html += '<div class="week-block" id="week-block-' + wi + '">';
+
+    // Week header
+    html += '<div class="week-header" onclick="toggleWeek(' + wi + ')">';
+    html += '<span class="week-label">Week ' + w.weekNum + '</span>';
+    html += '<div style="display:flex;align-items:center;gap:1rem;">';
+    html += '<span class="week-meta">' + meta + '</span>';
+    html += '<span class="week-chevron">&#9660;</span>';
+    html += '</div></div>';
+
+    // Column headers
+    html += '<div style="display:grid;grid-template-columns:220px 1fr;border-bottom:1px solid rgba(255,255,255,0.08);background:var(--surface3);">';
+    html += '<div style="padding:6px 14px;font-family:\'Barlow Condensed\';font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);border-right:1px solid rgba(255,255,255,0.06);">Player / Team</div>';
+    html += '<div style="padding:6px 14px;font-family:\'Barlow Condensed\';font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);">This Week\'s Opponents</div>';
+    html += '</div>';
+
+    html += '<div class="week-body" style="padding:0;">';
+
+    // Player rows
+    allPlayers.forEach(function(playerName) {
+      var player   = state.players.find(function(p) { return p.name === playerName; });
+      var color    = (player && player.color) || '#6a9ec7';
+      var initials = playerName.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+      var mlbTeam  = mlbTeamLookup[playerName] || '';
+      var opponents = playerOpponents[playerName] || [];
+
+      html += '<div class="player-week-row">';
+
+      // Left: player identity
+      html += '<div class="pw-player">';
+      html += '<div class="avatar-sm" style="background:' + color + '">' + initials + '</div>';
+      html += '<div class="pw-player-info">';
+      html += '<div class="pw-player-name">' + escHtml(playerName) + '</div>';
+      if (mlbTeam) html += '<div class="pw-player-team">' + escHtml(mlbTeam) + '</div>';
+      html += '</div>';
+      html += '</div>';
+
+      // Right: opponents
+      html += '<div class="pw-opponents">';
+      opponents.forEach(function(oppName, oi) {
+        var oppPlayer  = state.players.find(function(p) { return p.name === oppName; });
+        var oppColor   = (oppPlayer && oppPlayer.color) || '#6a9ec7';
+        var oppInitials = oppName.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+        var oppMLB     = mlbTeamLookup[oppName] || '';
+        html += '<div class="pw-opp-row">';
+        html += '<span class="pw-opp-label">OPP ' + (oi + 1) + '</span>';
+        html += '<div class="avatar-sm" style="background:' + oppColor + ';width:22px;height:22px;font-size:10px;">' + oppInitials + '</div>';
+        html += '<div>';
+        html += '<span class="pw-opp-name">' + escHtml(oppName) + '</span>';
+        if (oppMLB) html += '<span class="pw-opp-team">· ' + escHtml(oppMLB) + '</span>';
+        html += '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+
+      html += '</div>'; // player-week-row
+    });
+
+    // Bye rows
+    byePlayers.forEach(function(playerName) {
+      var player   = state.players.find(function(p) { return p.name === playerName; });
+      var color    = (player && player.color) || '#6a9ec7';
+      var initials = playerName.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+      var mlbTeam  = mlbTeamLookup[playerName] || '';
+
+      html += '<div class="player-week-row">';
+      html += '<div class="pw-player" style="opacity:0.6;">';
+      html += '<div class="avatar-sm" style="background:' + color + '">' + initials + '</div>';
+      html += '<div class="pw-player-info">';
+      html += '<div class="pw-player-name">' + escHtml(playerName) + '</div>';
+      if (mlbTeam) html += '<div class="pw-player-team">' + escHtml(mlbTeam) + '</div>';
+      html += '</div></div>';
+      html += '<div class="pw-bye"><span class="bye-badge">Bye Week</span><span style="font-size:12px;margin-left:6px;">No opponent this week</span></div>';
+      html += '</div>';
+    });
+
+    html += '</div></div>'; // week-body, week-block
+  });
+
+  document.getElementById('schedule-output').innerHTML = html;
+}
+
+function toggleWeek(idx) {
+  var block = document.getElementById('week-block-' + idx);
+  if (block) block.classList.toggle('collapsed');
+}
+
+// ── SAVE STATE EXTENSION ──────────────────────────
+// Persist scheduleState alongside main state
+var _origSaveState = saveState;
+saveState = function() {
+  _origSaveState();
+  try {
+    localStorage.setItem('dna_schedule', JSON.stringify(scheduleState));
+  } catch(e) {}
+};
+
+var _origLoadState = loadState;
+loadState = function() {
+  _origLoadState();
+  try {
+    var s = localStorage.getItem('dna_schedule');
+    if (s) {
+      var parsed = JSON.parse(s);
+      Object.keys(parsed).forEach(function(k) { scheduleState[k] = parsed[k]; });
+    }
+  } catch(e) {}
+};
+
+// ── SUPABASE SCHEDULE SYNC ────────────────────────
+async function saveScheduleToDB(weeks, seasonId, seriesLength) {
+  if (!currentLeague || !seasonId) return;
+
+  // Clear existing weeks for this season first
+  await db.from('schedule_weeks')
+    .delete()
+    .eq('season_id', seasonId);
+
+  // Insert weeks and matchups
+  for (var w = 0; w < weeks.length; w++) {
+    var week = weeks[w];
+
+    var weekRes = await db.from('schedule_weeks').insert({
+      season_id:   seasonId,
+      week_number: week.weekNum,
+    }).select().single();
+
+    if (weekRes.error) {
+      console.error('Error saving week:', weekRes.error.message);
+      continue;
+    }
+
+    var weekId = weekRes.data.id;
+
+    // Insert matchups for this week
+    var matchupInserts = week.matchups.map(function(m) {
+      var homeM = state.players.find(function(p) { return p.name === m.home; });
+      var awayM = state.players.find(function(p) { return p.name === m.away; });
+      return {
+        week_id:         weekId,
+        home_member_id:  homeM ? homeM.id : null,
+        away_member_id:  awayM ? awayM.id : null,
+        status:          'scheduled',
+      };
+    }).filter(function(m) { return m.home_member_id && m.away_member_id; });
+
+    if (matchupInserts.length) {
+      var mRes = await db.from('matchups').insert(matchupInserts);
+      if (mRes.error) console.error('Error saving matchups:', mRes.error.message);
+    }
+  }
+
+  toast('Schedule saved to database');
+}
+
+// ── SCHEDULE SAVE & EXPORT ────────────────────────
+
+function updateSaveBar() {
+  var bar     = document.getElementById('sched-save-bar');
+  var nameEl  = document.getElementById('sched-save-name');
+  var metaEl  = document.getElementById('sched-save-meta');
+  var badge   = document.getElementById('sched-saved-badge');
+  var saveBtn = document.getElementById('sched-save-btn');
+  var expBtn  = document.getElementById('sched-export-btn');
+
+  if (!scheduleState.generatedWeeks || !scheduleState.generatedWeeks.length) {
+    bar.style.display = 'none';
+    return;
+  }
+
+  bar.style.display = '';
+  expBtn.style.display = '';
+
+  // Get season name if linked
+  var seasonName = 'No season selected';
+  if (scheduleState.seasonId) {
+    var s = seasonState.seasons.find(function(x){ return x.id === scheduleState.seasonId; });
+    if (s) seasonName = s.name;
+  }
+
+  var weeks = scheduleState.generatedWeeks.length;
+  var teams = new Set();
+  scheduleState.generatedWeeks.forEach(function(w) {
+    w.matchups.forEach(function(m) { teams.add(m.home); teams.add(m.away); });
+    w.byes.forEach(function(b) { teams.add(b); });
+  });
+
+  nameEl.textContent = seasonName + ' Schedule';
+  metaEl.textContent = weeks + ' weeks · ' + teams.size + ' teams · ' + scheduleState.matchupsPerWeek + ' games/week';
+
+  if (scheduleState.savedAt) {
+    badge.style.display = '';
+    badge.textContent = '✓ Saved ' + new Date(scheduleState.savedAt).toLocaleDateString();
+    // Only show save button for commissioner+ if not yet saved or season changed
+    saveBtn.style.display = canManageSchedule() ? '' : 'none';
+  } else {
+    badge.style.display = 'none';
+    saveBtn.style.display = canManageSchedule() ? '' : 'none';
+    if (saveBtn.style.display !== 'none') {
+      saveBtn.style.background = 'linear-gradient(135deg,var(--chrome3),var(--chrome2),var(--chrome1))';
+    }
+  }
+}
+
+function saveScheduleToSeason() {
+  if (!canManageSchedule()) { toast('Commissioner or admin access required'); return; }
+  if (!scheduleState.generatedWeeks.length) { toast('No schedule to save'); return; }
+
+  var seasonName = 'this schedule';
+  if (scheduleState.seasonId) {
+    var s = seasonState.seasons.find(function(x){ return x.id === scheduleState.seasonId; });
+    if (s) seasonName = '"' + s.name + '"';
+  }
+
+  var existing = scheduleState.savedAt;
+  var msg = existing
+    ? 'Replace the existing saved schedule for ' + seasonName + '?\n\nSaved on: ' + new Date(existing).toLocaleString() + '\n\nThis cannot be undone.'
+    : 'Save this schedule for ' + seasonName + '?';
+
+  if (!confirm(msg)) return;
+
+  scheduleState.savedAt = Date.now();
+
+  // Store the full saved schedule keyed to the season
+  if (scheduleState.seasonId) {
+    var key = 'dna_saved_schedule_' + scheduleState.seasonId;
+    try {
+      localStorage.setItem(key, JSON.stringify({
+        weeks:          scheduleState.generatedWeeks,
+        seriesLength:   scheduleState.seriesLength,
+        matchupsPerWeek:scheduleState.matchupsPerWeek,
+        savedAt:        scheduleState.savedAt,
+        seasonId:       scheduleState.seasonId,
+      }));
+    } catch(e) { toast('Storage error: ' + e.message); return; }
+  }
+
+  saveState();
+  updateSaveBar();
+  updateDashboard();
+  logActivity('Schedule saved for ' + seasonName);
+  toast('Schedule saved!');
+}
+
+function loadSavedSchedule(seasonId) {
+  try {
+    var key = 'dna_saved_schedule_' + seasonId;
+    var raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
+// ── PNG EXPORT ────────────────────────────────────
+function exportSchedulePNG() {
+  if (!scheduleState.generatedWeeks.length) { toast('No schedule to export'); return; }
+
+  toast('Generating image...');
+
+  // Build MLB team lookup
+  var mlbTeamLookup = {};
+  var activeSeason = scheduleState.seasonId
+    ? seasonState.seasons.find(function(s){ return s.id === scheduleState.seasonId; })
+    : getActiveSeason();
+  if (activeSeason && activeSeason.teamAssignments) {
+    Object.keys(activeSeason.teamAssignments).forEach(function(id) {
+      var p = state.players.find(function(pl){ return pl.id === id; });
+      if (p && activeSeason.teamAssignments[id]) mlbTeamLookup[p.name] = activeSeason.teamAssignments[id];
+    });
+  }
+
+  var seasonName = scheduleState.seasonId
+    ? (seasonState.seasons.find(function(s){ return s.id === scheduleState.seasonId; }) || {}).name || 'Schedule'
+    : 'Schedule';
+
+  var weeks = scheduleState.generatedWeeks;
+  var seriesLength = scheduleState.seriesLength;
+
+  // Build teams set for header count
+  var teams = new Set();
+  weeks.forEach(function(w) {
+    w.matchups.forEach(function(m){ teams.add(m.home); teams.add(m.away); });
+    w.byes.forEach(function(b){ teams.add(b); });
+  });
+
+  // Measure total rows needed
+  var ROW_H = 44, HEADER_H = 52, WEEK_LABEL_H = 36, COL_H = 28, PAD = 20;
+  var totalHeight = PAD;
+  weeks.forEach(function(w) {
+    var players = new Set();
+    w.matchups.forEach(function(m){ players.add(m.home); players.add(m.away); });
+    w.byes.forEach(function(b){ players.add(b); });
+    totalHeight += WEEK_LABEL_H + COL_H + (players.size * ROW_H) + 12;
+  });
+  totalHeight += HEADER_H + PAD * 2;
+
+  var W = 960;
+  var canvas = document.createElement('canvas');
+  canvas.width  = W;
+  canvas.height = totalHeight;
+  var ctx = canvas.getContext('2d');
+
+  // Background
+  ctx.fillStyle = '#0a0d12';
+  ctx.fillRect(0, 0, W, totalHeight);
+
+  // Header
+  ctx.fillStyle = '#151c24';
+  ctx.fillRect(0, 0, W, HEADER_H);
+  ctx.fillStyle = '#a8bdd4';
+  ctx.font = 'bold 22px Arial';
+  ctx.fillText('THE DNA LEAGUE', PAD, 32);
+  ctx.fillStyle = '#5a7a94';
+  ctx.font = '14px Arial';
+  ctx.fillText(seasonName + '  ·  ' + weeks.length + ' weeks  ·  ' + teams.size + ' teams', PAD, 50);
+
+  // Divider
+  ctx.fillStyle = '#1c2530';
+  ctx.fillRect(0, HEADER_H, W, 2);
+
+  var y = HEADER_H + PAD;
+
+  weeks.forEach(function(w) {
+    // Week label background
+    ctx.fillStyle = '#131a24';
+    ctx.fillRect(PAD, y, W - PAD*2, WEEK_LABEL_H);
+    ctx.fillStyle = '#a8bdd4';
+    ctx.font = 'bold 18px Arial';
+    ctx.fillText('WEEK ' + w.weekNum, PAD + 12, y + 22);
+
+    // Count matchups
+    var matchupCount = w.matchups.length;
+    ctx.fillStyle = '#5a7a94';
+    ctx.font = '12px Arial';
+    ctx.fillText(matchupCount + ' matchups', W - PAD - 90, y + 22);
+
+    y += WEEK_LABEL_H + 2;
+
+    // Column headers
+    ctx.fillStyle = '#1a2333';
+    ctx.fillRect(PAD, y, W - PAD*2, COL_H);
+    ctx.fillStyle = '#5a7a94';
+    ctx.font = '10px Arial';
+    ctx.fillText('PLAYER / TEAM', PAD + 12, y + 18);
+    ctx.fillText('OPPONENTS THIS WEEK', PAD + 260, y + 18);
+    y += COL_H;
+
+    // Build player→opponents map
+    var playerOpps = {};
+    w.matchups.forEach(function(m) {
+      if (!playerOpps[m.home]) playerOpps[m.home] = [];
+      if (!playerOpps[m.away]) playerOpps[m.away] = [];
+      playerOpps[m.home].push(m.away);
+      playerOpps[m.away].push(m.home);
+    });
+    var allPlayers = Object.keys(playerOpps).sort();
+    var byePlayers = w.byes.slice();
+
+    allPlayers.forEach(function(name, pi) {
+      var bg = pi % 2 === 0 ? '#0f1318' : '#111720';
+      ctx.fillStyle = bg;
+      ctx.fillRect(PAD, y, W - PAD*2, ROW_H);
+
+      // Avatar circle
+      var player = state.players.find(function(p){ return p.name === name; });
+      var color  = (player && player.color) || '#6a9ec7';
+      ctx.beginPath();
+      ctx.arc(PAD + 28, y + ROW_H/2, 14, 0, Math.PI*2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      var init = name.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+      ctx.fillStyle = '#080b10';
+      ctx.font = 'bold 11px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(init, PAD + 28, y + ROW_H/2 + 4);
+      ctx.textAlign = 'left';
+
+      // Player name
+      ctx.fillStyle = '#dde6ef';
+      ctx.font = 'bold 13px Arial';
+      ctx.fillText(name, PAD + 50, y + 18);
+      var mlbTeam = mlbTeamLookup[name] || '';
+      if (mlbTeam) {
+        ctx.fillStyle = '#5a7a94';
+        ctx.font = '10px Arial';
+        ctx.fillText(mlbTeam, PAD + 50, y + 32);
+      }
+
+      // Divider between columns
+      ctx.fillStyle = '#1a2333';
+      ctx.fillRect(PAD + 240, y + 6, 1, ROW_H - 12);
+
+      // Opponents
+      var opps = playerOpps[name] || [];
+      opps.forEach(function(oppName, oi) {
+        var ox = PAD + 256 + (oi * 300);
+        var oppPlayer = state.players.find(function(p){ return p.name === oppName; });
+        var oppColor  = (oppPlayer && oppPlayer.color) || '#6a9ec7';
+        ctx.beginPath();
+        ctx.arc(ox + 14, y + ROW_H/2, 12, 0, Math.PI*2);
+        ctx.fillStyle = oppColor;
+        ctx.fill();
+        var oppInit = oppName.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+        ctx.fillStyle = '#080b10';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(oppInit, ox + 14, y + ROW_H/2 + 4);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#dde6ef';
+        ctx.font = 'bold 13px Arial';
+        ctx.fillText(oppName, ox + 34, y + 19);
+        var oppMLB = mlbTeamLookup[oppName] || '';
+        if (oppMLB) {
+          ctx.fillStyle = '#5a7a94';
+          ctx.font = '10px Arial';
+          ctx.fillText(oppMLB, ox + 34, y + 33);
+        }
+      });
+
+      y += ROW_H;
+    });
+
+    // Bye rows
+    byePlayers.forEach(function(name, pi) {
+      ctx.fillStyle = '#0d1117';
+      ctx.fillRect(PAD, y, W - PAD*2, ROW_H);
+      var player = state.players.find(function(p){ return p.name === name; });
+      var color = (player && player.color) || '#6a9ec7';
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.arc(PAD + 28, y + ROW_H/2, 14, 0, Math.PI*2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#5a7a94';
+      ctx.font = 'bold 13px Arial';
+      ctx.fillText(name, PAD + 50, y + 18);
+      ctx.font = '10px Arial';
+      ctx.fillText('BYE WEEK', PAD + 256, y + 18);
+      y += ROW_H;
+    });
+
+    y += 12; // gap between weeks
+  });
+
+  // Footer
+  ctx.fillStyle = '#5a7a94';
+  ctx.font = '11px Arial';
+  ctx.fillText('The DNA League  ·  Generated ' + new Date().toLocaleDateString(), PAD, totalHeight - 8);
+
+  // Download
+  canvas.toBlob(function(blob) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = (seasonName + '-schedule').replace(/\s+/g, '-').toLowerCase() + '.png';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Schedule downloaded as PNG!');
+  }, 'image/png');
+}
+
+// ── HOME SCHEDULE WIDGET ──────────────────────────
+function renderHomeScheduleWidget() {
+  var widget = document.getElementById('home-schedule-widget');
+  var body   = document.getElementById('hsw-body');
+
+  var activeSeason = getActiveSeason();
+  var weeks = null;
+
+  if (activeSeason) {
+    var saved = loadSavedSchedule(activeSeason.id);
+    if (saved && saved.weeks && saved.weeks.length) weeks = saved.weeks;
+  }
+  if (!weeks && scheduleState.generatedWeeks.length) weeks = scheduleState.generatedWeeks;
+  if (!weeks || !weeks.length) { widget.style.display = 'none'; return; }
+
+  // Build MLB team lookup
+  var mlbTeamLookup = {};
+  if (activeSeason && activeSeason.teamAssignments) {
+    Object.keys(activeSeason.teamAssignments).forEach(function(id) {
+      var p = state.players.find(function(pl){ return pl.id === id; });
+      if (p && activeSeason.teamAssignments[id]) mlbTeamLookup[p.name] = activeSeason.teamAssignments[id];
+    });
+  }
+
+  // Find current week
+  var currentWeek = weeks[0];
+  for (var i = 0; i < weeks.length; i++) {
+    if (!weeks[i].completed) { currentWeek = weeks[i]; break; }
+  }
+
+  // Build player→opponents map
+  var playerOpps = {};
+  currentWeek.matchups.forEach(function(m) {
+    if (!playerOpps[m.home]) playerOpps[m.home] = [];
+    if (!playerOpps[m.away]) playerOpps[m.away] = [];
+    playerOpps[m.home].push(m.away);
+    playerOpps[m.away].push(m.home);
+  });
+  var allPlayers = Object.keys(playerOpps).sort();
+
+  widget.style.display = '';
+  var titleEl = document.getElementById('hsw-title');
+  if (titleEl) titleEl.textContent = '\uD83D\uDCC5 Week ' + currentWeek.weekNum + ' Matchups';
+
+  var html = '<div style="display:grid;grid-template-columns:180px 1fr;border-bottom:1px solid rgba(255,255,255,0.06);background:var(--surface3);">' +
+    '<div style="padding:6px 14px;font-family:\'Barlow Condensed\';font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);border-right:1px solid rgba(255,255,255,0.06);">Player / Team</div>' +
+    '<div style="padding:6px 14px;font-family:\'Barlow Condensed\';font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);">Opponents</div>' +
+    '</div>';
+
+  allPlayers.forEach(function(playerName, pi) {
+    var player   = state.players.find(function(p){ return p.name === playerName; });
+    var color    = (player && player.color) || '#6a9ec7';
+    var initials = playerName.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+    var mlbTeam  = mlbTeamLookup[playerName] || '';
+    var opponents = playerOpps[playerName] || [];
+    var rowBg = pi % 2 === 0 ? '' : 'background:rgba(255,255,255,0.015);';
+
+    html += '<div style="display:grid;grid-template-columns:180px 1fr;border-bottom:1px solid rgba(255,255,255,0.04);' + rowBg + '">';
+
+    // Player column
+    html += '<div style="padding:9px 12px;display:flex;align-items:center;gap:8px;border-right:1px solid rgba(255,255,255,0.05);">' +
+      '<div class="avatar-sm" style="background:' + color + ';width:26px;height:26px;font-size:11px;flex-shrink:0;">' + initials + '</div>' +
+      '<div style="min-width:0;">' +
+        '<div style="font-family:\'Barlow Condensed\';font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(playerName) + '</div>' +
+        (mlbTeam ? '<div style="font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(mlbTeam) + '</div>' : '') +
+      '</div>' +
+    '</div>';
+
+    // Opponents column
+    html += '<div style="padding:7px 12px;display:flex;flex-direction:column;gap:4px;justify-content:center;">';
+    opponents.forEach(function(oppName, oi) {
+      var oppPlayer  = state.players.find(function(p){ return p.name === oppName; });
+      var oppColor   = (oppPlayer && oppPlayer.color) || '#6a9ec7';
+      var oppInitials = oppName.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
+      var oppMLB     = mlbTeamLookup[oppName] || '';
+      html += '<div style="display:flex;align-items:center;gap:7px;">' +
+        '<span style="font-family:\'Barlow Condensed\';font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text2);min-width:30px;">OPP ' + (oi+1) + '</span>' +
+        '<div class="avatar-sm" style="background:' + oppColor + ';width:20px;height:20px;font-size:9px;flex-shrink:0;">' + oppInitials + '</div>' +
+        '<div>' +
+          '<span style="font-family:\'Barlow Condensed\';font-size:13px;font-weight:600;">' + escHtml(oppName) + '</span>' +
+          (oppMLB ? '<span style="font-size:10px;color:var(--text2);margin-left:5px;">· ' + escHtml(oppMLB) + '</span>' : '') +
+        '</div>' +
+      '</div>';
+    });
+    html += '</div>';
+
+    html += '</div>';
+  });
+
+  // Bye row at bottom if any
+  if (currentWeek.byes && currentWeek.byes.length) {
+    html += '<div style="padding:8px 14px;font-size:12px;color:var(--text2);border-top:1px solid rgba(255,255,255,0.04);">Bye week: ' + currentWeek.byes.map(escHtml).join(', ') + '</div>';
+  }
+
+  body.innerHTML = html;
+}
+
+// ── MOBILE DRAWER ────────────────────────────────
+function openNavDrawer() {
+  document.getElementById('nav-drawer').style.transform = 'translateX(0)';
+  document.getElementById('nav-drawer-overlay').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+function closeNavDrawer() {
+  document.getElementById('nav-drawer').style.transform = 'translateX(-100%)';
+  document.getElementById('nav-drawer-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function showPageMobile(id, drawerTabEl) {
+  // Update drawer active state
+  document.querySelectorAll('.drawer-nav-item').forEach(function(t){ t.classList.remove('active'); });
+  if (drawerTabEl) drawerTabEl.classList.add('active');
+  // Sync desktop tabs
+  var pageMap = { home:0, draft:1, seasons:2, schedule:3, profiles:4 };
+  var desktopTabs = document.querySelectorAll('.nav-tab');
+  desktopTabs.forEach(function(t){ t.classList.remove('active'); });
+  if (pageMap[id] !== undefined && desktopTabs[pageMap[id]]) {
+    desktopTabs[pageMap[id]].classList.add('active');
+  }
+  closeNavDrawer();
+  // Show the page
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.getElementById('page-' + id).classList.add('active');
+  if (id === 'home')     updateDashboard();
+  if (id === 'draft')    { renderSlots(); renderSuggestions(); }
+  if (id === 'profiles') renderProfiles();
+  if (id === 'seasons')  initSeasonsPage();
+  if (id === 'schedule') initSchedulePage();
+}
+
+function updateDrawerUser() {
+  if (!currentMember) return;
+  var name = currentMember.display_name || '';
+  var role = currentMember.role || 'member';
+  var initials = name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase() || '?';
+  var avatar = document.getElementById('drawer-avatar');
+  var player = state.players.find(function(p){ return p.name === name; });
+  if (avatar) {
+    avatar.textContent = initials;
+    if (player && player.color) avatar.style.background = player.color;
+  }
+  var nameEl = document.getElementById('drawer-user-name');
+  var roleEl = document.getElementById('drawer-user-role');
+  if (nameEl) nameEl.textContent = name;
+  if (roleEl) roleEl.textContent = role;
+}
+
+// ── SUPABASE CONFIG ──────────────────────────────
+var SUPABASE_URL  = 'https://orhpiuwptucgktioigju.supabase.co';
+var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9yaHBpdXdwdHVjZ2t0aW9pZ2p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NTIwNjIsImV4cCI6MjA5MDAyODA2Mn0.crGOk7q2k6lr4RDgGCBmgKF8hh1BykSTcRiAefmf7pQ';
+var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+var currentUser   = null;
+var currentMember = null;
+var currentLeague = null;
+
+// ── AUTH HELPERS ─────────────────────────────────
+function showAuthScreen() {
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('app-screen').style.display  = 'none';
+}
+function showAppScreen() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display  = 'block';
+}
+function setAuthError(msg) {
+  var el = document.getElementById('auth-error');
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+function setAuthLoading(loading) {
+  var btn = document.getElementById('auth-submit');
+  var mode = document.getElementById('auth-mode').dataset.mode;
+  btn.textContent = loading ? 'Please wait...' : (mode === 'login' ? 'Sign In' : 'Create Account');
+  btn.disabled = loading;
+}
+function switchAuthMode(mode) {
+  document.getElementById('auth-mode').dataset.mode = mode;
+  document.getElementById('auth-title').textContent  = mode === 'login' ? 'Sign In' : 'Create Account';
+  document.getElementById('auth-submit').textContent = mode === 'login' ? 'Sign In' : 'Create Account';
+  document.getElementById('auth-switch-text').textContent = mode === 'login' ? "Don't have an account? " : 'Already have an account? ';
+  document.getElementById('auth-switch-link').textContent = mode === 'login' ? 'Create one' : 'Sign in';
+  document.getElementById('auth-switch-link').onclick = function() { switchAuthMode(mode === 'login' ? 'signup' : 'login'); };
+  document.getElementById('auth-name-row').style.display = mode === 'signup' ? '' : 'none';
+  setAuthError('');
+}
+async function handleAuth() {
+  var mode  = document.getElementById('auth-mode').dataset.mode;
+  var email = document.getElementById('auth-email').value.trim();
+  var pass  = document.getElementById('auth-password').value;
+  var name  = document.getElementById('auth-displayname').value.trim();
+  if (!email || !pass) { setAuthError('Email and password are required.'); return; }
+  if (mode === 'signup' && !name) { setAuthError('Display name is required.'); return; }
+  if (pass.length < 8) { setAuthError('Password must be at least 8 characters.'); return; }
+  setAuthLoading(true); setAuthError('');
+  try {
+    if (mode === 'login') {
+      var res = await db.auth.signInWithPassword({ email: email, password: pass });
+      if (res.error) throw res.error;
+    } else {
+      var res = await db.auth.signUp({ email: email, password: pass, options: { data: { display_name: name } } });
+      if (res.error) throw res.error;
+      if (res.data && res.data.user && !res.data.session) {
+        setAuthLoading(false);
+        alert('Account created! Check your email to confirm your address, then sign in.');
+        switchAuthMode('login'); return;
+      }
+    }
+  } catch(err) {
+    setAuthError(err.message || 'Authentication failed. Please try again.');
+    setAuthLoading(false);
+  }
+}
+async function handleSignOut() {
+  await db.auth.signOut();
+  currentUser = null; currentMember = null; currentLeague = null;
+  showAuthScreen(); toast('Signed out');
+}
+
+// ── BOOTSTRAP ────────────────────────────────────
+async function bootstrap() {
+  var sessionRes = await db.auth.getSession();
+  var session = sessionRes.data && sessionRes.data.session;
+  if (session && session.user) {
+    currentUser = session.user;
+    await loadLeagueContext();
+    showAppScreen();
+  } else {
+    showAuthScreen();
+  }
+  db.auth.onAuthStateChange(async function(event, session) {
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+      await loadLeagueContext();
+      showAppScreen();
+    } else if (event === 'SIGNED_OUT') {
+      showAuthScreen();
+    }
+  });
+}
+
+async function loadLeagueContext() {
+  var mRes = await db.from('league_members').select('*, leagues(*)').eq('user_id', currentUser.id).maybeSingle();
+  if (mRes.data) {
+    currentMember = mRes.data;
+    currentLeague = mRes.data.leagues;
+    document.getElementById('nav-user-name').textContent = currentMember.display_name;
+    document.getElementById('nav-user-role').textContent = currentMember.role;
+    updateDrawerUser();
+  }
+  await syncPlayersFromDB();
+  loadState();
+  loadSeasonState();
+  renderSlots();
+  updateDashboard();
+  document.getElementById('slot-count').value = state.slotCount;
+  document.getElementById('slot-val').textContent = state.slotCount;
+  if (state.draftMode === 'weighted') { selectMode('weighted'); }
+}
+
+async function syncPlayersFromDB() {
+  if (!currentLeague) return;
+  var res = await db.from('league_members')
+    .select('id, display_name, real_name, avatar_color, favorite_mlb_team, role, joined_at')
+    .eq('league_id', currentLeague.id)
+    .order('joined_at', { ascending: true });
+  if (res.error) { console.error('syncPlayers:', res.error.message); return; }
+  res.data.forEach(function(m) {
+    var existing = null;
+    for (var i = 0; i < state.players.length; i++) {
+      if (state.players[i].id === m.id) { existing = state.players[i]; break; }
+    }
+    if (!existing) {
+      state.players.push({
+        id: m.id, name: m.display_name, realname: m.real_name || '',
+        color: m.avatar_color || '#6a9ec7', team: m.favorite_mlb_team || '',
+        role: m.role, joinDate: m.joined_at ? new Date(m.joined_at).toLocaleDateString() : '',
+        draftHistory: [], standingsHistory: [],
+        championships: 0, playoffs: 0, mvp: 0, cyyoung: 0, wins: '', losses: ''
+      });
+    } else {
+      existing.name = m.display_name;
+      existing.realname = m.real_name || '';
+      existing.color = m.avatar_color || existing.color;
+      existing.team = m.favorite_mlb_team || '';
+      existing.role = m.role;
+    }
+  });
+  saveState();
+}
+
+async function saveProfileToDB(data, editingId) {
+  if (!currentLeague || !currentUser) return null;
+  var payload = {
+    display_name: data.name, real_name: data.realname || null,
+    avatar_color: data.color || '#6a9ec7', favorite_mlb_team: data.team || null
+  };
+  if (editingId) {
+    var res = await db.from('league_members').update(payload).eq('id', editingId);
+    if (res.error) { toast('DB error: ' + res.error.message); return null; }
+    return editingId;
+  } else {
+    var insertPayload = Object.assign({}, payload, {
+      league_id: currentLeague.id, user_id: currentUser.id, role: 'member'
+    });
+    var res = await db.from('league_members').insert(insertPayload).select().single();
+    if (res.error) { toast('DB error: ' + res.error.message); return null; }
+    return res.data.id;
+  }
+}
+
+// Reload state when user returns to this tab (e.g. after visiting draft.html)
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible') {
+    loadState();
+    loadSeasonState();
+    renderProfiles();
+    updateDashboard();
+  }
+});
+
+// ── INIT ─────────────────────────────────────────
+bootstrap();
+</script>
+<div id="staging-banner" style="
+  position:fixed;bottom:0;left:0;right:0;z-index:9999;
+  background:rgba(201,168,76,0.95);color:#080b10;
+  font-family:'Barlow Condensed',sans-serif;font-size:13px;
+  letter-spacing:2px;text-transform:uppercase;
+  padding:8px 1rem;text-align:center;
+  display:flex;align-items:center;justify-content:center;gap:1rem;">
+  ⚠ STAGING ENVIRONMENT — Not for production use
+  <a href="https://joe2kool.github.io/dna-league/"
+     style="color:#080b10;font-weight:700;text-decoration:underline;">
+    View Production →
+  </a>
+</div>
+</body>
+</html>
