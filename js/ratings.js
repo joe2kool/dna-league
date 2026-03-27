@@ -27,30 +27,85 @@ const DnaRatings = (() => {
   const adapters = {
 
     mlbtheshow: {
-      // MLB The Show 26 public API
       baseUrl: 'https://mlb26.theshow.com/apis',
 
       async fetchTeams() {
         return _getStaticMLBRatings();
       },
 
+      // The Items API only supports type + page — no team filter.
+      // We fetch multiple pages and filter by team_short_name client-side.
+      // We stop early once we have 5+ Live Series cards for the team.
       async fetchRoster(teamAbbr) {
+        const MAX_PAGES  = 15; // cap to avoid too many requests
+        const PER_PAGE   = 25; // items per page (API default is 25)
+        const liveCards  = [];
+
         try {
-          // Live Series cards only — these are the correct Diamond Dynasty ratings
-          // series_type=live_series ensures we get current Live Series cards, not exhibition
-          const url = `${this.baseUrl}/items?type=mlb_card&series_type=live_series&team_name=${encodeURIComponent(teamAbbr)}&page=1`;
-          const res = await fetch(url, {
-            signal: AbortSignal.timeout(6000),
+          // First check: how many total pages are there?
+          const firstUrl = `${this.baseUrl}/items.json?type=mlb_card&page=1`;
+          const firstRes = await fetch(firstUrl, {
+            signal:  AbortSignal.timeout(8000),
             headers: { 'Accept': 'application/json' },
           });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
-          const parsed = _parseMLBShowRoster(data.items || []);
-          if (parsed.length > 0) return parsed;
-          throw new Error('No Live Series cards found, falling back to static');
+          if (!firstRes.ok) throw new Error(`HTTP ${firstRes.status}`);
+          const firstData = await firstRes.json();
+          const totalPages = Math.min(firstData.total_pages || 1, MAX_PAGES);
+
+          // Process first page
+          this._filterLiveCards(firstData.items || [], teamAbbr, liveCards);
+          if (liveCards.length >= 5) {
+            return _parseMLBShowRoster(liveCards);
+          }
+
+          // Fetch remaining pages in parallel batches of 5
+          const BATCH = 5;
+          for (let startPage = 2; startPage <= totalPages; startPage += BATCH) {
+            const endPage = Math.min(startPage + BATCH - 1, totalPages);
+            const batch = [];
+            for (let p = startPage; p <= endPage; p++) {
+              batch.push(
+                fetch(`${this.baseUrl}/items.json?type=mlb_card&page=${p}`, {
+                  signal: AbortSignal.timeout(8000),
+                  headers: { 'Accept': 'application/json' },
+                })
+                .then(r => r.ok ? r.json() : { items: [] })
+                .catch(() => ({ items: [] }))
+              );
+            }
+            const results = await Promise.all(batch);
+            for (const data of results) {
+              this._filterLiveCards(data.items || [], teamAbbr, liveCards);
+            }
+            if (liveCards.length >= 5) break;
+          }
+
+          if (liveCards.length > 0) {
+            console.log(`MLB The Show 26 API: ${liveCards.length} Live Series cards for ${teamAbbr}`);
+            return _parseMLBShowRoster(liveCards);
+          }
         } catch(e) {
-          console.warn(`MLB The Show 26 API unavailable for ${teamAbbr}, using static data:`, e.message);
-          return _getStaticRoster(teamAbbr);
+          console.warn(`MLB The Show 26 API error for ${teamAbbr}:`, e.message);
+        }
+
+        console.warn(`Falling back to static data for ${teamAbbr}`);
+        return _getStaticRoster(teamAbbr);
+      },
+
+      // Filter items matching this team's Live Series cards into the array
+      _filterLiveCards(items, teamAbbr, out) {
+        for (const item of items) {
+          if (!item.ovr || !item.name) continue;
+          // Match team by short name (e.g. "LAD", "NYY")
+          const teamMatch = item.team_short_name === teamAbbr ||
+                           item.team === teamAbbr;
+          if (!teamMatch) continue;
+          // Only Live Series cards
+          const series = (item.series || '').toLowerCase();
+          const isLive = series.includes('live series') ||
+                        series.includes('live_series') ||
+                        series === 'live';
+          if (isLive) out.push(item);
         }
       },
     },
@@ -60,16 +115,16 @@ const DnaRatings = (() => {
     // nba2k:    { fetchTeams() {}, fetchRoster(teamAbbr) {} },
   };
 
-  // ── STATIC SEED DATA (2025 approximate overalls) ──────────
+  // ── STATIC SEED DATA (MLB The Show 26 approximate overalls) ─
   // Used as fallback when API is unavailable or rate-limited.
   // Keyed by MLB team abbreviation.
   const STATIC_OVERALLS = {
-    LAD: 92, ATL: 90, NYY: 89, HOU: 88, PHI: 88,
-    SD:  87, TB:  86, BOS: 85, NYM: 85, MIN: 85,
-    BAL: 84, CLE: 84, TEX: 84, TOR: 84, MIL: 83,
-    SEA: 83, ARI: 82, STL: 82, CHC: 81, DET: 81,
-    KC:  80, CIN: 79, SF:  79, MIA: 78, COL: 77,
-    OAK: 76, PIT: 75, WSH: 75, LAA: 74, CWS: 72,
+    LAD: 93, NYY: 91, ATL: 90, PHI: 90, HOU: 89,
+    BAL: 88, CLE: 88, KC:  87, SD:  87, MIN: 87,
+    BOS: 86, NYM: 86, TOR: 85, MIL: 85, SEA: 84,
+    DET: 84, TEX: 83, ARI: 83, STL: 82, CHC: 82,
+    TB:  81, CIN: 81, SF:  80, PIT: 80, MIA: 79,
+    WSH: 78, COL: 77, OAK: 76, LAA: 75, CWS: 72,
   };
 
   // Static top-5 players per team (2025 approximate)
@@ -305,16 +360,18 @@ const DnaRatings = (() => {
   }
 
   function _parseMLBShowRoster(items) {
-    // Parse MLB The Show API response into our format
+    // Field names confirmed from MLB The Show 26 Item API docs:
+    // ovr, name, display_position, series, team_short_name
     return items
       .filter(i => i.ovr && i.name)
       .sort((a, b) => b.ovr - a.ovr)
       .slice(0, 5)
       .map(i => ({
         name:    i.name,
-        pos:     i.display_position || i.position || '—',
+        pos:     i.display_position || '—',
         overall: i.ovr,
         series:  i.series || '',
+        rarity:  i.rarity || '',
       }));
   }
 

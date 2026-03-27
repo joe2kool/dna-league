@@ -295,24 +295,79 @@ const DraftRoom = (() => {
     _draft.completedAt = new Date().toISOString();
     _saveDraftState();
     _broadcast({ type: 'complete' });
+
+    // Save draft recap to league state so it shows in activity log
+    try {
+      const raw = localStorage.getItem('dna_league');
+      if (raw) {
+        const leagueState = JSON.parse(raw);
+        leagueState.draftsGenerated = (leagueState.draftsGenerated || 0) + 1;
+        if (!leagueState.activityLog) leagueState.activityLog = [];
+        const picks = _draft.slots.filter(s => s.pickedTeam).length;
+        leagueState.activityLog.unshift({
+          text: `Team Draft completed — ${picks} picks made`,
+          time: new Date().toLocaleTimeString(),
+          date: new Date().toLocaleDateString(),
+        });
+        localStorage.setItem('dna_league', JSON.stringify(leagueState));
+      }
+    } catch(e) { console.error('draft completion save:', e); }
+
     DraftUI.showRecap(_draft);
     DraftUI.toast('Draft complete! 🎉');
   }
 
   // ── SEASON AUTO-SAVE ──────────────────────────────────────
   function _savePickToSeason(memberId, teamAbbr) {
-    if (!_draft.seasonId) return;
+    if (!_draft.seasonId) {
+      console.warn('Draft has no seasonId — pick not saved to season');
+      return;
+    }
     try {
       const key = 'dna_seasons';
       const raw = localStorage.getItem(key);
-      if (!raw) return;
+      if (!raw) {
+        console.warn('No seasons data found in localStorage');
+        return;
+      }
       const seasonState = JSON.parse(raw);
-      const season = seasonState.seasons?.find(s => s.id === _draft.seasonId);
-      if (!season) return;
+      const season = (seasonState.seasons || []).find(s => s.id === _draft.seasonId);
+      if (!season) {
+        console.warn(`Season ${_draft.seasonId} not found in localStorage`);
+        return;
+      }
       if (!season.teamAssignments) season.teamAssignments = {};
       season.teamAssignments[memberId] = teamAbbr;
+
+      // Also update the draft history on the player's profile
+      const leagueRaw = localStorage.getItem('dna_league');
+      if (leagueRaw) {
+        const leagueState = JSON.parse(leagueRaw);
+        const player = (leagueState.players || []).find(p => p.id === memberId);
+        if (player) {
+          if (!player.draftHistory) player.draftHistory = [];
+          // Avoid duplicate entries for this season
+          const existing = player.draftHistory.find(d => d.seasonId === _draft.seasonId);
+          if (!existing) {
+            player.draftHistory.push({
+              seasonId:   _draft.seasonId,
+              seasonName: _draft.seasonName || season.name || 'Draft',
+              team:       teamAbbr,
+              pick:       _draft.slots.find(s => s.memberId === memberId)?.pickNumber,
+              date:       new Date().toISOString(),
+            });
+          } else {
+            existing.team = teamAbbr;
+          }
+          localStorage.setItem('dna_league', JSON.stringify(leagueState));
+        }
+      }
+
       localStorage.setItem(key, JSON.stringify(seasonState));
-    } catch(e) { console.error('season auto-save:', e); }
+      console.log(`✓ Saved pick: ${memberId} → ${teamAbbr} in season ${season.name}`);
+    } catch(e) {
+      console.error('season auto-save error:', e);
+    }
   }
 
   function _removePickFromSeason(memberId) {
