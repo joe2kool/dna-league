@@ -145,6 +145,9 @@ const DraftRoom = (() => {
   }
 
   async function makePick(teamAbbr) {
+    // Close the team detail panel if open
+    const panel = document.getElementById('dr-team-detail');
+    if (panel) panel.style.display = 'none';
     const cur = _getCurrentPick();
     if (!cur) {
       DraftUI.toast('No active pick slot');
