@@ -1262,7 +1262,13 @@ function saveDraftHistory() {
     }
     if (profile) {
       if (!profile.draftHistory) profile.draftHistory = [];
-      profile.draftHistory.unshift({ pick: i + 1, date: date, mode: state.draftMode });
+      // Check for duplicate — same pick number and same date (same save action)
+      var alreadySaved = profile.draftHistory.find(function(d) {
+        return d.type === 'order' && d.pick === (i + 1) && d.date === date;
+      });
+      if (!alreadySaved) {
+        profile.draftHistory.unshift({ type: 'order', pick: i + 1, date: date, mode: state.draftMode });
+      }
     }
   });
   saveState();

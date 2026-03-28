@@ -349,18 +349,24 @@ const DraftRoom = (() => {
         const player = (leagueState.players || []).find(p => p.id === memberId);
         if (player) {
           if (!player.draftHistory) player.draftHistory = [];
-          // Avoid duplicate entries for this season
-          const existing = player.draftHistory.find(d => d.seasonId === _draft.seasonId);
+          const pickNumber = _draft.slots.find(s => s.memberId === memberId)?.pickNumber;
+          // Dedup: match by seasonId OR by pick number + date (covers both entry types)
+          const existing = player.draftHistory.find(d =>
+            (d.seasonId && d.seasonId === _draft.seasonId) ||
+            (d.type === 'live' && d.pick === pickNumber)
+          );
           if (!existing) {
             player.draftHistory.push({
+              type:       'live',
               seasonId:   _draft.seasonId,
               seasonName: _draft.seasonName || season.name || 'Draft',
               team:       teamAbbr,
-              pick:       _draft.slots.find(s => s.memberId === memberId)?.pickNumber,
+              pick:       pickNumber,
               date:       new Date().toISOString(),
             });
           } else {
             existing.team = teamAbbr;
+            existing.type = 'live';
           }
           localStorage.setItem('dna_league', JSON.stringify(leagueState));
         }
