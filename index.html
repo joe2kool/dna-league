@@ -1331,7 +1331,9 @@ function openProfileModal(id) {
     document.getElementById('f-season-finish').value = '';
     renderStandingsLog(p.standingsHistory || []);
 
-    var hist = p.draftHistory || [];
+    var allHist = p.draftHistory || [];
+    var liveHist = allHist.filter(function(h){ return h.type === 'live'; });
+    var hist = liveHist.length ? liveHist : allHist;
     if (hist.length) {
       histSection.style.display = '';
       var rows = hist.map(function(h) {
@@ -1532,7 +1534,10 @@ function renderProfiles() {
   empty.style.display = 'none';
 
   grid.innerHTML = filtered.map(function(p) {
-    var hist = p.draftHistory || [];
+    var allHist = p.draftHistory || [];
+    // Prefer live draft entries (actual team drafts) over order entries (draft order generator)
+    var liveHist  = allHist.filter(function(h){ return h.type === 'live'; });
+    var hist = liveHist.length ? liveHist : allHist;
     var standings = p.standingsHistory || [];
     var avgPick = hist.length ? (hist.reduce(function(s,h){return s+h.pick;},0)/hist.length).toFixed(1) : 'N/A';
     var bestPick = hist.length ? Math.min.apply(null, hist.map(function(h){return h.pick;})) : 'N/A';
@@ -1597,7 +1602,9 @@ function openViewModal(id) {
   if (!p) return;
 
   var color = p.color || '#6a9ec7';
-  var hist = p.draftHistory || [];
+  var allHist  = p.draftHistory || [];
+  var liveHist = allHist.filter(function(h){ return h.type === 'live'; });
+  var hist = liveHist.length ? liveHist : allHist;
   var standings = p.standingsHistory || [];
   var initials = p.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
   var avgPick = hist.length ? (hist.reduce(function(s,h){return s+h.pick;},0)/hist.length).toFixed(1) : 'N/A';
