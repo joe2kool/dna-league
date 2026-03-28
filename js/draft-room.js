@@ -350,23 +350,28 @@ const DraftRoom = (() => {
         if (player) {
           if (!player.draftHistory) player.draftHistory = [];
           const pickNumber = _draft.slots.find(s => s.memberId === memberId)?.pickNumber;
-          // Dedup: match by seasonId OR by pick number + date (covers both entry types)
-          const existing = player.draftHistory.find(d =>
-            (d.seasonId && d.seasonId === _draft.seasonId) ||
-            (d.type === 'live' && d.pick === pickNumber)
-          );
-          if (!existing) {
-            player.draftHistory.push({
+          const today = new Date().toLocaleDateString();
+
+          // For live drafts: one entry per season max — update if exists, insert if not
+          const existingLive = _draft.seasonId
+            ? player.draftHistory.find(d => d.type === 'live' && d.seasonId === _draft.seasonId)
+            : null;
+
+          if (existingLive) {
+            // Update existing live entry for this season
+            existingLive.team = teamAbbr;
+            existingLive.pick = pickNumber;
+            existingLive.date = today;
+          } else {
+            // Insert new live draft entry
+            player.draftHistory.unshift({
               type:       'live',
               seasonId:   _draft.seasonId,
               seasonName: _draft.seasonName || season.name || 'Draft',
               team:       teamAbbr,
               pick:       pickNumber,
-              date:       new Date().toISOString(),
+              date:       today,
             });
-          } else {
-            existing.team = teamAbbr;
-            existing.type = 'live';
           }
           localStorage.setItem('dna_league', JSON.stringify(leagueState));
         }
