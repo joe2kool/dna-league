@@ -1016,6 +1016,30 @@ function loadState() {
     if (s) {
       var parsed = JSON.parse(s);
       Object.keys(parsed).forEach(function(k) { state[k] = parsed[k]; });
+      // One-time migration: deduplicate draft history entries
+      // Fixes duplicate entries caused by old bug where live + order entries
+      // were both written for the same draft run
+      var migrated = false;
+      (state.players || []).forEach(function(p) {
+        if (!p.draftHistory || p.draftHistory.length < 2) return;
+        var seen = {};
+        var cleaned = [];
+        p.draftHistory.forEach(function(d) {
+          // Key: for live entries use seasonId, for order entries use pick+date
+          var key = d.type === 'live' && d.seasonId
+            ? 'live:' + d.seasonId
+            : (d.type || 'order') + ':' + d.pick + ':' + d.date;
+          if (!seen[key]) {
+            seen[key] = true;
+            cleaned.push(d);
+          }
+        });
+        if (cleaned.length !== p.draftHistory.length) {
+          p.draftHistory = cleaned;
+          migrated = true;
+        }
+      });
+      if (migrated) saveState();
     }
   } catch(e) {}
 }
