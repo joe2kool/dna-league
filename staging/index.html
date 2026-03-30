@@ -2600,8 +2600,19 @@ function renderSchedule(weeks, seriesLength) {
     html += '<div class="week-block" id="week-block-' + wi + '">';
 
     // Week header
+    var weekDateRange = '';
+    if (activeSeason && activeSeason.startDate) {
+      var weekStart = new Date(activeSeason.startDate + 'T00:00:00');
+      weekStart.setDate(weekStart.getDate() + (w.weekNum - 1) * 7);
+      var weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      weekDateRange = ' <span style="font-size:13px;font-family:\'Barlow Condensed\';font-weight:400;letter-spacing:1px;color:var(--text2);margin-left:8px;">' +
+        (weekStart.getMonth()+1) + '/' + weekStart.getDate() + '&ndash;' +
+        (weekEnd.getMonth()+1) + '/' + weekEnd.getDate() + '</span>';
+    }
+
     html += '<div class="week-header" onclick="toggleWeek(' + wi + ')">';
-    html += '<span class="week-label">Week ' + w.weekNum + '</span>';
+    html += '<span class="week-label">Week ' + w.weekNum + weekDateRange + '</span>';
     html += '<div style="display:flex;align-items:center;gap:1rem;">';
     html += '<span class="week-meta">' + meta + '</span>';
     html += '<span class="week-chevron">&#9660;</span>';
