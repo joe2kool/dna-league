@@ -1881,7 +1881,16 @@ function renderSeasonCard(s) {
     }).join('') : '<div style="font-size:13px;color:var(--text2);">Roster players first before assigning teams.</div>') +
     '</div>';
   if (canManageSchedule() && roster.length) {
-    teamsContent += '<div style="margin-top:12px;">' +
+    // Check if any rostered player has a live draft entry for this season
+    var hasDraftData = roster.some(function(r) {
+      var player = state.players.find(function(p){ return p.id === r.memberId; });
+      return player && (player.draftHistory || []).some(function(d){ return d.seasonId === s.id && d.team; });
+    });
+
+    teamsContent += '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">' +
+      (hasDraftData
+        ? '<button type="button" class="btn btn-outline btn-sm" style="color:var(--gold);border-color:rgba(201,168,76,0.3);" onclick="autoLoadDraftTeams(\'' + s.id + '\')">&#x26A1; Auto-load from Draft</button>'
+        : '') +
       '<button type="button" class="btn btn-gold btn-sm" onclick="saveTeamAssignmentsDirect(\'' + s.id + '\')">Save Team Assignments</button>' +
       '</div>';
   }
@@ -2220,6 +2229,51 @@ function updateTeamAssignmentLive(seasonId) {
     });
     sel.innerHTML = html;
   });
+}
+
+// Auto-load team assignments from players' live draft history for this season
+function autoLoadDraftTeams(seasonId) {
+  var s = seasonState.seasons.find(function(x){ return x.id === seasonId; });
+  if (!s || !s.roster) return;
+  if (!s.teamAssignments) s.teamAssignments = {};
+
+  var loaded = 0;
+  var conflicts = [];
+
+  s.roster.forEach(function(r) {
+    var player = state.players.find(function(p){ return p.id === r.memberId; });
+    if (!player || !player.draftHistory) return;
+
+    // Find the most recent live draft entry for this specific season
+    var entry = player.draftHistory.find(function(d){
+      return d.seasonId === seasonId && d.team;
+    });
+
+    // Fall back to most recent live draft entry from any season
+    if (!entry) {
+      entry = player.draftHistory.find(function(d){ return !!d.seasonId && d.team; });
+    }
+
+    if (entry && entry.team) {
+      s.teamAssignments[r.memberId] = entry.team;
+      loaded++;
+
+      // Update the dropdown if it's currently rendered
+      var sel = document.getElementById('ta-' + seasonId + '-' + r.memberId);
+      if (sel) sel.value = entry.team;
+    } else {
+      conflicts.push(player.name);
+    }
+  });
+
+  saveSeasonState();
+  renderSeasonsList();
+
+  var msg = loaded + ' team' + (loaded !== 1 ? 's' : '') + ' loaded from draft history.';
+  if (conflicts.length) {
+    msg += ' No draft data found for: ' + conflicts.join(', ') + '.';
+  }
+  toast(msg);
 }
 
 function saveTeamAssignmentsDirect(seasonId) {
