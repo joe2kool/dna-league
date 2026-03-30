@@ -340,7 +340,8 @@ const DraftRoom = (() => {
         return;
       }
       if (!season.teamAssignments) season.teamAssignments = {};
-      season.teamAssignments[memberId] = teamAbbr;
+      const teamObj = (DNA_CONFIG.mlbTeams || []).find(t => t.abbr === teamAbbr);
+      season.teamAssignments[memberId] = teamObj ? teamObj.name : teamAbbr;
 
       // Also update the draft history on the player's profile
       const leagueRaw = localStorage.getItem('dna_league');
