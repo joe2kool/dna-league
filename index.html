@@ -1016,6 +1016,31 @@ function loadState() {
     if (s) {
       var parsed = JSON.parse(s);
       Object.keys(parsed).forEach(function(k) { state[k] = parsed[k]; });
+      // One-time migration: deduplicate draft history entries
+      // Fixes duplicate entries caused by old bug where live + order entries
+      // were both written for the same draft run
+      var migrated = false;
+      (state.players || []).forEach(function(p) {
+        if (!p.draftHistory || p.draftHistory.length < 2) return;
+        var seen = {};
+        var cleaned = [];
+        p.draftHistory.forEach(function(d) {
+          // Key: entries with seasonId are live drafts (one per season)
+          // Entries without seasonId are draft order saves (one per pick+date)
+          var key = d.seasonId
+            ? 'live:' + d.seasonId
+            : 'order:' + d.pick + ':' + d.date;
+          if (!seen[key]) {
+            seen[key] = true;
+            cleaned.push(d);
+          }
+        });
+        if (cleaned.length !== p.draftHistory.length) {
+          p.draftHistory = cleaned;
+          migrated = true;
+        }
+      });
+      if (migrated) saveState();
     }
   } catch(e) {}
 }
@@ -1262,7 +1287,13 @@ function saveDraftHistory() {
     }
     if (profile) {
       if (!profile.draftHistory) profile.draftHistory = [];
-      profile.draftHistory.unshift({ pick: i + 1, date: date, mode: state.draftMode });
+      // Check for duplicate — same pick number and same date (same save action)
+      var alreadySaved = profile.draftHistory.find(function(d) {
+        return d.type === 'order' && d.pick === (i + 1) && d.date === date;
+      });
+      if (!alreadySaved) {
+        profile.draftHistory.unshift({ type: 'order', pick: i + 1, date: date, mode: state.draftMode });
+      }
     }
   });
   saveState();
@@ -1301,7 +1332,9 @@ function openProfileModal(id) {
     document.getElementById('f-season-finish').value = '';
     renderStandingsLog(p.standingsHistory || []);
 
-    var hist = p.draftHistory || [];
+    var allHist = p.draftHistory || [];
+    var liveHist = allHist.filter(function(h){ return !!h.seasonId; });
+    var hist = liveHist.length ? liveHist : allHist;
     if (hist.length) {
       histSection.style.display = '';
       var rows = hist.map(function(h) {
@@ -1502,7 +1535,10 @@ function renderProfiles() {
   empty.style.display = 'none';
 
   grid.innerHTML = filtered.map(function(p) {
-    var hist = p.draftHistory || [];
+    var allHist = p.draftHistory || [];
+    // Show live draft entries (have seasonId) — fall back to all if none exist
+    var liveHist  = allHist.filter(function(h){ return !!h.seasonId; });
+    var hist = liveHist.length ? liveHist : allHist;
     var standings = p.standingsHistory || [];
     var avgPick = hist.length ? (hist.reduce(function(s,h){return s+h.pick;},0)/hist.length).toFixed(1) : 'N/A';
     var bestPick = hist.length ? Math.min.apply(null, hist.map(function(h){return h.pick;})) : 'N/A';
@@ -1567,7 +1603,9 @@ function openViewModal(id) {
   if (!p) return;
 
   var color = p.color || '#6a9ec7';
-  var hist = p.draftHistory || [];
+  var allHist  = p.draftHistory || [];
+  var liveHist = allHist.filter(function(h){ return !!h.seasonId; });
+  var hist = liveHist.length ? liveHist : allHist;
   var standings = p.standingsHistory || [];
   var initials = p.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
   var avgPick = hist.length ? (hist.reduce(function(s,h){return s+h.pick;},0)/hist.length).toFixed(1) : 'N/A';
@@ -1843,7 +1881,16 @@ function renderSeasonCard(s) {
     }).join('') : '<div style="font-size:13px;color:var(--text2);">Roster players first before assigning teams.</div>') +
     '</div>';
   if (canManageSchedule() && roster.length) {
-    teamsContent += '<div style="margin-top:12px;">' +
+    // Check if any rostered player has a live draft entry for this season
+    var hasDraftData = roster.some(function(r) {
+      var player = state.players.find(function(p){ return p.id === r.memberId; });
+      return player && (player.draftHistory || []).some(function(d){ return d.seasonId === s.id && d.team; });
+    });
+
+    teamsContent += '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">' +
+      (hasDraftData
+        ? '<button type="button" class="btn btn-outline btn-sm" style="color:var(--gold);border-color:rgba(201,168,76,0.3);" onclick="autoLoadDraftTeams(\'' + s.id + '\')">&#x26A1; Auto-load from Draft</button>'
+        : '') +
       '<button type="button" class="btn btn-gold btn-sm" onclick="saveTeamAssignmentsDirect(\'' + s.id + '\')">Save Team Assignments</button>' +
       '</div>';
   }
@@ -2182,6 +2229,54 @@ function updateTeamAssignmentLive(seasonId) {
     });
     sel.innerHTML = html;
   });
+}
+
+// Auto-load team assignments from players' live draft history for this season
+function autoLoadDraftTeams(seasonId) {
+  var s = seasonState.seasons.find(function(x){ return x.id === seasonId; });
+  if (!s || !s.roster) return;
+  if (!s.teamAssignments) s.teamAssignments = {};
+
+  var loaded = 0;
+  var conflicts = [];
+
+  s.roster.forEach(function(r) {
+    var player = state.players.find(function(p){ return p.id === r.memberId; });
+    if (!player || !player.draftHistory) return;
+
+    // Find the most recent live draft entry for this specific season
+    var entry = player.draftHistory.find(function(d){
+      return d.seasonId === seasonId && d.team;
+    });
+
+    // Fall back to most recent live draft entry from any season
+    if (!entry) {
+      entry = player.draftHistory.find(function(d){ return !!d.seasonId && d.team; });
+    }
+
+    if (entry && entry.team) {
+      // entry.team may be stored as an abbreviation (e.g. "BAL") — resolve to full name
+      var teamObj = (DNA_CONFIG.mlbTeams || []).find(function(t) { return t.abbr === entry.team || t.name === entry.team; });
+      var teamFull = teamObj ? teamObj.name : entry.team;
+      s.teamAssignments[r.memberId] = teamFull;
+      loaded++;
+
+      // Update the dropdown if it's currently rendered
+      var sel = document.getElementById('ta-' + seasonId + '-' + r.memberId);
+      if (sel) sel.value = teamFull;
+    } else {
+      conflicts.push(player.name);
+    }
+  });
+
+  saveSeasonState();
+  renderSeasonsList();
+
+  var msg = loaded + ' team' + (loaded !== 1 ? 's' : '') + ' loaded from draft history.';
+  if (conflicts.length) {
+    msg += ' No draft data found for: ' + conflicts.join(', ') + '.';
+  }
+  toast(msg);
 }
 
 function saveTeamAssignmentsDirect(seasonId) {
@@ -3215,9 +3310,11 @@ async function loadLeagueContext() {
     document.getElementById('nav-user-role').textContent = currentMember.role;
     updateDrawerUser();
   }
-  await syncPlayersFromDB();
+  // Load localStorage FIRST so local- players are already in state
   loadState();
   loadSeasonState();
+  // Then merge DB players in — this adds real accounts without wiping local ones
+  await syncPlayersFromDB();
   renderSlots();
   updateDashboard();
   document.getElementById('slot-count').value = state.slotCount;
@@ -3232,12 +3329,14 @@ async function syncPlayersFromDB() {
     .eq('league_id', currentLeague.id)
     .order('joined_at', { ascending: true });
   if (res.error) { console.error('syncPlayers:', res.error.message); return; }
+  var changed = false;
   res.data.forEach(function(m) {
     var existing = null;
     for (var i = 0; i < state.players.length; i++) {
       if (state.players[i].id === m.id) { existing = state.players[i]; break; }
     }
     if (!existing) {
+      // New DB player not yet in local state — add them
       state.players.push({
         id: m.id, name: m.display_name, realname: m.real_name || '',
         color: m.avatar_color || '#6a9ec7', team: m.favorite_mlb_team || '',
@@ -3245,15 +3344,18 @@ async function syncPlayersFromDB() {
         draftHistory: [], standingsHistory: [],
         championships: 0, playoffs: 0, mvp: 0, cyyoung: 0, wins: '', losses: ''
       });
+      changed = true;
     } else {
-      existing.name = m.display_name;
-      existing.realname = m.real_name || '';
-      existing.color = m.avatar_color || existing.color;
-      existing.team = m.favorite_mlb_team || '';
-      existing.role = m.role;
+      // Update fields from DB but preserve local-only fields (draftHistory, stats etc.)
+      existing.name    = m.display_name;
+      existing.realname= m.real_name || '';
+      existing.color   = m.avatar_color || existing.color;
+      existing.team    = m.favorite_mlb_team || '';
+      existing.role    = m.role;
     }
   });
-  saveState();
+  // Only save if we added new players — don't overwrite if nothing changed
+  if (changed) saveState();
 }
 
 async function saveProfileToDB(data, editingId) {
