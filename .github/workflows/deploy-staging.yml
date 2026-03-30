@@ -29,13 +29,13 @@ jobs:
     steps:
 
       - name: Checkout staging branch
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
         with:
           ref: staging
           fetch-depth: 0
 
       - name: Checkout gh-pages branch (or create it)
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v6.0.2
         with:
           ref: gh-pages
           path: gh-pages-checkout
