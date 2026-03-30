@@ -101,7 +101,7 @@ const DraftUI = (() => {
           <div class="team-card-name">${escHtml(info.name)}</div>
           <div class="team-card-ovr" style="color:${ovrColor}">${ovr}</div>
           <div class="team-card-league">${info.league || ''} ${info.division || ''}</div>
-          <button type="button" class="team-card-btn" onclick="event.stopPropagation();showTeamDetail('${abbr}')">
+          <button type="button" class="team-card-btn" onclick="event.stopPropagation();DraftUI.showTeamDetail('${abbr}')">
             Top 5 ▸
           </button>
         </div>`;

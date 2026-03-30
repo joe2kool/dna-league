@@ -27,31 +27,58 @@ const DnaRatings = (() => {
   const adapters = {
 
     mlbtheshow: {
-      // MLB The Show 26 public API
-      baseUrl: 'https://mlb26.theshow.com/apis',
+      baseUrl:   'https://mlb26.theshow.com/apis',
+      // Cloudflare Worker URL — set this after deploying dna-worker.js
+      // to Cloudflare Workers (free tier). Until set, falls back to static.
+      workerUrl: DNA_CONFIG.ratings.workerUrl || '',
 
       async fetchTeams() {
+        // Try Worker first for live team overalls
+        if (this.workerUrl) {
+          try {
+            const res = await fetch(`${this.workerUrl}/teams`, {
+              signal: AbortSignal.timeout(8000),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.teams && Object.keys(data.teams).length > 0) {
+                console.log('MLB The Show 26: loaded team overalls from Worker');
+                // Merge live overalls into static base (static has league/division info)
+                const base = _getStaticMLBRatings();
+                for (const [abbr, info] of Object.entries(data.teams)) {
+                  if (base[abbr]) base[abbr].overall = info.overall;
+                }
+                return base;
+              }
+            }
+          } catch(e) {
+            console.warn('Worker /teams failed, using static:', e.message);
+          }
+        }
         return _getStaticMLBRatings();
       },
 
       async fetchRoster(teamAbbr) {
-        try {
-          // Live Series cards only — these are the correct Diamond Dynasty ratings
-          // series_type=live_series ensures we get current Live Series cards, not exhibition
-          const url = `${this.baseUrl}/items?type=mlb_card&series_type=live_series&team_name=${encodeURIComponent(teamAbbr)}&page=1`;
-          const res = await fetch(url, {
-            signal: AbortSignal.timeout(6000),
-            headers: { 'Accept': 'application/json' },
-          });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json();
-          const parsed = _parseMLBShowRoster(data.items || []);
-          if (parsed.length > 0) return parsed;
-          throw new Error('No Live Series cards found, falling back to static');
-        } catch(e) {
-          console.warn(`MLB The Show 26 API unavailable for ${teamAbbr}, using static data:`, e.message);
-          return _getStaticRoster(teamAbbr);
+        // Try Worker first
+        if (this.workerUrl) {
+          try {
+            const res = await fetch(`${this.workerUrl}/roster?team=${encodeURIComponent(teamAbbr)}`, {
+              signal: AbortSignal.timeout(8000),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.players && data.players.length > 0) {
+                console.log(`MLB The Show 26 Worker: ${data.players.length} players for ${teamAbbr}`);
+                return data.players;
+              }
+            }
+          } catch(e) {
+            console.warn(`Worker /roster failed for ${teamAbbr}, using static:`, e.message);
+          }
         }
+        // Fallback to static
+        console.warn(`Using static roster for ${teamAbbr}`);
+        return _getStaticRoster(teamAbbr);
       },
     },
 
@@ -60,16 +87,16 @@ const DnaRatings = (() => {
     // nba2k:    { fetchTeams() {}, fetchRoster(teamAbbr) {} },
   };
 
-  // ── STATIC SEED DATA (2025 approximate overalls) ──────────
+  // ── STATIC SEED DATA (MLB The Show 26 approximate overalls) ─
   // Used as fallback when API is unavailable or rate-limited.
   // Keyed by MLB team abbreviation.
   const STATIC_OVERALLS = {
-    LAD: 92, ATL: 90, NYY: 89, HOU: 88, PHI: 88,
-    SD:  87, TB:  86, BOS: 85, NYM: 85, MIN: 85,
-    BAL: 84, CLE: 84, TEX: 84, TOR: 84, MIL: 83,
-    SEA: 83, ARI: 82, STL: 82, CHC: 81, DET: 81,
-    KC:  80, CIN: 79, SF:  79, MIA: 78, COL: 77,
-    OAK: 76, PIT: 75, WSH: 75, LAA: 74, CWS: 72,
+    LAD: 93, NYY: 91, ATL: 90, PHI: 90, HOU: 89,
+    BAL: 88, CLE: 88, KC:  87, SD:  87, MIN: 87,
+    BOS: 86, NYM: 86, TOR: 85, MIL: 85, SEA: 84,
+    DET: 84, TEX: 83, ARI: 83, STL: 82, CHC: 82,
+    TB:  81, CIN: 81, SF:  80, PIT: 80, MIA: 79,
+    WSH: 78, COL: 77, OAK: 76, LAA: 75, CWS: 72,
   };
 
   // Static top-5 players per team (2025 approximate)
@@ -305,16 +332,18 @@ const DnaRatings = (() => {
   }
 
   function _parseMLBShowRoster(items) {
-    // Parse MLB The Show API response into our format
+    // Field names confirmed from MLB The Show 26 Item API docs:
+    // ovr, name, display_position, series, team_short_name
     return items
       .filter(i => i.ovr && i.name)
       .sort((a, b) => b.ovr - a.ovr)
       .slice(0, 5)
       .map(i => ({
         name:    i.name,
-        pos:     i.display_position || i.position || '—',
+        pos:     i.display_position || '—',
         overall: i.ovr,
         series:  i.series || '',
+        rarity:  i.rarity || '',
       }));
   }
 

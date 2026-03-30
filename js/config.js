@@ -30,8 +30,9 @@ const DNA_CONFIG = {
     game:       'mlbtheshow',
     gameYear:   2026,
     apiBase:    'https://mlb26.theshow.com/apis',
-    // Community mirror used as fallback (CORS-friendly)
-    mirrorBase: 'https://mlb-the-show-api.p.rapidapi.com',
+    // Set this after deploying dna-worker.js to Cloudflare Workers
+    // e.g. 'https://dna-league.YOUR-NAME.workers.dev'
+    workerUrl:  'https://dna-league.josephisaacii.workers.dev',
   },
 
   // MLB teams — static reference used across the app
