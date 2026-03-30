@@ -2255,12 +2255,15 @@ function autoLoadDraftTeams(seasonId) {
     }
 
     if (entry && entry.team) {
-      s.teamAssignments[r.memberId] = entry.team;
+      // entry.team may be stored as an abbreviation (e.g. "BAL") — resolve to full name
+      var teamObj = (DNA_CONFIG.mlbTeams || []).find(function(t) { return t.abbr === entry.team || t.name === entry.team; });
+      var teamFull = teamObj ? teamObj.name : entry.team;
+      s.teamAssignments[r.memberId] = teamFull;
       loaded++;
 
       // Update the dropdown if it's currently rendered
       var sel = document.getElementById('ta-' + seasonId + '-' + r.memberId);
-      if (sel) sel.value = entry.team;
+      if (sel) sel.value = teamFull;
     } else {
       conflicts.push(player.name);
     }
