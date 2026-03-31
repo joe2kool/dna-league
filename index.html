@@ -1832,14 +1832,40 @@ var MLB_TEAMS = [
 function saveSeasonState() {
   try { localStorage.setItem('dna_seasons', JSON.stringify(seasonState)); } catch(e) {}
 }
-function loadSeasonState() {
-  try {
-    var s = localStorage.getItem('dna_seasons');
-    if (s) {
-      var p = JSON.parse(s);
-      Object.keys(p).forEach(function(k) { seasonState[k] = p[k]; });
-    }
-  } catch(e) {}
+async function loadSeasonState() {
+  if (!currentLeague) return;
+
+  var res = await db.from('seasons')
+    .select('*, league_teams(member_id, draft_pick_number, mlb_teams(name, abbreviation))')
+    .eq('league_id', currentLeague.id)
+    .order('season_number', { ascending: true });
+
+  if (res.error) {
+    console.error('loadSeasonState:', res.error.message);
+    return;
+  }
+
+  seasonState.seasons = res.data.map(function(s) {
+    var roster = [];
+    var teamAssignments = {};
+    (s.league_teams || []).forEach(function(lt) {
+      roster.push({ memberId: lt.member_id });
+      if (lt.mlb_teams) {
+        teamAssignments[lt.member_id] = lt.mlb_teams.name;
+      }
+    });
+    return {
+      id:              s.id,
+      name:            s.name,
+      number:          s.season_number,
+      game:            DNA_CONFIG.app.game,
+      status:          s.status,
+      startDate:       s.start_date || null,
+      endDate:         s.end_date || null,
+      roster:          roster,
+      teamAssignments: teamAssignments,
+    };
+  });
 }
 
 // ════════════════════════════════════════════════
@@ -3742,7 +3768,7 @@ async function loadLeagueContext() {
   }
   // Load localStorage FIRST so local- players are already in state
   loadState();
-  loadSeasonState();
+  await loadSeasonState();
   // Then merge DB players in — this adds real accounts without wiping local ones
   await syncPlayersFromDB();
   renderSlots();
