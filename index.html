@@ -2490,12 +2490,12 @@ function updateTeamAssignmentLive(seasonId) {
 }
 
 // Auto-load team assignments from players' live draft history for this season
-function autoLoadDraftTeams(seasonId) {
+async function autoLoadDraftTeams(seasonId) {
   var s = seasonState.seasons.find(function(x){ return x.id === seasonId; });
   if (!s || !s.roster) return;
   if (!s.teamAssignments) s.teamAssignments = {};
 
-  var loaded = 0;
+  var toSave = []; // { memberId, teamFull }
   var conflicts = [];
 
   s.roster.forEach(function(r) {
@@ -2516,20 +2516,20 @@ function autoLoadDraftTeams(seasonId) {
       // entry.team may be stored as an abbreviation (e.g. "BAL") — resolve to full name
       var teamObj = (DNA_CONFIG.mlbTeams || []).find(function(t) { return t.abbr === entry.team || t.name === entry.team; });
       var teamFull = teamObj ? teamObj.name : entry.team;
-      s.teamAssignments[r.memberId] = teamFull;
-      loaded++;
-
-      // Update the dropdown if it's currently rendered
-      var sel = document.getElementById('ta-' + seasonId + '-' + r.memberId);
-      if (sel) sel.value = teamFull;
+      toSave.push({ memberId: r.memberId, teamFull: teamFull });
     } else {
       conflicts.push(player.name);
     }
   });
 
+  // Persist each resolved assignment to Supabase
+  for (var i = 0; i < toSave.length; i++) {
+    await saveTeamAssignment(seasonId, toSave[i].memberId, toSave[i].teamFull);
+  }
+
   renderSeasonsList();
 
-  var msg = loaded + ' team' + (loaded !== 1 ? 's' : '') + ' loaded from draft history.';
+  var msg = toSave.length + ' team' + (toSave.length !== 1 ? 's' : '') + ' loaded from draft history.';
   if (conflicts.length) {
     msg += ' No draft data found for: ' + conflicts.join(', ') + '.';
   }
@@ -3606,11 +3606,7 @@ function renderHomeScheduleWidget() {
   var activeSeason = getActiveSeason();
   var weeks = null;
 
-  if (activeSeason) {
-    var saved = loadSavedSchedule(activeSeason.id);
-    if (saved && saved.weeks && saved.weeks.length) weeks = saved.weeks;
-  }
-  if (!weeks && scheduleState.generatedWeeks.length) weeks = scheduleState.generatedWeeks;
+  if (scheduleState.generatedWeeks.length) weeks = scheduleState.generatedWeeks;
   if (!weeks || !weeks.length) { widget.style.display = 'none'; return; }
 
   // Build MLB team lookup
