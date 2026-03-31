@@ -445,6 +445,23 @@
   .hsw-pteam { font-size:10px; color:var(--text2); }
   .hsw-vs { font-family:'Bebas Neue'; font-size:12px; color:var(--text2); flex-shrink:0; padding:0 4px; }
 
+  /* ── ROLE CHIPS ────────────────────────────────── */
+  .role-chip { font-family:'Barlow Condensed'; font-size:10px; letter-spacing:2px; text-transform:uppercase; padding:2px 8px; border-radius:4px; }
+  .role-chip.role-admin         { background:rgba(201,168,76,0.2);  color:var(--gold); }
+  .role-chip.role-commissioner  { background:rgba(201,168,76,0.2);  color:var(--gold); }
+  .role-chip.role-co_commissioner { background:rgba(168,189,212,0.15); color:var(--chrome1); }
+  .role-chip.role-helper        { background:rgba(46,204,113,0.12); color:var(--green); }
+  .role-chip.role-member        { background:rgba(255,255,255,0.06); color:var(--text2); }
+
+  /* ── LEAGUE MEMBER ROW ──────────────────────────── */
+  .league-member-row { display:flex; align-items:center; gap:12px; padding:12px 1.25rem; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .league-member-row:last-child { border-bottom:none; }
+  .league-member-info { flex:1; min-width:0; }
+  .league-member-name { font-family:'Barlow Condensed'; font-size:16px; font-weight:600; }
+  .league-member-meta { font-size:11px; color:var(--text2); margin-top:1px; }
+  .league-role-select { background:var(--surface3); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:var(--text); font-family:'Barlow Condensed'; font-size:13px; padding:6px 10px; }
+  .league-role-select:disabled { opacity:0.4; cursor:not-allowed; }
+
   /* ── MATCH RESULTS ─────────────────────────────── */
   .result-w { font-family:'Bebas Neue'; font-size:12px; padding:1px 6px; border-radius:3px; background:rgba(46,204,113,0.15); color:var(--green); letter-spacing:1px; flex-shrink:0; white-space:nowrap; }
   .result-l { font-family:'Bebas Neue'; font-size:12px; padding:1px 6px; border-radius:3px; background:rgba(231,76,60,0.12); color:var(--red); letter-spacing:1px; flex-shrink:0; white-space:nowrap; }
@@ -534,6 +551,9 @@
     <button type="button" class="drawer-nav-item" id="drawer-tab-profiles" onclick="showPageMobile('profiles',this)">
       <span class="drawer-nav-icon">&#x1F464;</span><span>Players</span>
     </button>
+    <button type="button" class="drawer-nav-item" id="drawer-tab-league" onclick="showPageMobile('league',this)" style="display:none;">
+      <span class="drawer-nav-icon">&#x2699;</span><span>League</span>
+    </button>
   </nav>
   <!-- Drawer sign out -->
   <div style="padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
@@ -562,6 +582,7 @@
     <button type="button" class="nav-tab" onclick="showPage('seasons',this)">Seasons</button>
     <button type="button" class="nav-tab" onclick="showPage('schedule',this)">Schedule</button>
     <button type="button" class="nav-tab" onclick="showPage('profiles',this)">Players</button>
+    <button type="button" class="nav-tab" id="nav-tab-league" onclick="showPage('league',this)" style="display:none;">League</button>
   </div>
   <div style="margin-left:auto;display:flex;align-items:center;gap:1rem;padding:0 0.5rem;" id="nav-user-area">
     <div style="text-align:right;">
@@ -778,6 +799,38 @@
         <div class="empty-icon">&#x1F3C6;</div>
         <div class="empty-text">No seasons yet &mdash; create your first</div>
       </div>
+    </div>
+  </div>
+
+  <!-- LEAGUE MANAGEMENT -->
+  <div id="page-league" class="page">
+    <div class="page-header">
+      <div><h1>League <span>Management</span></h1><p>Manage member roles and permissions</p></div>
+    </div>
+
+    <div style="background:var(--surface2);border-radius:12px;border:1px solid rgba(255,255,255,0.06);overflow:hidden;">
+      <div style="padding:1rem 1.25rem;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-family:'Barlow Condensed';font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--text2);">Members &amp; Roles</div>
+        <div id="league-member-count" style="font-size:12px;color:var(--text2);"></div>
+      </div>
+
+      <!-- Role legend -->
+      <div style="padding:0.75rem 1.25rem;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;gap:1rem;flex-wrap:wrap;">
+        <span style="font-size:11px;color:var(--text2);">
+          <span class="role-chip role-commissioner">Commissioner</span> &mdash; Full control
+        </span>
+        <span style="font-size:11px;color:var(--text2);">
+          <span class="role-chip role-co_commissioner">Co-Commissioner</span> &mdash; Manage seasons, schedule, draft
+        </span>
+        <span style="font-size:11px;color:var(--text2);">
+          <span class="role-chip role-helper">Helper</span> &mdash; Read-only assist
+        </span>
+        <span style="font-size:11px;color:var(--text2);">
+          <span class="role-chip role-member">Member</span> &mdash; Standard player
+        </span>
+      </div>
+
+      <div id="league-members-list"></div>
     </div>
   </div>
 
@@ -1086,6 +1139,7 @@ function showPage(id, tabEl) {
   if (id === 'profiles') renderProfiles();
   if (id === 'seasons')  initSeasonsPage();
   if (id === 'schedule') initSchedulePage();
+  if (id === 'league')   initLeaguePage();
 }
 
 function selectMode(mode) {
@@ -1786,6 +1840,106 @@ function loadSeasonState() {
       Object.keys(p).forEach(function(k) { seasonState[k] = p[k]; });
     }
   } catch(e) {}
+}
+
+// ════════════════════════════════════════════════
+// LEAGUE MANAGEMENT
+// ════════════════════════════════════════════════
+
+var ROLE_OPTIONS = [
+  { value: 'commissioner',    label: 'Commissioner' },
+  { value: 'co_commissioner', label: 'Co-Commissioner' },
+  { value: 'helper',          label: 'Helper' },
+  { value: 'member',          label: 'Member' },
+];
+
+function initLeaguePage() {
+  if (!currentMember || !['admin','commissioner','co_commissioner'].includes(currentMember.role)) {
+    toast('Access denied');
+    return;
+  }
+  renderLeagueMembers();
+}
+
+function renderLeagueMembers() {
+  var list = document.getElementById('league-members-list');
+  var countEl = document.getElementById('league-member-count');
+  var players = state.players.filter(function(p) { return !p.id.startsWith('local-'); });
+
+  countEl.textContent = players.length + ' member' + (players.length !== 1 ? 's' : '');
+
+  if (!players.length) {
+    list.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text2);font-size:13px;">No signed-in members yet. Members appear here once they create an account.</div>';
+    return;
+  }
+
+  // Only commissioner/admin can change roles; co_commissioner can view but not edit
+  var canEdit = currentMember && ['admin','commissioner'].includes(currentMember.role);
+
+  list.innerHTML = players.map(function(p) {
+    var initials = p.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
+    var color = p.color || '#6a9ec7';
+    var role = p.role || 'member';
+    var isSelf = currentMember && p.id === currentMember.id;
+
+    var roleOptions = ROLE_OPTIONS.map(function(opt) {
+      return '<option value="' + opt.value + '"' + (opt.value === role ? ' selected' : '') + '>' + opt.label + '</option>';
+    }).join('');
+
+    // Can't demote yourself or edit admins
+    var disabled = (!canEdit || isSelf || role === 'admin') ? 'disabled' : '';
+    var metaParts = [];
+    if (p.joinDate) metaParts.push('Joined ' + p.joinDate);
+    if (p.gamertag) metaParts.push('&#x1F3AE; ' + escHtml(p.gamertag) + (p.platform ? ' &middot; ' + p.platform.toUpperCase() : ''));
+
+    return '<div class="league-member-row" id="lmr-' + p.id + '">' +
+      '<div class="board-avatar" style="background:' + color + ';width:36px;height:36px;font-size:14px;flex-shrink:0;">' + initials + '</div>' +
+      '<div class="league-member-info">' +
+        '<div class="league-member-name">' + escHtml(p.name) +
+          (isSelf ? ' <span style="font-size:10px;color:var(--text2);">(you)</span>' : '') +
+        '</div>' +
+        (metaParts.length ? '<div class="league-member-meta">' + metaParts.join(' &nbsp;&bull;&nbsp; ') + '</div>' : '') +
+      '</div>' +
+      '<span class="role-chip role-' + role + '" id="lmr-chip-' + p.id + '">' + _roleLabel(role) + '</span>' +
+      '<select class="league-role-select" ' + disabled + ' onchange="updateMemberRole(\'' + p.id + '\',this.value)">' +
+        roleOptions +
+      '</select>' +
+    '</div>';
+  }).join('');
+}
+
+function _roleLabel(role) {
+  var found = ROLE_OPTIONS.find(function(o){ return o.value === role; });
+  return found ? found.label : role;
+}
+
+async function updateMemberRole(memberId, newRole) {
+  if (!currentMember || !['admin','commissioner'].includes(currentMember.role)) {
+    toast('Only the commissioner can change roles');
+    renderLeagueMembers();
+    return;
+  }
+
+  var res = await db.from('league_members').update({ role: newRole }).eq('id', memberId);
+  if (res.error) {
+    toast('Error updating role: ' + res.error.message);
+    renderLeagueMembers();
+    return;
+  }
+
+  // Update local state so permission checks reflect the change immediately
+  var player = state.players.find(function(p){ return p.id === memberId; });
+  if (player) player.role = newRole;
+  saveState();
+
+  // Update the chip label in-place without re-rendering the whole list
+  var chip = document.getElementById('lmr-chip-' + memberId);
+  if (chip) {
+    chip.textContent = _roleLabel(newRole);
+    chip.className = 'role-chip role-' + newRole;
+  }
+
+  toast(player ? player.name + ' is now ' + _roleLabel(newRole) : 'Role updated');
 }
 
 // ── INIT ─────────────────────────────────────────
@@ -3583,6 +3737,13 @@ async function loadLeagueContext() {
     document.getElementById('nav-user-name').textContent = currentMember.display_name;
     document.getElementById('nav-user-role').textContent = currentMember.role;
     updateDrawerUser();
+    // Show League tab for commissioner+
+    if (['admin','commissioner','co_commissioner'].includes(currentMember.role)) {
+      var leagueTab = document.getElementById('nav-tab-league');
+      var drawerLeague = document.getElementById('drawer-tab-league');
+      if (leagueTab) leagueTab.style.display = '';
+      if (drawerLeague) drawerLeague.style.display = '';
+    }
   }
   // Load localStorage FIRST so local- players are already in state
   loadState();
