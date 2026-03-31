@@ -1830,16 +1830,42 @@ var MLB_TEAMS = [
 ];
 
 function saveSeasonState() {
-  try { localStorage.setItem('dna_seasons', JSON.stringify(seasonState)); } catch(e) {}
+  // Seasons now persisted to Supabase — no localStorage write needed
 }
-function loadSeasonState() {
-  try {
-    var s = localStorage.getItem('dna_seasons');
-    if (s) {
-      var p = JSON.parse(s);
-      Object.keys(p).forEach(function(k) { seasonState[k] = p[k]; });
-    }
-  } catch(e) {}
+async function loadSeasonState() {
+  if (!currentLeague) return;
+
+  var res = await db.from('seasons')
+    .select('*, league_teams(member_id, draft_pick_number, mlb_teams(name, abbreviation))')
+    .eq('league_id', currentLeague.id)
+    .order('season_number', { ascending: true });
+
+  if (res.error) {
+    console.error('loadSeasonState:', res.error.message);
+    return;
+  }
+
+  seasonState.seasons = res.data.map(function(s) {
+    var roster = [];
+    var teamAssignments = {};
+    (s.league_teams || []).forEach(function(lt) {
+      roster.push({ memberId: lt.member_id });
+      if (lt.mlb_teams) {
+        teamAssignments[lt.member_id] = lt.mlb_teams.name;
+      }
+    });
+    return {
+      id:              s.id,
+      name:            s.name,
+      number:          s.season_number,
+      game:            DNA_CONFIG.app.game,
+      status:          s.status,
+      startDate:       s.start_date || null,
+      endDate:         s.end_date || null,
+      roster:          roster,
+      teamAssignments: teamAssignments,
+    };
+  });
 }
 
 // ════════════════════════════════════════════════
@@ -2055,7 +2081,7 @@ function renderSeasonCard(s) {
         '</div>' +
         '<div class="ta-team">' +
           '<select id="ta-' + s.id + '-' + r.memberId + '" ' +
-            (canManageSchedule() ? 'onchange="updateTeamAssignmentLive(\'' + s.id + '\')"' : 'disabled') + '>' +
+            (canManageSchedule() ? 'onchange="saveTeamAssignment(\'' + s.id + '\',\'' + r.memberId + '\',this.value)"' : 'disabled') + '>' +
             options +
           '</select>' +
         '</div>' +
@@ -2074,7 +2100,6 @@ function renderSeasonCard(s) {
       (hasDraftData
         ? '<button type="button" class="btn btn-outline btn-sm" style="color:var(--gold);border-color:rgba(201,168,76,0.3);" onclick="autoLoadDraftTeams(\'' + s.id + '\')">&#x26A1; Auto-load from Draft</button>'
         : '') +
-      '<button type="button" class="btn btn-gold btn-sm" onclick="saveTeamAssignmentsDirect(\'' + s.id + '\')">Save Team Assignments</button>' +
       '</div>';
   }
 
@@ -2153,7 +2178,6 @@ function renderSeasonCard(s) {
 
 function switchSeasonTab(seasonId, tab, tabEl) {
   seasonState.activeSeasonTab[seasonId] = tab;
-  saveSeasonState();
   // Re-render just this card
   var season = seasonState.seasons.find(function(s) { return s.id === seasonId; });
   if (!season) return;
@@ -2182,43 +2206,76 @@ function closeSeasonModal() {
   document.getElementById('season-modal').classList.remove('open');
 }
 
-function saveSeason() {
+async function saveSeason() {
   var name = document.getElementById('sm-name').value.trim();
   if (!name) { toast('Season name is required'); return; }
+  if (!currentLeague) { toast('Not connected to league'); return; }
 
-  var data = {
-    name:      name,
-    number:    parseInt(document.getElementById('sm-number').value) || 1,
-    game:      document.getElementById('sm-game').value.trim() || 'MLB The Show 25',
-    status:    document.getElementById('sm-status').value,
-    startDate: document.getElementById('sm-start').value || null,
-    endDate:   document.getElementById('sm-end').value || null,
-  };
+  var statusVal  = document.getElementById('sm-status').value;
+  var startVal   = document.getElementById('sm-start').value || null;
+  var endVal     = document.getElementById('sm-end').value || null;
+  var numberVal  = parseInt(document.getElementById('sm-number').value) || 1;
 
   if (seasonState.editingSeasonId) {
-    var idx = seasonState.seasons.findIndex(function(s){return s.id===seasonState.editingSeasonId;});
+    // UPDATE existing season
+    var res = await db.from('seasons').update({
+      name:          name,
+      season_number: numberVal,
+      status:        statusVal,
+      start_date:    startVal,
+      end_date:      endVal,
+    }).eq('id', seasonState.editingSeasonId).select().single();
+
+    if (res.error) { toast('Error saving season'); console.error(res.error.message); return; }
+
+    // Update in-memory
+    var idx = seasonState.seasons.findIndex(function(s) { return s.id === seasonState.editingSeasonId; });
     if (idx > -1) {
-      Object.keys(data).forEach(function(k){ seasonState.seasons[idx][k] = data[k]; });
+      seasonState.seasons[idx].name      = name;
+      seasonState.seasons[idx].number    = numberVal;
+      seasonState.seasons[idx].status    = statusVal;
+      seasonState.seasons[idx].startDate = startVal;
+      seasonState.seasons[idx].endDate   = endVal;
     }
     toast('Season updated');
+
   } else {
-    data.id              = 'season-' + Date.now();
-    data.roster          = [];
-    data.teamAssignments = {};
-    seasonState.seasons.push(data);
+    // INSERT new season
+    var res = await db.from('seasons').insert({
+      league_id:     currentLeague.id,
+      name:          name,
+      season_number: numberVal,
+      status:        statusVal,
+      start_date:    startVal,
+      end_date:      endVal,
+    }).select().single();
+
+    if (res.error) { toast('Error creating season'); console.error(res.error.message); return; }
+
+    var newSeason = {
+      id:              res.data.id,
+      name:            name,
+      number:          numberVal,
+      game:            DNA_CONFIG.app.game,
+      status:          statusVal,
+      startDate:       startVal,
+      endDate:         endVal,
+      roster:          [],
+      teamAssignments: {},
+    };
+    seasonState.seasons.push(newSeason);
     logActivity('Season "' + name + '" created');
     toast('Season created!');
   }
 
-  saveSeasonState();
   closeSeasonModal();
   renderSeasonsList();
   updateDashboard();
   populateSeasonDropdown();
 }
 
-function deleteSeason(id) {
-  var s = seasonState.seasons.find(function(x){return x.id===id;});
+async function deleteSeason(id) {
+  var s = seasonState.seasons.find(function(x) { return x.id === id; });
   if (!s) return;
 
   var confirmMsg;
@@ -2236,33 +2293,43 @@ function deleteSeason(id) {
     if (!confirm('Delete "' + s.name + '"? This cannot be undone.')) return;
   }
 
-  seasonState.seasons = seasonState.seasons.filter(function(x){return x.id!==id;});
-  saveSeasonState();
+  var res = await db.from('seasons').delete().eq('id', id);
+  if (res.error) { toast('Error deleting season'); console.error(res.error.message); return; }
+
+  seasonState.seasons = seasonState.seasons.filter(function(x) { return x.id !== id; });
   renderSeasonsList();
   populateSeasonDropdown();
   logActivity('"' + s.name + '" was deleted');
   toast('Season deleted');
 }
 
-function resetTeamAssignments(id) {
-  var s = seasonState.seasons.find(function(x){return x.id===id;});
+async function resetTeamAssignments(id) {
+  var s = seasonState.seasons.find(function(x) { return x.id === id; });
   if (!s) return;
   if (!confirm('Reset all team assignments for "' + s.name + '"?\n\nAll MLB team selections will be cleared. Roster and schedule are not affected.')) return;
+
+  var res = await db.from('league_teams')
+    .update({ mlb_team_id: null })
+    .eq('season_id', id);
+
+  if (res.error) { toast('Error resetting assignments'); console.error(res.error.message); return; }
+
   s.teamAssignments = {};
-  saveSeasonState();
   renderSeasonsList();
   toast('Team assignments cleared');
 }
 
-function transitionSeason(id, newStatus) {
+async function transitionSeason(id, newStatus) {
   var s = seasonState.seasons.find(function(x){return x.id===id;});
   if (!s) return;
 
   var label = { active:'activate', playoffs:'start playoffs for', completed:'complete', cancelled:'cancel' }[newStatus] || newStatus;
   if (!confirm('Are you sure you want to ' + label + ' "' + s.name + '"?')) return;
 
+  var res = await db.from('seasons').update({ status: newStatus }).eq('id', id);
+  if (res.error) { toast('Error updating season status'); console.error(res.error.message); return; }
+
   s.status = newStatus;
-  saveSeasonState();
   renderSeasonsList();
   logActivity('"' + s.name + '" status changed to ' + newStatus);
   updateDashboard();
@@ -2315,28 +2382,31 @@ function rosterPickerSelectAll(checked) {
   document.querySelectorAll('.rp-check').forEach(function(cb){ cb.checked = checked; });
 }
 
-function confirmRosterPicker() {
+async function confirmRosterPicker() {
   var seasonId = seasonState.rosterEditingSeasonId;
-  if (!seasonId) return;
-  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  var s = seasonState.seasons.find(function(x) { return x.id === seasonId; });
   if (!s) return;
 
-  var checked = Array.from(document.querySelectorAll('.rp-check:checked')).map(function(cb){ return cb.value; });
-  if (!checked.length) { toast('No players selected'); return; }
+  var checkboxes = document.querySelectorAll('.rp-check:checked');
+  var newIds = Array.from(checkboxes).map(function(cb) { return cb.value; });
+  if (!newIds.length) { toast('Select at least one player'); return; }
 
-  if (!s.roster) s.roster = [];
-  var added = 0;
-  checked.forEach(function(id) {
-    if (!s.roster.find(function(r){return r.memberId===id;})) {
-      s.roster.push({ memberId: id, status: 'invited' });
-      added++;
-    }
+  // Only add members who aren't already on the roster
+  var existingIds = s.roster.map(function(r) { return r.memberId; });
+  var toAdd = newIds.filter(function(id) { return !existingIds.includes(id); });
+  if (!toAdd.length) { toast('All selected members already on roster'); closeRosterPickerModal(); return; }
+
+  var inserts = toAdd.map(function(memberId) {
+    return { season_id: seasonId, member_id: memberId };
   });
 
-  saveSeasonState();
+  var res = await db.from('league_teams').insert(inserts);
+  if (res.error) { toast('Error adding to roster'); console.error(res.error.message); return; }
+
+  toAdd.forEach(function(memberId) { s.roster.push({ memberId: memberId }); });
   closeRosterPickerModal();
   renderSeasonsList();
-  toast('Added ' + added + ' player' + (added !== 1 ? 's' : '') + ' to roster');
+  toast(toAdd.length + ' player(s) added to roster');
 }
 
 function closeRosterPickerModal() {
@@ -2344,14 +2414,22 @@ function closeRosterPickerModal() {
   seasonState.rosterEditingSeasonId = null;
 }
 
-function removeFromRoster(seasonId, memberId) {
-  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
-  if (!s || !s.roster) return;
-  s.roster = s.roster.filter(function(r){return r.memberId!==memberId;});
-  if (s.teamAssignments) delete s.teamAssignments[memberId];
-  saveSeasonState();
+async function removeFromRoster(seasonId, memberId) {
+  var s = seasonState.seasons.find(function(x) { return x.id === seasonId; });
+  if (!s) return;
+  if (!confirm('Remove this member from the roster?')) return;
+
+  var res = await db.from('league_teams')
+    .delete()
+    .eq('season_id', seasonId)
+    .eq('member_id', memberId);
+
+  if (res.error) { toast('Error removing from roster'); console.error(res.error.message); return; }
+
+  s.roster = s.roster.filter(function(r) { return r.memberId !== memberId; });
+  delete s.teamAssignments[memberId];
   renderSeasonsList();
-  toast('Player removed from roster');
+  toast('Member removed from roster');
 }
 
 // Allow a member to confirm their own participation
@@ -2362,7 +2440,6 @@ function confirmParticipation(seasonId) {
   var entry = s.roster.find(function(r){return r.memberId===currentMember.id;});
   if (!entry) return;
   entry.status = 'confirmed';
-  saveSeasonState();
   renderSeasonsList();
   toast('Participation confirmed!');
 }
@@ -2384,8 +2461,6 @@ function updateTeamAssignmentLive(seasonId) {
     }
     // Do NOT overwrite with empty — only save positive selections
   });
-
-  saveSeasonState();
 
   // Build taken set from saved assignments only
   var taken = {};
@@ -2415,12 +2490,12 @@ function updateTeamAssignmentLive(seasonId) {
 }
 
 // Auto-load team assignments from players' live draft history for this season
-function autoLoadDraftTeams(seasonId) {
+async function autoLoadDraftTeams(seasonId) {
   var s = seasonState.seasons.find(function(x){ return x.id === seasonId; });
   if (!s || !s.roster) return;
   if (!s.teamAssignments) s.teamAssignments = {};
 
-  var loaded = 0;
+  var toSave = []; // { memberId, teamFull }
   var conflicts = [];
 
   s.roster.forEach(function(r) {
@@ -2441,39 +2516,42 @@ function autoLoadDraftTeams(seasonId) {
       // entry.team may be stored as an abbreviation (e.g. "BAL") — resolve to full name
       var teamObj = (DNA_CONFIG.mlbTeams || []).find(function(t) { return t.abbr === entry.team || t.name === entry.team; });
       var teamFull = teamObj ? teamObj.name : entry.team;
-      s.teamAssignments[r.memberId] = teamFull;
-      loaded++;
-
-      // Update the dropdown if it's currently rendered
-      var sel = document.getElementById('ta-' + seasonId + '-' + r.memberId);
-      if (sel) sel.value = teamFull;
+      toSave.push({ memberId: r.memberId, teamFull: teamFull });
     } else {
       conflicts.push(player.name);
     }
   });
 
-  saveSeasonState();
+  // Persist each resolved assignment to Supabase
+  for (var i = 0; i < toSave.length; i++) {
+    await saveTeamAssignment(seasonId, toSave[i].memberId, toSave[i].teamFull);
+  }
+
   renderSeasonsList();
 
-  var msg = loaded + ' team' + (loaded !== 1 ? 's' : '') + ' loaded from draft history.';
+  var msg = toSave.length + ' team' + (toSave.length !== 1 ? 's' : '') + ' loaded from draft history.';
   if (conflicts.length) {
     msg += ' No draft data found for: ' + conflicts.join(', ') + '.';
   }
   toast(msg);
 }
 
-function saveTeamAssignmentsDirect(seasonId) {
-  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
-  if (!s || !s.roster) return;
-  if (!s.teamAssignments) s.teamAssignments = {};
+async function saveTeamAssignment(seasonId, memberId, teamName) {
+  var s = seasonState.seasons.find(function(x) { return x.id === seasonId; });
+  if (!s) return;
 
-  s.roster.forEach(function(r) {
-    var sel = document.getElementById('ta-' + seasonId + '-' + r.memberId);
-    if (sel) s.teamAssignments[r.memberId] = sel.value;
-  });
+  var mlbTeamId = getMlbTeamId(teamName);
+  if (!mlbTeamId) { toast('Unknown team: ' + teamName); return; }
 
-  saveSeasonState();
-  toast('Team assignments saved');
+  var res = await db.from('league_teams')
+    .update({ mlb_team_id: mlbTeamId })
+    .eq('season_id', seasonId)
+    .eq('member_id', memberId);
+
+  if (res.error) { toast('Error saving team assignment'); console.error(res.error.message); return; }
+
+  s.teamAssignments[memberId] = teamName;
+  renderSeasonsList();
 }
 
 function closeTeamAssignModal() {
@@ -2518,23 +2596,29 @@ function canManageSchedule() {
   return ['admin','commissioner','co_commissioner'].indexOf(currentMember.role) > -1;
 }
 
-function initSchedulePage() {
+async function initSchedulePage() {
   var controlsPanel = document.getElementById('schedule-controls-panel');
-  var lockBanner    = document.getElementById('schedule-lock-banner');
+  if (controlsPanel) controlsPanel.style.display = canManageSchedule() ? '' : 'none';
 
-  // Show/hide controls based on role
-  controlsPanel.style.display = canManageSchedule() ? '' : 'none';
-
-  // Populate season dropdown from state.players league context
   populateSeasonDropdown();
 
-  // Restore any previously generated schedule from state
+  var activeSeason = seasonState.seasons.find(function(s) { return s.status === 'active'; })
+    || seasonState.seasons.find(function(s) { return s.status === 'upcoming'; });
+  var seasonId = activeSeason ? activeSeason.id : null;
+
+  if (seasonId) {
+    await loadScheduleFromDB(seasonId);
+  }
+
   if (scheduleState.generatedWeeks.length) {
     renderSchedule(scheduleState.generatedWeeks, scheduleState.seriesLength);
     updateSaveBar();
     document.getElementById('sched-clear-btn').style.display = '';
     document.getElementById('sched-scan-btn').style.display = '';
-    scanWeekResults(false); // auto-scan on load (silent)
+    scanWeekResults(false);
+  } else {
+    renderSchedule([], scheduleState.seriesLength);
+    updateSaveBar();
   }
 }
 
@@ -2702,17 +2786,27 @@ function generateSchedule() {
   toast('Schedule generated — ' + weeks.length + ' weeks!');
 }
 
-function clearSchedule() {
-  if (!confirm('Clear the current schedule?')) return;
+async function clearSchedule() {
+  if (!scheduleState.seasonId) {
+    scheduleState.generatedWeeks = [];
+    scheduleState.savedAt = null;
+    renderSchedule([], scheduleState.seriesLength);
+    updateSaveBar();
+    return;
+  }
+
+  if (!confirm('Clear the schedule for this season? All weeks and matchups will be deleted from the database.')) return;
+
+  var res = await db.from('schedule_weeks')
+    .delete()
+    .eq('season_id', scheduleState.seasonId);
+
+  if (res.error) { toast('Error clearing schedule'); console.error(res.error.message); return; }
+
   scheduleState.generatedWeeks = [];
   scheduleState.savedAt = null;
-  saveState();
-  document.getElementById('schedule-output').innerHTML =
-    '<div class="empty-state"><div class="empty-icon">&#x1F4C5;</div><div class="empty-text">Configure options above and generate a schedule</div></div>';
-  document.getElementById('schedule-summary').style.display = 'none';
-  document.getElementById('sched-clear-btn').style.display = 'none';
-  document.getElementById('sched-save-bar').style.display = 'none';
-  updateDashboard();
+  renderSchedule([], scheduleState.seriesLength);
+  updateSaveBar();
   toast('Schedule cleared');
 }
 
@@ -2777,6 +2871,27 @@ async function scanWeekResults(forceToast) {
   }
 
   if (found > 0) {
+    // Persist results to Supabase series_results
+    if (currentLeague) {
+      for (var wi = 0; wi < scheduleState.generatedWeeks.length; wi++) {
+        var week = scheduleState.generatedWeeks[wi];
+        for (var mi = 0; mi < week.matchups.length; mi++) {
+          var mu = week.matchups[mi];
+          if (mu.result && mu._matchupId) {
+            await db.from('series_results').upsert({
+              matchup_id: mu._matchupId,
+              home_wins:  mu.result.homeScore || 0,
+              away_wins:  mu.result.awayScore || 0,
+              box_score:  {
+                winner: mu.result.winner || null,
+                potg:   mu.result.potg   || null,
+              },
+              recorded_at: mu.result.scannedAt || new Date().toISOString(),
+            }, { onConflict: 'matchup_id' });
+          }
+        }
+      }
+    }
     saveState();
     renderSchedule(scheduleState.generatedWeeks, scheduleState.seriesLength);
   }
@@ -3092,22 +3207,61 @@ function toggleWeek(idx) {
 var _origSaveState = saveState;
 saveState = function() {
   _origSaveState();
-  try {
-    localStorage.setItem('dna_schedule', JSON.stringify(scheduleState));
-  } catch(e) {}
+  // Schedule now persisted to Supabase — no localStorage write needed
 };
 
 var _origLoadState = loadState;
 loadState = function() {
   _origLoadState();
-  try {
-    var s = localStorage.getItem('dna_schedule');
-    if (s) {
-      var parsed = JSON.parse(s);
-      Object.keys(parsed).forEach(function(k) { scheduleState[k] = parsed[k]; });
-    }
-  } catch(e) {}
+  // Schedule now loaded from Supabase via loadScheduleFromDB() — no localStorage read
 };
+
+async function loadScheduleFromDB(seasonId) {
+  if (!seasonId || !currentLeague) return;
+
+  var res = await db.from('schedule_weeks')
+    .select('*, matchups(*, series_results(*))')
+    .eq('season_id', seasonId)
+    .order('week_number', { ascending: true });
+
+  if (res.error) { console.error('loadScheduleFromDB:', res.error.message); return; }
+  if (!res.data || !res.data.length) return;
+
+  scheduleState.generatedWeeks = res.data.map(function(w) {
+    var matchups = (w.matchups || []).map(function(m) {
+      var homePlayer = state.players.find(function(p) { return p.id === m.home_member_id; });
+      var awayPlayer = state.players.find(function(p) { return p.id === m.away_member_id; });
+      var result = null;
+      if (m.series_results && m.series_results.length) {
+        var sr = m.series_results[0];
+        var boxScore = sr.box_score || {};
+        result = {
+          winner:    boxScore.winner    || null,
+          homeScore: sr.home_wins       || 0,
+          awayScore: sr.away_wins       || 0,
+          potg:      boxScore.potg      || null,
+          scannedAt: sr.recorded_at     || null,
+        };
+      }
+      return {
+        home:   homePlayer ? homePlayer.name : (m.home_member_id || 'Unknown'),
+        away:   awayPlayer ? awayPlayer.name : (m.away_member_id || 'Unknown'),
+        result: result,
+        _matchupId: m.id,
+      };
+    });
+
+    return {
+      weekNum:   w.week_number,
+      matchups:  matchups,
+      byes:      [],
+      completed: matchups.every(function(m) { return m.result !== null; }),
+    };
+  });
+
+  scheduleState.seasonId = seasonId;
+  scheduleState.savedAt  = res.data[0] ? res.data[0].created_at : Date.now();
+}
 
 // ── SUPABASE SCHEDULE SYNC ────────────────────────
 async function saveScheduleToDB(weeks, seasonId, seriesLength) {
@@ -3204,44 +3358,26 @@ function updateSaveBar() {
   }
 }
 
-function saveScheduleToSeason() {
-  if (!canManageSchedule()) { toast('Commissioner or admin access required'); return; }
+async function saveScheduleToSeason() {
   if (!scheduleState.generatedWeeks.length) { toast('No schedule to save'); return; }
+  if (!currentLeague) { toast('Not connected to league'); return; }
 
-  var seasonName = 'this schedule';
-  if (scheduleState.seasonId) {
-    var s = seasonState.seasons.find(function(x){ return x.id === scheduleState.seasonId; });
-    if (s) seasonName = '"' + s.name + '"';
+  var seasonId = scheduleState.seasonId;
+  if (!seasonId) {
+    var active = seasonState.seasons.find(function(s) { return s.status === 'active'; });
+    if (!active) { toast('No active season — create and activate a season first'); return; }
+    seasonId = active.id;
+    scheduleState.seasonId = seasonId;
   }
 
-  var existing = scheduleState.savedAt;
-  var msg = existing
-    ? 'Replace the existing saved schedule for ' + seasonName + '?\n\nSaved on: ' + new Date(existing).toLocaleString() + '\n\nThis cannot be undone.'
-    : 'Save this schedule for ' + seasonName + '?';
+  var confirmMsg = scheduleState.savedAt
+    ? 'This will overwrite the existing saved schedule. Continue?'
+    : 'Save this schedule to "' + (seasonState.seasons.find(function(s){return s.id===seasonId;})||{}).name + '"?';
+  if (!confirm(confirmMsg)) return;
 
-  if (!confirm(msg)) return;
-
+  await saveScheduleToDB(scheduleState.generatedWeeks, seasonId, scheduleState.seriesLength);
   scheduleState.savedAt = Date.now();
-
-  // Store the full saved schedule keyed to the season
-  if (scheduleState.seasonId) {
-    var key = 'dna_saved_schedule_' + scheduleState.seasonId;
-    try {
-      localStorage.setItem(key, JSON.stringify({
-        weeks:          scheduleState.generatedWeeks,
-        seriesLength:   scheduleState.seriesLength,
-        matchupsPerWeek:scheduleState.matchupsPerWeek,
-        savedAt:        scheduleState.savedAt,
-        seasonId:       scheduleState.seasonId,
-      }));
-    } catch(e) { toast('Storage error: ' + e.message); return; }
-  }
-
-  saveState();
   updateSaveBar();
-  updateDashboard();
-  logActivity('Schedule saved for ' + seasonName);
-  toast('Schedule saved!');
 }
 
 function loadSavedSchedule(seasonId) {
@@ -3470,11 +3606,7 @@ function renderHomeScheduleWidget() {
   var activeSeason = getActiveSeason();
   var weeks = null;
 
-  if (activeSeason) {
-    var saved = loadSavedSchedule(activeSeason.id);
-    if (saved && saved.weeks && saved.weeks.length) weeks = saved.weeks;
-  }
-  if (!weeks && scheduleState.generatedWeeks.length) weeks = scheduleState.generatedWeeks;
+  if (scheduleState.generatedWeeks.length) weeks = scheduleState.generatedWeeks;
   if (!weeks || !weeks.length) { widget.style.display = 'none'; return; }
 
   // Build MLB team lookup
@@ -3638,6 +3770,17 @@ var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 var currentUser   = null;
 var currentMember = null;
 var currentLeague = null;
+var mlbTeamsLookup = []; // { id, name, abbreviation } — loaded once at login
+
+async function loadMlbTeamsLookup() {
+  var res = await db.from('mlb_teams').select('id, name, abbreviation');
+  if (!res.error) mlbTeamsLookup = res.data;
+}
+
+function getMlbTeamId(teamName) {
+  var t = mlbTeamsLookup.find(function(t) { return t.name === teamName; });
+  return t ? t.id : null;
+}
 
 // ── AUTH HELPERS ─────────────────────────────────
 function showAuthScreen() {
@@ -3742,14 +3885,22 @@ async function loadLeagueContext() {
   }
   // Load localStorage FIRST so local- players are already in state
   loadState();
-  loadSeasonState();
+  await loadSeasonState();
   // Then merge DB players in — this adds real accounts without wiping local ones
   await syncPlayersFromDB();
+  await loadMlbTeamsLookup();
   renderSlots();
   updateDashboard();
   document.getElementById('slot-count').value = state.slotCount;
   document.getElementById('slot-val').textContent = state.slotCount;
   if (state.draftMode === 'weighted') { selectMode('weighted'); }
+
+  // One-time cleanup: remove obsolete localStorage keys
+  localStorage.removeItem('dna_seasons');
+  localStorage.removeItem('dna_schedule');
+  Object.keys(localStorage).forEach(function(k) {
+    if (k.startsWith('dna_saved_schedule_')) localStorage.removeItem(k);
+  });
 }
 
 async function syncPlayersFromDB() {
