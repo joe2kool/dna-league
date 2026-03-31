@@ -3179,21 +3179,13 @@ function toggleWeek(idx) {
 var _origSaveState = saveState;
 saveState = function() {
   _origSaveState();
-  try {
-    localStorage.setItem('dna_schedule', JSON.stringify(scheduleState));
-  } catch(e) {}
+  // Schedule now persisted to Supabase — no localStorage write needed
 };
 
 var _origLoadState = loadState;
 loadState = function() {
   _origLoadState();
-  try {
-    var s = localStorage.getItem('dna_schedule');
-    if (s) {
-      var parsed = JSON.parse(s);
-      Object.keys(parsed).forEach(function(k) { scheduleState[k] = parsed[k]; });
-    }
-  } catch(e) {}
+  // Schedule now loaded from Supabase via loadScheduleFromDB() — no localStorage read
 };
 
 async function loadScheduleFromDB(seasonId) {
@@ -3338,44 +3330,26 @@ function updateSaveBar() {
   }
 }
 
-function saveScheduleToSeason() {
-  if (!canManageSchedule()) { toast('Commissioner or admin access required'); return; }
+async function saveScheduleToSeason() {
   if (!scheduleState.generatedWeeks.length) { toast('No schedule to save'); return; }
+  if (!currentLeague) { toast('Not connected to league'); return; }
 
-  var seasonName = 'this schedule';
-  if (scheduleState.seasonId) {
-    var s = seasonState.seasons.find(function(x){ return x.id === scheduleState.seasonId; });
-    if (s) seasonName = '"' + s.name + '"';
+  var seasonId = scheduleState.seasonId;
+  if (!seasonId) {
+    var active = seasonState.seasons.find(function(s) { return s.status === 'active'; });
+    if (!active) { toast('No active season — create and activate a season first'); return; }
+    seasonId = active.id;
+    scheduleState.seasonId = seasonId;
   }
 
-  var existing = scheduleState.savedAt;
-  var msg = existing
-    ? 'Replace the existing saved schedule for ' + seasonName + '?\n\nSaved on: ' + new Date(existing).toLocaleString() + '\n\nThis cannot be undone.'
-    : 'Save this schedule for ' + seasonName + '?';
+  var confirmMsg = scheduleState.savedAt
+    ? 'This will overwrite the existing saved schedule. Continue?'
+    : 'Save this schedule to "' + (seasonState.seasons.find(function(s){return s.id===seasonId;})||{}).name + '"?';
+  if (!confirm(confirmMsg)) return;
 
-  if (!confirm(msg)) return;
-
+  await saveScheduleToDB(scheduleState.generatedWeeks, seasonId, scheduleState.seriesLength);
   scheduleState.savedAt = Date.now();
-
-  // Store the full saved schedule keyed to the season
-  if (scheduleState.seasonId) {
-    var key = 'dna_saved_schedule_' + scheduleState.seasonId;
-    try {
-      localStorage.setItem(key, JSON.stringify({
-        weeks:          scheduleState.generatedWeeks,
-        seriesLength:   scheduleState.seriesLength,
-        matchupsPerWeek:scheduleState.matchupsPerWeek,
-        savedAt:        scheduleState.savedAt,
-        seasonId:       scheduleState.seasonId,
-      }));
-    } catch(e) { toast('Storage error: ' + e.message); return; }
-  }
-
-  saveState();
   updateSaveBar();
-  updateDashboard();
-  logActivity('Schedule saved for ' + seasonName);
-  toast('Schedule saved!');
 }
 
 function loadSavedSchedule(seasonId) {
