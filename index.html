@@ -2276,8 +2276,8 @@ async function saveSeason() {
   populateSeasonDropdown();
 }
 
-function deleteSeason(id) {
-  var s = seasonState.seasons.find(function(x){return x.id===id;});
+async function deleteSeason(id) {
+  var s = seasonState.seasons.find(function(x) { return x.id === id; });
   if (!s) return;
 
   var confirmMsg;
@@ -2295,8 +2295,10 @@ function deleteSeason(id) {
     if (!confirm('Delete "' + s.name + '"? This cannot be undone.')) return;
   }
 
-  seasonState.seasons = seasonState.seasons.filter(function(x){return x.id!==id;});
-  saveSeasonState();
+  var res = await db.from('seasons').delete().eq('id', id);
+  if (res.error) { toast('Error deleting season'); console.error(res.error.message); return; }
+
+  seasonState.seasons = seasonState.seasons.filter(function(x) { return x.id !== id; });
   renderSeasonsList();
   populateSeasonDropdown();
   logActivity('"' + s.name + '" was deleted');
