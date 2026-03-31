@@ -390,14 +390,41 @@ input, select { font-family: inherit; }
 }
 #dr-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* ── MOBILE TABS ───────────────────────────────────────── */
+.dr-mobile-tabs { display: none; }
+
 /* ── MOBILE ────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .draft-body { grid-template-columns: 1fr; }
-  .draft-right { border-top: 1px solid var(--border); }
   .draft-nav { padding: 0 1rem; }
   .draft-nav-title { display: none; }
-  #dr-teams-grid { max-height: 320px; }
-  #dr-board { max-height: 400px; }
   .dr-timer-wrap { padding: 1rem; }
   #dr-team-detail { width: 100%; top: auto; bottom: 0; left: 0; right: 0; height: 60vh; border-left: none; border-top: 1px solid var(--border); }
+
+  /* Mobile tab bar */
+  .dr-mobile-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    flex-shrink: 0;
+  }
+  .dr-mobile-tab {
+    flex: 1; padding: 11px 8px;
+    font-family: 'Barlow Condensed'; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--text2); cursor: pointer; transition: all 0.15s;
+  }
+  .dr-mobile-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+  /* Default on mobile: show teams panel, hide board section */
+  #dr-board-section { display: none; flex-direction: column; }
+  .draft-right { border-top: none; }
+
+  /* When Order tab is active */
+  .draft-body.show-board #dr-board-section { display: flex; }
+  .draft-body.show-board .draft-right { display: none; }
+
+  /* Remove height caps — only one panel shows at a time */
+  #dr-teams-grid { max-height: none; }
+  #dr-board { max-height: none; overflow-y: visible; }
 }
