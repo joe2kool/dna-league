@@ -3094,10 +3094,20 @@ function renderHomeScheduleWidget() {
     });
   }
 
-  // Find current week
+  // Find current week — use date-based advancement if season has a startDate,
+  // otherwise fall back to the completed flag
   var currentWeek = weeks[0];
-  for (var i = 0; i < weeks.length; i++) {
-    if (!weeks[i].completed) { currentWeek = weeks[i]; break; }
+  if (activeSeason && activeSeason.startDate) {
+    var seasonStart = new Date(activeSeason.startDate + 'T00:00:00');
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var daysSinceStart = Math.floor((today - seasonStart) / 86400000);
+    var currentWeekIndex = Math.max(0, Math.min(Math.floor(daysSinceStart / 7), weeks.length - 1));
+    currentWeek = weeks[currentWeekIndex];
+  } else {
+    for (var i = 0; i < weeks.length; i++) {
+      if (!weeks[i].completed) { currentWeek = weeks[i]; break; }
+    }
   }
 
   // Build player→opponents map
@@ -3110,9 +3120,19 @@ function renderHomeScheduleWidget() {
   });
   var allPlayers = Object.keys(playerOpps).sort();
 
+  // Build date range label for this week
+  var weekDateStr = '';
+  if (activeSeason && activeSeason.startDate) {
+    var wkStart = new Date(activeSeason.startDate + 'T00:00:00');
+    wkStart.setDate(wkStart.getDate() + (currentWeek.weekNum - 1) * 7);
+    var wkEnd = new Date(wkStart);
+    wkEnd.setDate(wkEnd.getDate() + 6);
+    weekDateStr = ' · ' + (wkStart.getMonth()+1) + '/' + wkStart.getDate() + '–' + (wkEnd.getMonth()+1) + '/' + wkEnd.getDate();
+  }
+
   widget.style.display = '';
   var titleEl = document.getElementById('hsw-title');
-  if (titleEl) titleEl.textContent = '\uD83D\uDCC5 Week ' + currentWeek.weekNum + ' Matchups';
+  if (titleEl) titleEl.textContent = '\uD83D\uDCC5 Week ' + currentWeek.weekNum + weekDateStr + ' Matchups';
 
   var html = '<div style="display:grid;grid-template-columns:180px 1fr;border-bottom:1px solid rgba(255,255,255,0.06);background:var(--surface3);">' +
     '<div style="padding:6px 14px;font-family:\'Barlow Condensed\';font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);border-right:1px solid rgba(255,255,255,0.06);">Player / Team</div>' +
