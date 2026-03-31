@@ -2081,7 +2081,7 @@ function renderSeasonCard(s) {
         '</div>' +
         '<div class="ta-team">' +
           '<select id="ta-' + s.id + '-' + r.memberId + '" ' +
-            (canManageSchedule() ? 'onchange="updateTeamAssignmentLive(\'' + s.id + '\')"' : 'disabled') + '>' +
+            (canManageSchedule() ? 'onchange="saveTeamAssignment(\'' + s.id + '\',\'' + r.memberId + '\',this.value)"' : 'disabled') + '>' +
             options +
           '</select>' +
         '</div>' +
@@ -2100,7 +2100,6 @@ function renderSeasonCard(s) {
       (hasDraftData
         ? '<button type="button" class="btn btn-outline btn-sm" style="color:var(--gold);border-color:rgba(201,168,76,0.3);" onclick="autoLoadDraftTeams(\'' + s.id + '\')">&#x26A1; Auto-load from Draft</button>'
         : '') +
-      '<button type="button" class="btn btn-gold btn-sm" onclick="saveTeamAssignmentsDirect(\'' + s.id + '\')">Save Team Assignments</button>' +
       '</div>';
   }
 
@@ -2305,12 +2304,18 @@ async function deleteSeason(id) {
   toast('Season deleted');
 }
 
-function resetTeamAssignments(id) {
-  var s = seasonState.seasons.find(function(x){return x.id===id;});
+async function resetTeamAssignments(id) {
+  var s = seasonState.seasons.find(function(x) { return x.id === id; });
   if (!s) return;
   if (!confirm('Reset all team assignments for "' + s.name + '"?\n\nAll MLB team selections will be cleared. Roster and schedule are not affected.')) return;
+
+  var res = await db.from('league_teams')
+    .update({ mlb_team_id: null })
+    .eq('season_id', id);
+
+  if (res.error) { toast('Error resetting assignments'); console.error(res.error.message); return; }
+
   s.teamAssignments = {};
-  saveSeasonState();
   renderSeasonsList();
   toast('Team assignments cleared');
 }
@@ -2376,28 +2381,31 @@ function rosterPickerSelectAll(checked) {
   document.querySelectorAll('.rp-check').forEach(function(cb){ cb.checked = checked; });
 }
 
-function confirmRosterPicker() {
+async function confirmRosterPicker() {
   var seasonId = seasonState.rosterEditingSeasonId;
-  if (!seasonId) return;
-  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  var s = seasonState.seasons.find(function(x) { return x.id === seasonId; });
   if (!s) return;
 
-  var checked = Array.from(document.querySelectorAll('.rp-check:checked')).map(function(cb){ return cb.value; });
-  if (!checked.length) { toast('No players selected'); return; }
+  var checkboxes = document.querySelectorAll('.roster-picker-cb:checked');
+  var newIds = Array.from(checkboxes).map(function(cb) { return cb.value; });
+  if (!newIds.length) { toast('Select at least one player'); return; }
 
-  if (!s.roster) s.roster = [];
-  var added = 0;
-  checked.forEach(function(id) {
-    if (!s.roster.find(function(r){return r.memberId===id;})) {
-      s.roster.push({ memberId: id, status: 'invited' });
-      added++;
-    }
+  // Only add members who aren't already on the roster
+  var existingIds = s.roster.map(function(r) { return r.memberId; });
+  var toAdd = newIds.filter(function(id) { return !existingIds.includes(id); });
+  if (!toAdd.length) { toast('All selected members already on roster'); closeRosterPickerModal(); return; }
+
+  var inserts = toAdd.map(function(memberId) {
+    return { season_id: seasonId, member_id: memberId };
   });
 
-  saveSeasonState();
+  var res = await db.from('league_teams').insert(inserts);
+  if (res.error) { toast('Error adding to roster'); console.error(res.error.message); return; }
+
+  toAdd.forEach(function(memberId) { s.roster.push({ memberId: memberId }); });
   closeRosterPickerModal();
   renderSeasonsList();
-  toast('Added ' + added + ' player' + (added !== 1 ? 's' : '') + ' to roster');
+  toast(toAdd.length + ' player(s) added to roster');
 }
 
 function closeRosterPickerModal() {
@@ -2405,14 +2413,22 @@ function closeRosterPickerModal() {
   seasonState.rosterEditingSeasonId = null;
 }
 
-function removeFromRoster(seasonId, memberId) {
-  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
-  if (!s || !s.roster) return;
-  s.roster = s.roster.filter(function(r){return r.memberId!==memberId;});
-  if (s.teamAssignments) delete s.teamAssignments[memberId];
-  saveSeasonState();
+async function removeFromRoster(seasonId, memberId) {
+  var s = seasonState.seasons.find(function(x) { return x.id === seasonId; });
+  if (!s) return;
+  if (!confirm('Remove this member from the roster?')) return;
+
+  var res = await db.from('league_teams')
+    .delete()
+    .eq('season_id', seasonId)
+    .eq('member_id', memberId);
+
+  if (res.error) { toast('Error removing from roster'); console.error(res.error.message); return; }
+
+  s.roster = s.roster.filter(function(r) { return r.memberId !== memberId; });
+  delete s.teamAssignments[memberId];
   renderSeasonsList();
-  toast('Player removed from roster');
+  toast('Member removed from roster');
 }
 
 // Allow a member to confirm their own participation
@@ -2523,18 +2539,22 @@ function autoLoadDraftTeams(seasonId) {
   toast(msg);
 }
 
-function saveTeamAssignmentsDirect(seasonId) {
-  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
-  if (!s || !s.roster) return;
-  if (!s.teamAssignments) s.teamAssignments = {};
+async function saveTeamAssignment(seasonId, memberId, teamName) {
+  var s = seasonState.seasons.find(function(x) { return x.id === seasonId; });
+  if (!s) return;
 
-  s.roster.forEach(function(r) {
-    var sel = document.getElementById('ta-' + seasonId + '-' + r.memberId);
-    if (sel) s.teamAssignments[r.memberId] = sel.value;
-  });
+  var mlbTeamId = getMlbTeamId(teamName);
+  if (!mlbTeamId) { toast('Unknown team: ' + teamName); return; }
 
-  saveSeasonState();
-  toast('Team assignments saved');
+  var res = await db.from('league_teams')
+    .update({ mlb_team_id: mlbTeamId })
+    .eq('season_id', seasonId)
+    .eq('member_id', memberId);
+
+  if (res.error) { toast('Error saving team assignment'); console.error(res.error.message); return; }
+
+  s.teamAssignments[memberId] = teamName;
+  renderSeasonsList();
 }
 
 function closeTeamAssignModal() {
@@ -3699,6 +3719,17 @@ var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 var currentUser   = null;
 var currentMember = null;
 var currentLeague = null;
+var mlbTeamsLookup = []; // { id, name, abbreviation } — loaded once at login
+
+async function loadMlbTeamsLookup() {
+  var res = await db.from('mlb_teams').select('id, name, abbreviation');
+  if (!res.error) mlbTeamsLookup = res.data;
+}
+
+function getMlbTeamId(teamName) {
+  var t = mlbTeamsLookup.find(function(t) { return t.name === teamName; });
+  return t ? t.id : null;
+}
 
 // ── AUTH HELPERS ─────────────────────────────────
 function showAuthScreen() {
@@ -3806,6 +3837,7 @@ async function loadLeagueContext() {
   await loadSeasonState();
   // Then merge DB players in — this adds real accounts without wiping local ones
   await syncPlayersFromDB();
+  await loadMlbTeamsLookup();
   renderSlots();
   updateDashboard();
   document.getElementById('slot-count').value = state.slotCount;
