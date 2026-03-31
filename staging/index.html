@@ -445,6 +445,13 @@
   .hsw-pteam { font-size:10px; color:var(--text2); }
   .hsw-vs { font-family:'Bebas Neue'; font-size:12px; color:var(--text2); flex-shrink:0; padding:0 4px; }
 
+  /* ── MATCH RESULTS ─────────────────────────────── */
+  .result-w { font-family:'Bebas Neue'; font-size:12px; padding:1px 6px; border-radius:3px; background:rgba(46,204,113,0.15); color:var(--green); letter-spacing:1px; flex-shrink:0; white-space:nowrap; }
+  .result-l { font-family:'Bebas Neue'; font-size:12px; padding:1px 6px; border-radius:3px; background:rgba(231,76,60,0.12); color:var(--red); letter-spacing:1px; flex-shrink:0; white-space:nowrap; }
+  .result-p { font-family:'Barlow Condensed'; font-size:11px; padding:1px 6px; border-radius:3px; background:rgba(168,189,212,0.08); color:var(--text2); letter-spacing:1px; flex-shrink:0; }
+  .potg-strip { display:flex; align-items:center; gap:5px; padding:2px 8px 2px 36px; font-size:10px; color:var(--gold); }
+  .gamertag-badge { font-size:10px; color:var(--text2); margin-top:1px; }
+
   ::-webkit-scrollbar { width:6px; height:6px; }
   ::-webkit-scrollbar-track { background:transparent; }
   ::-webkit-scrollbar-thumb { background:rgba(168,189,212,0.3); border-radius:3px; }
@@ -726,6 +733,7 @@
       <div style="display:flex;gap:8px;padding-bottom:1px;">
         <button type="button" class="btn btn-gold" onclick="generateSchedule()">&#x26A1; Generate Schedule</button>
         <button type="button" class="btn btn-outline btn-sm" onclick="clearSchedule()" id="sched-clear-btn" style="display:none;">Clear</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="scanWeekResults(true)" id="sched-scan-btn" style="display:none;" title="Scan for match results using linked gamertags">&#x21BB; Scan Results</button>
       </div>
     </div>
 
@@ -931,6 +939,25 @@
         <div class="form-group">
           <label>Last Season L</label>
           <input type="number" id="f-losses" placeholder="0" min="0" max="162">
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="card-title" style="margin-bottom:4px;">&#x1F3AE; MLB The Show Account</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:1rem;">Used for auto-tracking match results on the schedule</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Gamertag</label>
+          <input type="text" id="f-gamertag" placeholder="In-game username" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>Platform</label>
+          <select id="f-platform">
+            <option value="">Select platform...</option>
+            <option value="psn">PlayStation (PSN)</option>
+            <option value="xbl">Xbox</option>
+            <option value="mlbts">PC (MLBTS)</option>
+            <option value="nsw">Nintendo Switch</option>
+          </select>
         </div>
       </div>
       <div class="divider"></div>
@@ -1322,6 +1349,8 @@ function openProfileModal(id) {
     document.getElementById('f-color').value = p.color || '#6a9ec7';
     document.getElementById('f-wins').value = p.wins || '';
     document.getElementById('f-losses').value = p.losses || '';
+    document.getElementById('f-gamertag').value = p.gamertag || '';
+    document.getElementById('f-platform').value = p.platform || '';
     document.getElementById('f-championships').value = p.championships || '';
     document.getElementById('f-playoffs').value = p.playoffs || '';
     document.getElementById('f-mvp').value = p.mvp || '';
@@ -1353,6 +1382,8 @@ function openProfileModal(id) {
     document.getElementById('f-color').value = AVATAR_COLORS[nextColor % AVATAR_COLORS.length];
     document.getElementById('f-wins').value = '';
     document.getElementById('f-losses').value = '';
+    document.getElementById('f-gamertag').value = '';
+    document.getElementById('f-platform').value = '';
     document.getElementById('f-championships').value = '';
     document.getElementById('f-playoffs').value = '';
     document.getElementById('f-mvp').value = '';
@@ -1379,6 +1410,8 @@ async function saveProfile() {
     color: document.getElementById('f-color').value,
     wins: document.getElementById('f-wins').value,
     losses: document.getElementById('f-losses').value,
+    gamertag: document.getElementById('f-gamertag').value.trim(),
+    platform: document.getElementById('f-platform').value,
     championships: parseInt(document.getElementById('f-championships').value) || 0,
     playoffs: parseInt(document.getElementById('f-playoffs').value) || 0,
     mvp: parseInt(document.getElementById('f-mvp').value) || 0,
@@ -1572,6 +1605,7 @@ function renderProfiles() {
           '<div class="pc-name">' + escHtml(p.name) + '</div>' +
           (p.realname ? '<div class="pc-realname">' + escHtml(p.realname) + '</div>' : '') +
           '<div class="pc-team">' + escHtml(p.team || 'No team') + ' &nbsp;&bull;&nbsp; ' + record + '</div>' +
+          (p.gamertag ? '<div class="gamertag-badge">&#x1F3AE; ' + escHtml(p.gamertag) + (p.platform ? ' &middot; ' + p.platform.toUpperCase() : '') + '</div>' : '') +
         '</div>' +
         (p.championships ? '<div class="pc-champ-badge"><div class="pc-champ-num">&#x1F3C6;</div><div class="pc-champ-lbl">&times;' + p.championships + '</div></div>' : '') +
       '</div>' +
@@ -2350,6 +2384,8 @@ function initSchedulePage() {
     renderSchedule(scheduleState.generatedWeeks, scheduleState.seriesLength);
     updateSaveBar();
     document.getElementById('sched-clear-btn').style.display = '';
+    document.getElementById('sched-scan-btn').style.display = '';
+    scanWeekResults(false); // auto-scan on load (silent)
   }
 }
 
@@ -2513,6 +2549,7 @@ function generateSchedule() {
   renderSchedule(weeks, seriesLength);
   updateSaveBar();
   document.getElementById('sched-clear-btn').style.display = '';
+  document.getElementById('sched-scan-btn').style.display = '';
   toast('Schedule generated — ' + weeks.length + ' weeks!');
 }
 
@@ -2530,6 +2567,186 @@ function clearSchedule() {
   toast('Schedule cleared');
 }
 
+// ── MATCH RESULT SCANNING ─────────────────────────
+// Auto-scans game history for the current week's matchups using linked gamertags.
+// forceToast=true shows feedback toasts (manual scan); false=silent (auto on load).
+async function scanWeekResults(forceToast) {
+  var weeks = scheduleState.generatedWeeks;
+  if (!weeks || !weeks.length) return;
+  var workerUrl = DNA_CONFIG.ratings.workerUrl;
+  if (!workerUrl) {
+    if (forceToast) toast('Worker URL not configured');
+    return;
+  }
+
+  // Determine current week index (same logic as home widget)
+  var activeSeason = scheduleState.seasonId
+    ? seasonState.seasons.find(function(s){ return s.id === scheduleState.seasonId; })
+    : getActiveSeason();
+  var weekIndex = 0;
+  var weekStart = null, weekEnd = null;
+  if (activeSeason && activeSeason.startDate) {
+    var seasonStart = new Date(activeSeason.startDate + 'T00:00:00');
+    var today = new Date(); today.setHours(0,0,0,0);
+    var daysSince = Math.floor((today - seasonStart) / 86400000);
+    weekIndex = Math.max(0, Math.min(Math.floor(daysSince / 7), weeks.length - 1));
+    weekStart = new Date(activeSeason.startDate + 'T00:00:00');
+    weekStart.setDate(weekStart.getDate() + weekIndex * 7);
+    weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+  } else {
+    for (var wi = 0; wi < weeks.length; wi++) {
+      if (!weeks[wi].completed) { weekIndex = wi; break; }
+    }
+  }
+
+  var week = weeks[weekIndex];
+  if (forceToast) toast('Scanning Week ' + week.weekNum + ' results...');
+
+  var found = 0, checked = 0;
+  for (var i = 0; i < week.matchups.length; i++) {
+    var matchup = week.matchups[i];
+    if (matchup.result) continue; // already resolved
+
+    var homePlayer = state.players.find(function(p){ return p.name === matchup.home; });
+    var awayPlayer = state.players.find(function(p){ return p.name === matchup.away; });
+    if (!homePlayer || !awayPlayer) continue;
+    if (!homePlayer.gamertag || !homePlayer.platform) continue;
+    if (!awayPlayer.gamertag || !awayPlayer.platform) continue;
+
+    checked++;
+    try {
+      var result = await _fetchMatchResult(homePlayer, awayPlayer, weekStart, weekEnd, workerUrl);
+      if (result) {
+        matchup.result = result;
+        found++;
+      }
+    } catch(e) {
+      console.warn('Scan error for ' + matchup.home + ' vs ' + matchup.away + ':', e.message);
+    }
+  }
+
+  if (found > 0) {
+    saveState();
+    renderSchedule(scheduleState.generatedWeeks, scheduleState.seriesLength);
+  }
+  if (forceToast) {
+    if (checked === 0) toast('No matchups with linked gamertags found for Week ' + week.weekNum);
+    else toast('Week ' + week.weekNum + ': found ' + found + ' result' + (found !== 1 ? 's' : '') + ' of ' + checked + ' matchup' + (checked !== 1 ? 's' : '') + ' scanned');
+  }
+}
+
+// Fetches game history for homePlayer and searches for a game vs awayPlayer
+// within the optional week date window. Returns a result object or null.
+async function _fetchMatchResult(homePlayer, awayPlayer, weekStart, weekEnd, workerUrl) {
+  var url = workerUrl + '/history?username=' + encodeURIComponent(homePlayer.gamertag) +
+    '&platform=' + encodeURIComponent(homePlayer.platform) + '&page=1';
+  var res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+  if (!res.ok) return null;
+  var data = await res.json();
+  var games = data.game_history || [];
+
+  // Find a game where the opponent's gamertag appears in any string field
+  var oppTag = awayPlayer.gamertag.toLowerCase();
+  var game = null;
+  for (var i = 0; i < games.length; i++) {
+    var g = games[i];
+    // Check all string values in the game object for the opponent's tag
+    var vals = Object.values(g).filter(function(v){ return typeof v === 'string'; });
+    if (!vals.some(function(v){ return v.toLowerCase() === oppTag; })) continue;
+
+    // Check date window if available
+    if (weekStart && weekEnd) {
+      var rawDate = g.display_date || g.date || g.created_at || '';
+      if (rawDate) {
+        var gameDate = new Date(rawDate);
+        if (!isNaN(gameDate.getTime()) && (gameDate < weekStart || gameDate > weekEnd)) continue;
+      }
+    }
+    game = g;
+    break;
+  }
+  if (!game) return null;
+
+  // Determine W/L — display_result is from the queried player's perspective
+  var homeWon = (game.display_result === 'W' || game.result === 'W');
+
+  // Extract scores — try common field name patterns
+  var homeScore = parseInt(game.home_run_total || game.runs || game.home_runs || 0) || 0;
+  var awayScore  = parseInt(game.away_run_total || game.opponent_runs || game.away_runs || 0) || 0;
+  // If both are 0 and we know who won, try alternative patterns
+  if (homeScore === 0 && awayScore === 0) {
+    homeScore = parseInt(game.run_total || 0) || 0;
+    awayScore  = parseInt(game.opp_run_total || 0) || 0;
+  }
+
+  // Fetch game log for POTG
+  var potg = null;
+  var gameId = game.id || game.game_id || game.uuid || '';
+  if (gameId) {
+    try {
+      var logRes = await fetch(workerUrl + '/gamelog?id=' + encodeURIComponent(gameId), {
+        signal: AbortSignal.timeout(10000),
+      });
+      if (logRes.ok) {
+        var logData = await logRes.json();
+        potg = _determinePOG(logData);
+      }
+    } catch(e) {
+      console.warn('Game log fetch failed:', e.message);
+    }
+  }
+
+  return {
+    winner:    homeWon ? homePlayer.name : awayPlayer.name,
+    homeScore: homeScore,
+    awayScore: awayScore,
+    potg:      potg,
+    gameId:    gameId,
+    scannedAt: new Date().toISOString(),
+  };
+}
+
+// Parses a game_log response and returns the Player of the Game.
+// Scores each batter: H + RBI*2 + HR*3 + R. Returns name + stat line.
+function _determinePOG(logData) {
+  if (!logData) return null;
+
+  // The game_log API may nest box score data differently — try common structures
+  var boxscore = logData.boxscore || logData.box_score || logData;
+  var sides = ['home', 'away'];
+  var batters = [];
+
+  sides.forEach(function(side) {
+    var team = boxscore[side] || {};
+    var lineup = team.batters || team.batting || team.hitters || [];
+    if (!Array.isArray(lineup)) return;
+    lineup.forEach(function(b) {
+      var h   = parseInt(b.hits || b.h || 0) || 0;
+      var rbi = parseInt(b.rbi || b.rbis || 0) || 0;
+      var hr  = parseInt(b.home_runs || b.hr || 0) || 0;
+      var r   = parseInt(b.runs || b.r || 0) || 0;
+      var ab  = parseInt(b.at_bats || b.ab || 0) || 0;
+      var score = h + rbi * 2 + hr * 3 + r;
+      if (score > 0 && (b.name || b.display_name)) {
+        batters.push({ name: b.name || b.display_name, h: h, rbi: rbi, hr: hr, ab: ab, score: score });
+      }
+    });
+  });
+
+  if (!batters.length) return null;
+  batters.sort(function(a, b){ return b.score - a.score; });
+  var best = batters[0];
+
+  var statParts = [];
+  if (best.hr)  statParts.push(best.hr + ' HR');
+  if (best.rbi) statParts.push(best.rbi + ' RBI');
+  statParts.push(best.h + '-' + best.ab);
+
+  return { name: best.name, stats: statParts.join(', ') };
+}
+
 // ── RENDER SCHEDULE ───────────────────────────────
 function renderSchedule(weeks, seriesLength) {
   if (!weeks || !weeks.length) return;
@@ -2540,6 +2757,14 @@ function renderSchedule(weeks, seriesLength) {
   weeks.forEach(function(w) {
     w.matchups.forEach(function(m) { uniqueTeams.add(m.home); uniqueTeams.add(m.away); });
     w.byes.forEach(function(b) { uniqueTeams.add(b); });
+  });
+
+  // Build result lookup: 'home|away' -> matchup object (only matchups with results)
+  var resultLookup = {};
+  weeks.forEach(function(w) {
+    w.matchups.forEach(function(m) {
+      if (m.result) resultLookup[m.home + '|' + m.away] = m;
+    });
   });
 
   // Build MLB team lookup: playerName -> mlbTeam
@@ -2652,14 +2877,32 @@ function renderSchedule(weeks, seriesLength) {
         var oppColor   = (oppPlayer && oppPlayer.color) || '#6a9ec7';
         var oppInitials = oppName.split(' ').map(function(x){return x[0]||'';}).join('').slice(0,2).toUpperCase();
         var oppMLB     = mlbTeamLookup[oppName] || '';
+
+        // Result lookup for this matchup
+        var matchupObj = resultLookup[playerName + '|' + oppName] || resultLookup[oppName + '|' + playerName];
+        var resultBadge = '';
+        var potgHtml = '';
+        if (matchupObj && matchupObj.result) {
+          var r = matchupObj.result;
+          var won = r.winner === playerName;
+          var myScore    = matchupObj.home === playerName ? r.homeScore : r.awayScore;
+          var theirScore = matchupObj.home === playerName ? r.awayScore : r.homeScore;
+          resultBadge = '<span class="result-' + (won ? 'w' : 'l') + '">' + (won ? 'W' : 'L') + '&nbsp;' + myScore + '&ndash;' + theirScore + '</span>';
+          if (r.potg) {
+            potgHtml = '<div class="potg-strip">&#x2B50; ' + escHtml(r.potg.name) + ' &mdash; ' + escHtml(r.potg.stats) + '</div>';
+          }
+        }
+
         html += '<div class="pw-opp-row">';
         html += '<span class="pw-opp-label">OPP ' + (oi + 1) + '</span>';
         html += '<div class="avatar-sm" style="background:' + oppColor + ';width:22px;height:22px;font-size:10px;">' + oppInitials + '</div>';
-        html += '<div>';
+        html += '<div style="flex:1;">';
         html += '<span class="pw-opp-name">' + escHtml(oppName) + '</span>';
         if (oppMLB) html += '<span class="pw-opp-team">· ' + escHtml(oppMLB) + '</span>';
         html += '</div>';
+        if (resultBadge) html += resultBadge;
         html += '</div>';
+        if (potgHtml) html += potgHtml;
       });
       html += '</div>';
 
