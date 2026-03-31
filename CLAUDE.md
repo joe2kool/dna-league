@@ -46,7 +46,7 @@ All pages are `<div id="page-X" class="page">` toggled via `showPage(id, tabEl)`
 | `draft` | Draft Order | Everyone |
 | `seasons` | Seasons | Everyone |
 | `schedule` | Schedule | Everyone |
-| `profiles` | Players | Everyone |
+| `profiles` | Members | Everyone |
 | `league` | League | commissioner+ only (hidden from members) |
 
 ---
