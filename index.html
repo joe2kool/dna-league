@@ -1830,7 +1830,7 @@ var MLB_TEAMS = [
 ];
 
 function saveSeasonState() {
-  try { localStorage.setItem('dna_seasons', JSON.stringify(seasonState)); } catch(e) {}
+  // Seasons now persisted to Supabase — no localStorage write needed
 }
 async function loadSeasonState() {
   if (!currentLeague) return;
@@ -2208,35 +2208,68 @@ function closeSeasonModal() {
   document.getElementById('season-modal').classList.remove('open');
 }
 
-function saveSeason() {
+async function saveSeason() {
   var name = document.getElementById('sm-name').value.trim();
   if (!name) { toast('Season name is required'); return; }
+  if (!currentLeague) { toast('Not connected to league'); return; }
 
-  var data = {
-    name:      name,
-    number:    parseInt(document.getElementById('sm-number').value) || 1,
-    game:      document.getElementById('sm-game').value.trim() || 'MLB The Show 25',
-    status:    document.getElementById('sm-status').value,
-    startDate: document.getElementById('sm-start').value || null,
-    endDate:   document.getElementById('sm-end').value || null,
-  };
+  var statusVal  = document.getElementById('sm-status').value;
+  var startVal   = document.getElementById('sm-start').value || null;
+  var endVal     = document.getElementById('sm-end').value || null;
+  var numberVal  = parseInt(document.getElementById('sm-number').value) || 1;
 
   if (seasonState.editingSeasonId) {
-    var idx = seasonState.seasons.findIndex(function(s){return s.id===seasonState.editingSeasonId;});
+    // UPDATE existing season
+    var res = await db.from('seasons').update({
+      name:          name,
+      season_number: numberVal,
+      status:        statusVal,
+      start_date:    startVal,
+      end_date:      endVal,
+    }).eq('id', seasonState.editingSeasonId).select().single();
+
+    if (res.error) { toast('Error saving season'); console.error(res.error.message); return; }
+
+    // Update in-memory
+    var idx = seasonState.seasons.findIndex(function(s) { return s.id === seasonState.editingSeasonId; });
     if (idx > -1) {
-      Object.keys(data).forEach(function(k){ seasonState.seasons[idx][k] = data[k]; });
+      seasonState.seasons[idx].name      = name;
+      seasonState.seasons[idx].number    = numberVal;
+      seasonState.seasons[idx].status    = statusVal;
+      seasonState.seasons[idx].startDate = startVal;
+      seasonState.seasons[idx].endDate   = endVal;
     }
     toast('Season updated');
+
   } else {
-    data.id              = 'season-' + Date.now();
-    data.roster          = [];
-    data.teamAssignments = {};
-    seasonState.seasons.push(data);
+    // INSERT new season
+    var res = await db.from('seasons').insert({
+      league_id:     currentLeague.id,
+      name:          name,
+      season_number: numberVal,
+      status:        statusVal,
+      start_date:    startVal,
+      end_date:      endVal,
+    }).select().single();
+
+    if (res.error) { toast('Error creating season'); console.error(res.error.message); return; }
+
+    var newSeason = {
+      id:              res.data.id,
+      name:            name,
+      number:          numberVal,
+      game:            DNA_CONFIG.app.game,
+      status:          statusVal,
+      startDate:       startVal,
+      endDate:         endVal,
+      roster:          [],
+      teamAssignments: {},
+    };
+    seasonState.seasons.push(newSeason);
     logActivity('Season "' + name + '" created');
     toast('Season created!');
   }
 
-  saveSeasonState();
   closeSeasonModal();
   renderSeasonsList();
   updateDashboard();
