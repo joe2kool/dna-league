@@ -143,34 +143,45 @@
           🏆 IT'S YOUR TURN — SELECT YOUR TEAM
         </div>
 
-        <!-- Board header -->
-        <div class="draft-section-header">
-          <div class="draft-section-title">Pick Board</div>
-          <div id="dr-picks-progress" style="font-size:12px;color:var(--text2);"></div>
+        <!-- Mobile tab bar (hidden on desktop) -->
+        <div class="dr-mobile-tabs">
+          <button type="button" class="dr-mobile-tab active" onclick="switchMobileTab('teams', this)">⚡ Available Teams</button>
+          <button type="button" class="dr-mobile-tab" onclick="switchMobileTab('board', this)">📋 Draft Order</button>
         </div>
 
-        <!-- Board rows -->
-        <div id="dr-board"></div>
+        <!-- Board section (toggled on mobile via tabs) -->
+        <div id="dr-board-section">
 
-        <!-- Commissioner controls -->
-        <div class="dr-controls" id="dr-controls" style="display:none;">
-          <button type="button" class="btn btn-outline btn-sm" id="dr-pause-btn"
-            onclick="DraftRoom.isPaused() ? DraftRoom.resumeDraft() : DraftRoom.pauseDraft()">
-            ⏸ Pause Draft
-          </button>
-          <button type="button" class="btn btn-outline btn-sm"
-            onclick="manualSkipCurrent()">
-            ⏭ Skip Current
-          </button>
-          <button type="button" class="btn btn-red btn-sm"
-            onclick="DraftRoom.undoLastPick()">
-            ↩ Undo Pick
-          </button>
-          <button type="button" class="btn btn-outline btn-sm"
-            onclick="endDraftEarly()">
-            ⏹ End Draft
-          </button>
-        </div>
+          <!-- Board header -->
+          <div class="draft-section-header">
+            <div class="draft-section-title">Pick Board</div>
+            <div id="dr-picks-progress" style="font-size:12px;color:var(--text2);"></div>
+          </div>
+
+          <!-- Board rows -->
+          <div id="dr-board"></div>
+
+          <!-- Commissioner controls -->
+          <div class="dr-controls" id="dr-controls" style="display:none;">
+            <button type="button" class="btn btn-outline btn-sm" id="dr-pause-btn"
+              onclick="DraftRoom.isPaused() ? DraftRoom.resumeDraft() : DraftRoom.pauseDraft()">
+              ⏸ Pause Draft
+            </button>
+            <button type="button" class="btn btn-outline btn-sm"
+              onclick="manualSkipCurrent()">
+              ⏭ Skip Current
+            </button>
+            <button type="button" class="btn btn-red btn-sm"
+              onclick="DraftRoom.undoLastPick()">
+              ↩ Undo Pick
+            </button>
+            <button type="button" class="btn btn-outline btn-sm"
+              onclick="endDraftEarly()">
+              ⏹ End Draft
+            </button>
+          </div>
+
+        </div><!-- /dr-board-section -->
       </div>
 
       <!-- RIGHT: Available Teams -->
@@ -529,6 +540,18 @@ function applyTeamFilter(search = '') {
   }
 
   DraftUI.renderAvailableTeams(available, draft.teamRatings || _teamRatings);
+}
+
+// ── MOBILE TAB SWITCHER ───────────────────────────────────
+function switchMobileTab(tab, btn) {
+  document.querySelectorAll('.dr-mobile-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const body = document.querySelector('.draft-body');
+  if (tab === 'board') {
+    body.classList.add('show-board');
+  } else {
+    body.classList.remove('show-board');
+  }
 }
 
 // ── COMMISSIONER: MANUAL SKIP ────────────────────────────
