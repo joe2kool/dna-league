@@ -2600,6 +2600,11 @@ function canManageSchedule() {
 }
 
 async function initSchedulePage() {
+  var controlsPanel = document.getElementById('schedule-controls-panel');
+  if (controlsPanel) controlsPanel.style.display = canManageSchedule() ? '' : 'none';
+
+  populateSeasonDropdown();
+
   var activeSeason = seasonState.seasons.find(function(s) { return s.status === 'active'; })
     || seasonState.seasons.find(function(s) { return s.status === 'upcoming'; });
   var seasonId = activeSeason ? activeSeason.id : null;
@@ -2611,6 +2616,8 @@ async function initSchedulePage() {
   if (scheduleState.generatedWeeks.length) {
     renderSchedule(scheduleState.generatedWeeks, scheduleState.seriesLength);
     updateSaveBar();
+    document.getElementById('sched-clear-btn').style.display = '';
+    document.getElementById('sched-scan-btn').style.display = '';
     scanWeekResults(false);
   } else {
     renderSchedule([], scheduleState.seriesLength);
