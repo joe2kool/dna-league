@@ -2789,17 +2789,27 @@ function generateSchedule() {
   toast('Schedule generated — ' + weeks.length + ' weeks!');
 }
 
-function clearSchedule() {
-  if (!confirm('Clear the current schedule?')) return;
+async function clearSchedule() {
+  if (!scheduleState.seasonId) {
+    scheduleState.generatedWeeks = [];
+    scheduleState.savedAt = null;
+    renderSchedule([], scheduleState.seriesLength);
+    updateSaveBar();
+    return;
+  }
+
+  if (!confirm('Clear the schedule for this season? All weeks and matchups will be deleted from the database.')) return;
+
+  var res = await db.from('schedule_weeks')
+    .delete()
+    .eq('season_id', scheduleState.seasonId);
+
+  if (res.error) { toast('Error clearing schedule'); console.error(res.error.message); return; }
+
   scheduleState.generatedWeeks = [];
   scheduleState.savedAt = null;
-  saveState();
-  document.getElementById('schedule-output').innerHTML =
-    '<div class="empty-state"><div class="empty-icon">&#x1F4C5;</div><div class="empty-text">Configure options above and generate a schedule</div></div>';
-  document.getElementById('schedule-summary').style.display = 'none';
-  document.getElementById('sched-clear-btn').style.display = 'none';
-  document.getElementById('sched-save-bar').style.display = 'none';
-  updateDashboard();
+  renderSchedule([], scheduleState.seriesLength);
+  updateSaveBar();
   toast('Schedule cleared');
 }
 
