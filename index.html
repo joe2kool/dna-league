@@ -2874,6 +2874,27 @@ async function scanWeekResults(forceToast) {
   }
 
   if (found > 0) {
+    // Persist results to Supabase series_results
+    if (currentLeague) {
+      for (var wi = 0; wi < scheduleState.generatedWeeks.length; wi++) {
+        var week = scheduleState.generatedWeeks[wi];
+        for (var mi = 0; mi < week.matchups.length; mi++) {
+          var mu = week.matchups[mi];
+          if (mu.result && mu._matchupId) {
+            await db.from('series_results').upsert({
+              matchup_id: mu._matchupId,
+              home_wins:  mu.result.homeScore || 0,
+              away_wins:  mu.result.awayScore || 0,
+              box_score:  {
+                winner: mu.result.winner || null,
+                potg:   mu.result.potg   || null,
+              },
+              recorded_at: mu.result.scannedAt || new Date().toISOString(),
+            }, { onConflict: 'matchup_id' });
+          }
+        }
+      }
+    }
     saveState();
     renderSchedule(scheduleState.generatedWeeks, scheduleState.seriesLength);
   }
