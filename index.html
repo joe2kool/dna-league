@@ -2599,23 +2599,22 @@ function canManageSchedule() {
   return ['admin','commissioner','co_commissioner'].indexOf(currentMember.role) > -1;
 }
 
-function initSchedulePage() {
-  var controlsPanel = document.getElementById('schedule-controls-panel');
-  var lockBanner    = document.getElementById('schedule-lock-banner');
+async function initSchedulePage() {
+  var activeSeason = seasonState.seasons.find(function(s) { return s.status === 'active'; })
+    || seasonState.seasons.find(function(s) { return s.status === 'upcoming'; });
+  var seasonId = activeSeason ? activeSeason.id : null;
 
-  // Show/hide controls based on role
-  controlsPanel.style.display = canManageSchedule() ? '' : 'none';
+  if (seasonId) {
+    await loadScheduleFromDB(seasonId);
+  }
 
-  // Populate season dropdown from state.players league context
-  populateSeasonDropdown();
-
-  // Restore any previously generated schedule from state
   if (scheduleState.generatedWeeks.length) {
     renderSchedule(scheduleState.generatedWeeks, scheduleState.seriesLength);
     updateSaveBar();
-    document.getElementById('sched-clear-btn').style.display = '';
-    document.getElementById('sched-scan-btn').style.display = '';
-    scanWeekResults(false); // auto-scan on load (silent)
+    scanWeekResults(false);
+  } else {
+    renderSchedule([], scheduleState.seriesLength);
+    updateSaveBar();
   }
 }
 
@@ -3189,6 +3188,53 @@ loadState = function() {
     }
   } catch(e) {}
 };
+
+async function loadScheduleFromDB(seasonId) {
+  if (!seasonId || !currentLeague) return;
+
+  var res = await db.from('schedule_weeks')
+    .select('*, matchups(*, series_results(*))')
+    .eq('season_id', seasonId)
+    .order('week_number', { ascending: true });
+
+  if (res.error) { console.error('loadScheduleFromDB:', res.error.message); return; }
+  if (!res.data || !res.data.length) return;
+
+  scheduleState.generatedWeeks = res.data.map(function(w) {
+    var matchups = (w.matchups || []).map(function(m) {
+      var homePlayer = state.players.find(function(p) { return p.id === m.home_member_id; });
+      var awayPlayer = state.players.find(function(p) { return p.id === m.away_member_id; });
+      var result = null;
+      if (m.series_results && m.series_results.length) {
+        var sr = m.series_results[0];
+        var boxScore = sr.box_score || {};
+        result = {
+          winner:    boxScore.winner    || null,
+          homeScore: sr.home_wins       || 0,
+          awayScore: sr.away_wins       || 0,
+          potg:      boxScore.potg      || null,
+          scannedAt: sr.recorded_at     || null,
+        };
+      }
+      return {
+        home:   homePlayer ? homePlayer.name : (m.home_member_id || 'Unknown'),
+        away:   awayPlayer ? awayPlayer.name : (m.away_member_id || 'Unknown'),
+        result: result,
+        _matchupId: m.id,
+      };
+    });
+
+    return {
+      weekNum:   w.week_number,
+      matchups:  matchups,
+      byes:      [],
+      completed: matchups.every(function(m) { return m.result !== null; }),
+    };
+  });
+
+  scheduleState.seasonId = seasonId;
+  scheduleState.savedAt  = res.data[0] ? res.data[0].created_at : Date.now();
+}
 
 // ── SUPABASE SCHEDULE SYNC ────────────────────────
 async function saveScheduleToDB(weeks, seasonId, seriesLength) {
