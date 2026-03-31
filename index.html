@@ -2178,7 +2178,6 @@ function renderSeasonCard(s) {
 
 function switchSeasonTab(seasonId, tab, tabEl) {
   seasonState.activeSeasonTab[seasonId] = tab;
-  saveSeasonState();
   // Re-render just this card
   var season = seasonState.seasons.find(function(s) { return s.id === seasonId; });
   if (!season) return;
@@ -2320,15 +2319,17 @@ async function resetTeamAssignments(id) {
   toast('Team assignments cleared');
 }
 
-function transitionSeason(id, newStatus) {
+async function transitionSeason(id, newStatus) {
   var s = seasonState.seasons.find(function(x){return x.id===id;});
   if (!s) return;
 
   var label = { active:'activate', playoffs:'start playoffs for', completed:'complete', cancelled:'cancel' }[newStatus] || newStatus;
   if (!confirm('Are you sure you want to ' + label + ' "' + s.name + '"?')) return;
 
+  var res = await db.from('seasons').update({ status: newStatus }).eq('id', id);
+  if (res.error) { toast('Error updating season status'); console.error(res.error.message); return; }
+
   s.status = newStatus;
-  saveSeasonState();
   renderSeasonsList();
   logActivity('"' + s.name + '" status changed to ' + newStatus);
   updateDashboard();
@@ -2439,7 +2440,6 @@ function confirmParticipation(seasonId) {
   var entry = s.roster.find(function(r){return r.memberId===currentMember.id;});
   if (!entry) return;
   entry.status = 'confirmed';
-  saveSeasonState();
   renderSeasonsList();
   toast('Participation confirmed!');
 }
@@ -2461,8 +2461,6 @@ function updateTeamAssignmentLive(seasonId) {
     }
     // Do NOT overwrite with empty — only save positive selections
   });
-
-  saveSeasonState();
 
   // Build taken set from saved assignments only
   var taken = {};
@@ -2529,7 +2527,6 @@ function autoLoadDraftTeams(seasonId) {
     }
   });
 
-  saveSeasonState();
   renderSeasonsList();
 
   var msg = loaded + ' team' + (loaded !== 1 ? 's' : '') + ' loaded from draft history.';
@@ -3901,6 +3898,13 @@ async function loadLeagueContext() {
   document.getElementById('slot-count').value = state.slotCount;
   document.getElementById('slot-val').textContent = state.slotCount;
   if (state.draftMode === 'weighted') { selectMode('weighted'); }
+
+  // One-time cleanup: remove obsolete localStorage keys
+  localStorage.removeItem('dna_seasons');
+  localStorage.removeItem('dna_schedule');
+  Object.keys(localStorage).forEach(function(k) {
+    if (k.startsWith('dna_saved_schedule_')) localStorage.removeItem(k);
+  });
 }
 
 async function syncPlayersFromDB() {
