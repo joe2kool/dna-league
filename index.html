@@ -1888,22 +1888,23 @@ function renderLeagueMembers() {
 
     // Can't demote yourself or edit admins
     var disabled = (!canEdit || isSelf || role === 'admin') ? 'disabled' : '';
+
     var metaParts = [];
     if (p.joinDate) metaParts.push('Joined ' + p.joinDate);
-    if (p.gamertag) metaParts.push('&#x1F3AE; ' + escHtml(p.gamertag) + (p.platform ? ' &middot; ' + p.platform.toUpperCase() : ''));
+    if (p.gamertag) metaParts.push(escHtml(p.gamertag) + (p.platform ? ' &middot; ' + p.platform.toUpperCase() : ''));
 
     return '<div class="league-member-row" id="lmr-' + p.id + '">' +
-      '<div class="board-avatar" style="background:' + color + ';width:36px;height:36px;font-size:14px;flex-shrink:0;">' + initials + '</div>' +
+      '<div class="board-avatar" style="background:' + color + ';width:38px;height:38px;font-size:14px;flex-shrink:0;">' + initials + '</div>' +
       '<div class="league-member-info">' +
         '<div class="league-member-name">' + escHtml(p.name) +
-          (isSelf ? ' <span style="font-size:10px;color:var(--text2);">(you)</span>' : '') +
+          (isSelf ? ' <span style="font-size:11px;color:var(--text2);font-weight:400;margin-left:4px;">you</span>' : '') +
         '</div>' +
         (metaParts.length ? '<div class="league-member-meta">' + metaParts.join(' &nbsp;&bull;&nbsp; ') + '</div>' : '') +
       '</div>' +
-      '<span class="role-chip role-' + role + '" id="lmr-chip-' + p.id + '">' + _roleLabel(role) + '</span>' +
-      '<select class="league-role-select" ' + disabled + ' onchange="updateMemberRole(\'' + p.id + '\',this.value)">' +
-        roleOptions +
-      '</select>' +
+      (disabled
+        ? '<span class="role-chip role-' + role + '" id="lmr-chip-' + p.id + '">' + _roleLabel(role) + '</span>'
+        : '<select class="league-role-select" onchange="updateMemberRole(\'' + p.id + '\',this.value)">' + roleOptions + '</select>'
+      ) +
     '</div>';
   }).join('');
 }
@@ -1932,13 +1933,7 @@ async function updateMemberRole(memberId, newRole) {
   if (player) player.role = newRole;
   saveState();
 
-  // Update the chip label in-place without re-rendering the whole list
-  var chip = document.getElementById('lmr-chip-' + memberId);
-  if (chip) {
-    chip.textContent = _roleLabel(newRole);
-    chip.className = 'role-chip role-' + newRole;
-  }
-
+  renderLeagueMembers();
   toast(player ? player.name + ' is now ' + _roleLabel(newRole) : 'Role updated');
 }
 
