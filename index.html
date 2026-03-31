@@ -2386,7 +2386,7 @@ async function confirmRosterPicker() {
   var s = seasonState.seasons.find(function(x) { return x.id === seasonId; });
   if (!s) return;
 
-  var checkboxes = document.querySelectorAll('.roster-picker-cb:checked');
+  var checkboxes = document.querySelectorAll('.rp-check:checked');
   var newIds = Array.from(checkboxes).map(function(cb) { return cb.value; });
   if (!newIds.length) { toast('Select at least one player'); return; }
 
