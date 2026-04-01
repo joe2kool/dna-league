@@ -1527,7 +1527,7 @@ async function saveProfile() {
 async function deleteProfile(id) {
   if (!canManageSchedule()) { toast('Only commissioners and admins can remove players'); return; }
   var target = state.players.find(function(p) { return p.id === id; });
-  if (target && target.role === 'admin' && !DnaAuth.isAdmin(currentMember)) { toast('Cannot remove an admin account'); return; }
+  if (target && target.role === 'admin' && !(currentMember && ['admin','commissioner'].includes(currentMember.role))) { toast('Cannot remove an admin account'); return; }
   if (!confirm('Remove this player from the league?')) return;
 
   // Only delete from DB if it's a real Supabase record
@@ -1905,12 +1905,12 @@ function initLeaguePage() {
     return;
   }
   var dangerZone = document.getElementById('danger-zone-section');
-  if (dangerZone) dangerZone.style.display = DnaAuth.isAdmin(currentMember) ? '' : 'none';
+  if (dangerZone) dangerZone.style.display = (currentMember && ['admin','commissioner'].includes(currentMember.role)) ? '' : 'none';
   renderLeagueMembers();
 }
 
 async function resetAllTestData() {
-  if (!DnaAuth.isAdmin(currentMember)) { toast('Admin only'); return; }
+  if (!(currentMember && ['admin','commissioner'].includes(currentMember.role))) { toast('Admin only'); return; }
   if (!confirm('This will permanently delete ALL drafts, picks, seasons, schedules, and reset every member\'s stats to zero.\n\nThis cannot be undone. Continue?')) return;
   if (!confirm('Are you sure? There is no undo.')) return;
 
