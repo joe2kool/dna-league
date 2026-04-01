@@ -3891,8 +3891,8 @@ async function loadLeagueContext() {
   loadState();
   await loadSeasonState();
   // Then merge DB players in — this adds real accounts without wiping local ones
-  await syncPlayersFromDB();
   await loadMlbTeamsLookup();
+  await syncPlayersFromDB();
   renderSlots();
   updateDashboard();
   document.getElementById('slot-count').value = state.slotCount;
@@ -3958,6 +3958,43 @@ async function syncPlayersFromDB() {
     return p.id.startsWith('local-') || dbIds.has(p.id);
   });
   if (state.players.length !== before) changed = true;
+
+  // Sync live draft picks from Supabase into each player's draftHistory
+  var picksRes = await db.from('draft_picks')
+    .select('id, member_id, pick_number, mlb_team_id, picked_at, drafts(id, season_id, name, status)')
+    .eq('drafts.league_id', currentLeague.id)
+    .not('drafts', 'is', null);
+  if (!picksRes.error && picksRes.data) {
+    picksRes.data.forEach(function(pick) {
+      if (!pick.drafts) return; // filtered out by league_id check
+      var player = state.players.find(function(p) { return p.id === pick.member_id; });
+      if (!player) return;
+      if (!player.draftHistory) player.draftHistory = [];
+      // Find abbreviation from mlbTeamsLookup
+      var teamAbbr = '';
+      if (pick.mlb_team_id && mlbTeamsLookup) {
+        var teamObj = mlbTeamsLookup.find(function(t) { return t.id === pick.mlb_team_id; });
+        if (teamObj) teamAbbr = teamObj.abbreviation;
+      }
+      // Check if this pick is already in draftHistory (by pick id stored in a field)
+      var existingIdx = player.draftHistory.findIndex(function(d) { return d.dbPickId === pick.id; });
+      var entry = {
+        dbPickId:   pick.id,
+        type:       'live',
+        seasonId:   pick.drafts.season_id || pick.drafts.id,
+        seasonName: pick.drafts.name || 'Team Draft',
+        team:       teamAbbr,
+        pick:       pick.pick_number,
+        date:       pick.picked_at ? new Date(pick.picked_at).toLocaleDateString() : '',
+      };
+      if (existingIdx >= 0) {
+        player.draftHistory[existingIdx] = entry;
+      } else {
+        player.draftHistory.unshift(entry);
+        changed = true;
+      }
+    });
+  }
 
   if (changed) saveState();
 }
