@@ -243,8 +243,8 @@ const DraftRoom = (() => {
     // Broadcast to all
     _broadcast({ type: 'pick', pickNumber: cur.pickNumber, memberId: cur.memberId, teamAbbr });
 
-    // Persist draft state
-    _saveDraftState();
+    // Persist pick to Supabase
+    await _savePickToDB(cur, teamAbbr);
 
     // Check if draft complete
     const remaining = _draft.slots.filter(s => !s.pickedTeam && !s.skipped);
@@ -255,7 +255,7 @@ const DraftRoom = (() => {
     } else if (remaining.length === 0 && skipped.length > 0) {
       // All non-skipped done — now handle skipped players in order
       _draft.status = 'skipped_picks';
-      _saveDraftState();
+      await _saveStatusToDB('skipped_picks');
       stopTimer(); // no timer pressure for skipped picks
       DraftUI.updatePauseBtn(false);
       DraftUI.toast(`Main draft complete! ${skipped.length} skipped player(s) may now pick.`);
@@ -300,17 +300,18 @@ const DraftRoom = (() => {
     }
   }
 
-  function undoLastPick() {
+  async function undoLastPick() {
     if (!DnaAuth.isAdmin(_member)) return;
     const lastPicked = [..._draft.slots].reverse().find(s => s.pickedTeam);
     if (!lastPicked) { DraftUI.toast('No picks to undo'); return; }
     if (!confirm(`Undo ${lastPicked.memberName}'s pick of ${lastPicked.pickedTeam}?`)) return;
-    _draft.availableTeams.push(lastPicked.pickedTeam);
+    const undoTeamAbbr = lastPicked.pickedTeam;
+    _draft.availableTeams.push(undoTeamAbbr);
     lastPicked.pickedTeam = null;
     lastPicked.pickedAt   = null;
     _removePickFromSeason(lastPicked.memberId);
-    _broadcast({ type: 'undo', pickNumber: lastPicked.pickNumber });
-    _saveDraftState();
+    _broadcast({ type: 'undo', pickNumber: lastPicked.pickNumber, teamAbbr: undoTeamAbbr });
+    await _deletePickFromDB(lastPicked);
     DraftBoard.render(_draft);
     DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
     resetTimer();
@@ -318,7 +319,7 @@ const DraftRoom = (() => {
     DraftUI.toast('Pick undone');
   }
 
-  function overridePick(pickNumber, teamAbbr) {
+  async function overridePick(pickNumber, teamAbbr) {
     if (!DnaAuth.isAdmin(_member)) return;
     const slot = _draft.slots.find(s => s.pickNumber === pickNumber);
     if (!slot) return;
@@ -329,40 +330,41 @@ const DraftRoom = (() => {
     _draft.availableTeams = _draft.availableTeams.filter(t => t !== teamAbbr);
     _savePickToSeason(slot.memberId, teamAbbr);
     _broadcast({ type: 'override', pickNumber, teamAbbr });
-    _saveDraftState();
+    await _deletePickFromDB(slot);
+    await _savePickToDB(slot, teamAbbr);
     DraftBoard.render(_draft);
     DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
     DraftUI.toast('Pick overridden');
   }
 
-  function pauseDraft() {
+  async function pauseDraft() {
     if (!DnaAuth.isAdmin(_member)) return;
     _isPaused = true;
     _draft.status = 'paused';
     stopTimer();
-    _saveDraftState();
+    await _saveStatusToDB('paused');
     _broadcast({ type: 'pause' });
     DraftUI.updatePauseBtn(true);
     DraftUI.toast('Draft paused');
   }
 
-  function resumeDraft() {
+  async function resumeDraft() {
     if (!DnaAuth.isAdmin(_member)) return;
     _isPaused = false;
     _draft.status = 'active';
-    _saveDraftState();
+    await _saveStatusToDB('active');
     _broadcast({ type: 'resume' });
     DraftUI.updatePauseBtn(false);
     startTimer();
     DraftUI.toast('Draft resumed');
   }
 
-  function _completeDraft() {
+  async function _completeDraft() {
     stopTimer();
     _isComplete = true;
     _draft.status = 'completed';
     _draft.completedAt = new Date().toISOString();
-    _saveDraftState();
+    await _saveStatusToDB('completed', _draft.completedAt);
     _broadcast({ type: 'complete' });
 
     // Save draft recap to league state so it shows in activity log
@@ -466,10 +468,45 @@ const DraftRoom = (() => {
   }
 
   // ── PERSISTENCE ───────────────────────────────────────────
+  async function _savePickToDB(slot, teamAbbr) {
+    if (!_db || !_draft) return;
+    const mlbTeamId = _getMlbTeamId(teamAbbr);
+    if (!mlbTeamId) { console.error('_savePickToDB: unknown team', teamAbbr); return; }
+    const res = await _db.from('draft_picks').insert({
+      draft_id:    _draft.id,
+      slot_id:     slot._dbId,
+      member_id:   slot.memberId,
+      pick_number: slot.pickNumber,
+      mlb_team_id: mlbTeamId,
+      picked_at:   slot.pickedAt,
+    });
+    if (res.error) console.error('_savePickToDB:', res.error.message);
+  }
+
+  async function _saveSkipToDB(slot) {
+    if (!_db || !slot._dbId) return;
+    const res = await _db.from('draft_slots')
+      .update({ skipped: true })
+      .eq('id', slot._dbId);
+    if (res.error) console.error('_saveSkipToDB:', res.error.message);
+  }
+
+  async function _saveStatusToDB(status, completedAt) {
+    if (!_db || !_draft) return;
+    const update = { status, paused: status === 'paused' };
+    if (completedAt) update.completed_at = completedAt;
+    const res = await _db.from('drafts').update(update).eq('id', _draft.id);
+    if (res.error) console.error('_saveStatusToDB:', res.error.message);
+  }
+
+  async function _deletePickFromDB(slot) {
+    if (!_db || !slot._dbId) return;
+    const res = await _db.from('draft_picks').delete().eq('slot_id', slot._dbId);
+    if (res.error) console.error('_deletePickFromDB:', res.error.message);
+  }
+
   function _saveDraftState() {
-    try {
-      localStorage.setItem('dna_live_draft', JSON.stringify(_draft));
-    } catch(e) { console.error('draft save:', e); }
+    // Draft state now persisted to Supabase — no localStorage write needed
   }
 
   function loadSavedDraft() {
@@ -559,6 +596,9 @@ const DraftRoom = (() => {
     startTimer, stopTimer, resetTimer,
     canPick, makePick, undoLastPick, overridePick,
     pauseDraft, resumeDraft,
+    saveSkip:   _saveSkipToDB,
+    saveStatus: _saveStatusToDB,
+    broadcast:  _broadcast,
     subscribeRealtime, unsubscribeRealtime,
     getCurrentPick: _getCurrentPick,
     getNextPick:    _getNextPick,
