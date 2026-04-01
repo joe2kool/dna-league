@@ -3906,7 +3906,7 @@ async function loadLeagueContext() {
 async function syncPlayersFromDB() {
   if (!currentLeague) return;
   var res = await db.from('league_members')
-    .select('id, display_name, real_name, avatar_color, favorite_mlb_team, role, joined_at')
+    .select('id, display_name, real_name, avatar_color, favorite_mlb_team, role, joined_at, gamertag, platform, wins, losses, championships, playoffs, mvp, cyyoung')
     .eq('league_id', currentLeague.id)
     .order('joined_at', { ascending: true });
   if (res.error) { console.error('syncPlayers:', res.error.message); return; }
@@ -3922,17 +3922,28 @@ async function syncPlayersFromDB() {
         id: m.id, name: m.display_name, realname: m.real_name || '',
         color: m.avatar_color || '#6a9ec7', team: m.favorite_mlb_team || '',
         role: m.role, joinDate: m.joined_at ? new Date(m.joined_at).toLocaleDateString() : '',
+        gamertag: m.gamertag || '', platform: m.platform || '',
+        wins: m.wins || 0, losses: m.losses || 0,
+        championships: m.championships || 0, playoffs: m.playoffs || 0,
+        mvp: m.mvp || 0, cyyoung: m.cyyoung || 0,
         draftHistory: [], standingsHistory: [],
-        championships: 0, playoffs: 0, mvp: 0, cyyoung: 0, wins: '', losses: ''
       });
       changed = true;
     } else {
-      // Update fields from DB but preserve local-only fields (draftHistory, stats etc.)
-      existing.name    = m.display_name;
-      existing.realname= m.real_name || '';
-      existing.color   = m.avatar_color || existing.color;
-      existing.team    = m.favorite_mlb_team || '';
-      existing.role    = m.role;
+      // Update fields from DB but preserve local-only fields (draftHistory, standingsHistory)
+      existing.name          = m.display_name;
+      existing.realname      = m.real_name || '';
+      existing.color         = m.avatar_color || existing.color;
+      existing.team          = m.favorite_mlb_team || '';
+      existing.role          = m.role;
+      existing.gamertag      = m.gamertag || existing.gamertag || '';
+      existing.platform      = m.platform || existing.platform || '';
+      existing.wins          = m.wins ?? existing.wins ?? 0;
+      existing.losses        = m.losses ?? existing.losses ?? 0;
+      existing.championships = m.championships ?? existing.championships ?? 0;
+      existing.playoffs      = m.playoffs ?? existing.playoffs ?? 0;
+      existing.mvp           = m.mvp ?? existing.mvp ?? 0;
+      existing.cyyoung       = m.cyyoung ?? existing.cyyoung ?? 0;
     }
   });
   // Only save if we added new players — don't overwrite if nothing changed
@@ -3943,7 +3954,11 @@ async function saveProfileToDB(data, editingId) {
   if (!currentLeague || !currentUser) return null;
   var payload = {
     display_name: data.name, real_name: data.realname || null,
-    avatar_color: data.color || '#6a9ec7', favorite_mlb_team: data.team || null
+    avatar_color: data.color || '#6a9ec7', favorite_mlb_team: data.team || null,
+    gamertag: data.gamertag || null, platform: data.platform || null,
+    wins: parseInt(data.wins) || 0, losses: parseInt(data.losses) || 0,
+    championships: parseInt(data.championships) || 0, playoffs: parseInt(data.playoffs) || 0,
+    mvp: parseInt(data.mvp) || 0, cyyoung: parseInt(data.cyyoung) || 0,
   };
   if (editingId) {
     var res = await db.from('league_members').update(payload).eq('id', editingId);
