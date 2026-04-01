@@ -280,15 +280,11 @@ const DraftRoom = (() => {
   function _advancePick() {
     resetTimer();
     startTimer();
+    if (typeof updateOnClock === 'function') updateOnClock();
+    if (typeof checkYourTurn === 'function') checkYourTurn();
     const next = _getCurrentPick();
     if (next) {
       DraftUI.toast(`Now on the clock: ${next.memberName}`);
-      // Highlight if it's the current user's turn
-      if (next.memberId === _member?.id) {
-        DraftUI.showYourTurnBanner();
-      } else {
-        DraftUI.hideYourTurnBanner();
-      }
     }
   }
 
@@ -376,6 +372,7 @@ const DraftRoom = (() => {
       }
     } catch(e) { console.error('draft completion save:', e); }
 
+    if (typeof updateOnClock === 'function') updateOnClock();
     DraftUI.showRecap(_draft);
     DraftUI.toast('Draft complete! 🎉');
   }
