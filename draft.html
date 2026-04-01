@@ -294,33 +294,33 @@ async function boot() {
 }
 
 // ── SETUP ─────────────────────────────────────────────────
-function showSetup() {
+async function showSetup() {
   document.getElementById('screen-setup').style.display = '';
   document.getElementById('screen-draft').style.display  = 'none';
   document.getElementById('dr-recap').style.display      = 'none';
   document.getElementById('dr-nav-status').textContent   = 'Setup';
   document.getElementById('dr-nav-status').className     = 'draft-nav-status status-setup';
 
-  populateSeasonDropdown();
+  await populateSeasonDropdown();
   renderSetupDraftOrder();
   renderSetupTeamPool();
 }
 
-function populateSeasonDropdown() {
+async function populateSeasonDropdown() {
   const sel = document.getElementById('setup-season');
   sel.innerHTML = '<option value="">No season linked</option>';
-  try {
-    const raw = localStorage.getItem('dna_seasons');
-    if (!raw) return;
-    const { seasons } = JSON.parse(raw);
-    (seasons || []).forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = s.name + ' (' + s.status + ')';
-      if (s.status === 'upcoming' || s.status === 'active') opt.selected = true;
-      sel.appendChild(opt);
-    });
-  } catch(e) {}
+  const res = await db.from('seasons')
+    .select('id, name, status')
+    .eq('league_id', DNA_CONFIG.league.id)
+    .order('season_number', { ascending: true });
+  if (res.error || !res.data) return;
+  res.data.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name + ' (' + s.status + ')';
+    if (s.status === 'upcoming' || s.status === 'active') opt.selected = true;
+    sel.appendChild(opt);
+  });
 }
 
 function renderSetupDraftOrder() {
