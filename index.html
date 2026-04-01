@@ -3946,7 +3946,15 @@ async function syncPlayersFromDB() {
       existing.cyyoung       = m.cyyoung ?? existing.cyyoung ?? 0;
     }
   });
-  // Only save if we added new players — don't overwrite if nothing changed
+  // Remove stale DB players — UUID players no longer in DB (e.g. deleted accounts)
+  // Preserve local- players (commissioner-added, no Supabase account yet)
+  var dbIds = new Set(res.data.map(function(m) { return m.id; }));
+  var before = state.players.length;
+  state.players = state.players.filter(function(p) {
+    return p.id.startsWith('local-') || dbIds.has(p.id);
+  });
+  if (state.players.length !== before) changed = true;
+
   if (changed) saveState();
 }
 
