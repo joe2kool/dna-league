@@ -389,29 +389,23 @@ const DraftRoom = (() => {
   }
 
   // ── SEASON AUTO-SAVE ──────────────────────────────────────
-  function _savePickToSeason(memberId, teamAbbr) {
+  async function _savePickToSeason(memberId, teamAbbr) {
     if (!_draft.seasonId) {
       console.warn('Draft has no seasonId — pick not saved to season');
-      return;
+    } else {
+      // Update league_teams with the picked mlb_team_id
+      const mlbTeamId = _getMlbTeamId(teamAbbr);
+      if (mlbTeamId) {
+        const res = await _db.from('league_teams')
+          .update({ mlb_team_id: mlbTeamId })
+          .eq('season_id', _draft.seasonId)
+          .eq('member_id', memberId);
+        if (res.error) console.error('_savePickToSeason league_teams:', res.error.message);
+      }
     }
-    try {
-      const key = 'dna_seasons';
-      const raw = localStorage.getItem(key);
-      if (!raw) {
-        console.warn('No seasons data found in localStorage');
-        return;
-      }
-      const seasonState = JSON.parse(raw);
-      const season = (seasonState.seasons || []).find(s => s.id === _draft.seasonId);
-      if (!season) {
-        console.warn(`Season ${_draft.seasonId} not found in localStorage`);
-        return;
-      }
-      if (!season.teamAssignments) season.teamAssignments = {};
-      const teamObj = (DNA_CONFIG.mlbTeams || []).find(t => t.abbr === teamAbbr);
-      season.teamAssignments[memberId] = teamObj ? teamObj.name : teamAbbr;
 
-      // Also update the draft history on the player's profile
+    // Update player draft history in dna_league localStorage (stays local for now)
+    try {
       const leagueRaw = localStorage.getItem('dna_league');
       if (leagueRaw) {
         const leagueState = JSON.parse(leagueRaw);
@@ -420,23 +414,18 @@ const DraftRoom = (() => {
           if (!player.draftHistory) player.draftHistory = [];
           const pickNumber = _draft.slots.find(s => s.memberId === memberId)?.pickNumber;
           const today = new Date().toLocaleDateString();
-
-          // For live drafts: one entry per season max — update if exists, insert if not
           const existingLive = _draft.seasonId
             ? player.draftHistory.find(d => d.type === 'live' && d.seasonId === _draft.seasonId)
             : null;
-
           if (existingLive) {
-            // Update existing live entry for this season
             existingLive.team = teamAbbr;
             existingLive.pick = pickNumber;
             existingLive.date = today;
           } else {
-            // Insert new live draft entry
             player.draftHistory.unshift({
               type:       'live',
               seasonId:   _draft.seasonId,
-              seasonName: _draft.seasonName || season.name || 'Draft',
+              seasonName: _draft.seasonName || 'Draft',
               team:       teamAbbr,
               pick:       pickNumber,
               date:       today,
@@ -445,26 +434,16 @@ const DraftRoom = (() => {
           localStorage.setItem('dna_league', JSON.stringify(leagueState));
         }
       }
-
-      localStorage.setItem(key, JSON.stringify(seasonState));
-      console.log(`✓ Saved pick: ${memberId} → ${teamAbbr} in season ${season.name}`);
-    } catch(e) {
-      console.error('season auto-save error:', e);
-    }
+    } catch(e) { console.error('draft history save:', e); }
   }
 
-  function _removePickFromSeason(memberId) {
+  async function _removePickFromSeason(memberId) {
     if (!_draft.seasonId) return;
-    try {
-      const key = 'dna_seasons';
-      const raw = localStorage.getItem(key);
-      if (!raw) return;
-      const seasonState = JSON.parse(raw);
-      const season = seasonState.seasons?.find(s => s.id === _draft.seasonId);
-      if (!season?.teamAssignments) return;
-      delete season.teamAssignments[memberId];
-      localStorage.setItem(key, JSON.stringify(seasonState));
-    } catch(e) { console.error('season undo-save:', e); }
+    const res = await _db.from('league_teams')
+      .update({ mlb_team_id: null })
+      .eq('season_id', _draft.seasonId)
+      .eq('member_id', memberId);
+    if (res.error) console.error('_removePickFromSeason:', res.error.message);
   }
 
   // ── PERSISTENCE ───────────────────────────────────────────
