@@ -1509,6 +1509,7 @@ async function saveProfile() {
 }
 
 async function deleteProfile(id) {
+  if (!canManageSchedule()) { toast('Only commissioners and admins can remove players'); return; }
   if (!confirm('Remove this player from the league?')) return;
 
   // Only delete from DB if it's a real Supabase record
@@ -1633,6 +1634,7 @@ function renderProfiles() {
     var record = (p.wins || p.losses) ? (p.wins||0)+'-'+(p.losses||0) : 'N/A';
     var avgFinish = calcAvgFinish(standings);
     var color = p.color || '#6a9ec7';
+    var isSelf = currentMember && p.id === currentMember.id;
 
     // Awards
     var awards = [];
@@ -1675,8 +1677,8 @@ function renderProfiles() {
         '<div class="pc-draft-pips">' + pipsHtml + '</div>' +
       '</div>' +
       '<div class="pc-actions" onclick="event.stopPropagation()">' +
-        '<button type="button" class="btn btn-ghost btn-sm" onclick="deleteProfile(\'' + p.id + '\')">&#x1F5D1;</button>' +
-        '<button type="button" class="btn btn-outline btn-sm" onclick="openProfileModal(\'' + p.id + '\')">Edit</button>' +
+        (canManageSchedule() ? '<button type="button" class="btn btn-ghost btn-sm" onclick="deleteProfile(\'' + p.id + '\')">&#x1F5D1;</button>' : '') +
+        (canManageSchedule() || isSelf ? '<button type="button" class="btn btn-outline btn-sm" onclick="openProfileModal(\'' + p.id + '\')">Edit</button>' : '') +
         '<button type="button" class="btn btn-gold btn-sm" onclick="openViewModal(\'' + p.id + '\')">View</button>' +
       '</div>' +
     '</div>';
