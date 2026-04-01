@@ -481,14 +481,12 @@ const DraftRoom = (() => {
   }
 
   function loadSavedDraft() {
-    try {
-      const raw = localStorage.getItem('dna_live_draft');
-      return raw ? JSON.parse(raw) : null;
-    } catch(e) { return null; }
+    // dna_live_draft localStorage key abandoned — use loadDraftFromDB() instead
+    return null;
   }
 
   function clearDraft() {
-    localStorage.removeItem('dna_live_draft');
+    // dna_live_draft localStorage key abandoned — draft state lives in Supabase
     _draft = null;
     stopTimer();
   }
@@ -545,11 +543,20 @@ const DraftRoom = (() => {
         DraftUI.toast('Draft resumed');
         break;
       case 'undo':
-        // Re-fetch fresh state on undo
-        const s2 = loadSavedDraft();
-        if (s2) { _draft = s2; DraftBoard.render(_draft); DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings); }
+        const undoSlot = _draft.slots.find(s => s.pickNumber === payload.pickNumber);
+        if (undoSlot && payload.teamAbbr) {
+          _draft.availableTeams.push(payload.teamAbbr);
+          undoSlot.pickedTeam = null;
+          undoSlot.pickedAt   = null;
+          DraftBoard.render(_draft);
+          DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
+          resetTimer();
+          startTimer();
+        }
         break;
       case 'skip':
+        const skipSlot = _draft.slots.find(s => s.pickNumber === payload.pickNumber);
+        if (skipSlot) skipSlot.skipped = true;
         DraftUI.toast(`${payload.memberName || 'A player'} was skipped`);
         DraftBoard.render(_draft);
         break;
