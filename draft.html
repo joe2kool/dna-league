@@ -404,8 +404,8 @@ async function launchDraft() {
     return;
   }
 
-  // Build draft order slots from localStorage draft results
-  let slots = [];
+  // Build draft order slots from localStorage draft results (draft order generator stays local)
+  let slotInputs = [];
   try {
     const raw = localStorage.getItem('dna_league');
     const state = raw ? JSON.parse(raw) : null;
@@ -417,16 +417,14 @@ async function launchDraft() {
       return;
     }
 
-    slots = results.map((r, i) => {
+    slotInputs = results.map((r, i) => {
       const player = players.find(p => p.name === r.name);
       return {
-        pickNumber: i + 1,
-        memberId:   player?.id || null,
-        memberName: r.name,
-        color:      player?.color || '#6a9ec7',
-        pickedTeam: null,
-        pickedAt:   null,
-        skipped:    false,
+        pick_number: i + 1,
+        member_id:   player?.id || null,
+        member_name: r.name,
+        color:       player?.color || '#6a9ec7',
+        skipped:     false,
       };
     });
   } catch(e) {
@@ -434,30 +432,78 @@ async function launchDraft() {
     return;
   }
 
-  // Get selected team pool
   const availableTeams = Array.from(document.querySelectorAll('.pool-team.selected'))
     .map(el => el.id.replace('pt-', ''));
 
-  if (availableTeams.length < slots.length) {
-    if (!confirm(`Only ${availableTeams.length} teams selected for ${slots.length} pickers. Some players may not get a team. Continue?`)) return;
+  if (availableTeams.length < slotInputs.length) {
+    if (!confirm(`Only ${availableTeams.length} teams selected for ${slotInputs.length} pickers. Some players may not get a team. Continue?`)) return;
   }
 
   const timerSeconds = parseInt(document.getElementById('setup-timer').value) || 90;
   const seasonId     = document.getElementById('setup-season').value || null;
   const name         = document.getElementById('setup-name').value || 'Team Draft';
 
+  // Complete any existing active draft for this league before starting new one
+  await db.from('drafts')
+    .update({ status: 'completed' })
+    .eq('league_id', DNA_CONFIG.league.id)
+    .in('status', ['active', 'paused']);
+
+  // Insert new draft row
+  const draftRes = await db.from('drafts').insert({
+    league_id:     DNA_CONFIG.league.id,
+    season_id:     seasonId,
+    type:          'team',
+    status:        'active',
+    order_mode:    'random',
+    name,
+    timer_seconds: timerSeconds,
+    paused:        false,
+  }).select().single();
+
+  if (draftRes.error) {
+    alert('Error creating draft: ' + draftRes.error.message);
+    return;
+  }
+
+  const draftId = draftRes.data.id;
+
+  // Insert draft_slots rows
+  const slotsRes = await db.from('draft_slots')
+    .insert(slotInputs.map(s => ({ ...s, draft_id: draftId })))
+    .select();
+
+  if (slotsRes.error) {
+    alert('Error creating draft slots: ' + slotsRes.error.message);
+    return;
+  }
+
+  // Build in-memory draft object
+  const seasonName = seasonId
+    ? document.getElementById('setup-season').selectedOptions[0]?.text?.split(' (')[0]
+    : null;
+
   const draft = {
-    id:             'draft-' + Date.now(),
+    id:           draftId,
     name,
     seasonId,
-    seasonName:     seasonId ? document.getElementById('setup-season').selectedOptions[0]?.text?.split(' (')[0] : null,
-    status:         'active',
+    seasonName,
+    status:       'active',
     timerSeconds,
-    slots,
+    slots: slotsRes.data.map(s => ({
+      _dbId:      s.id,
+      pickNumber: s.pick_number,
+      memberId:   s.member_id,
+      memberName: s.member_name,
+      color:      s.color || '#6a9ec7',
+      skipped:    false,
+      pickedTeam: null,
+      pickedAt:   null,
+    })),
     availableTeams,
-    teamRatings:    _teamRatings,
-    createdAt:      new Date().toISOString(),
-    completedAt:    null,
+    teamRatings:  _teamRatings,
+    createdAt:    draftRes.data.created_at,
+    completedAt:  null,
   };
 
   enterDraftRoom(draft);
