@@ -459,7 +459,7 @@
   .league-member-info { flex:1; min-width:0; }
   .league-member-name { font-family:'Barlow Condensed'; font-size:16px; font-weight:600; }
   .league-member-meta { font-size:11px; color:var(--text2); margin-top:1px; }
-  .league-role-select { background:var(--surface3); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:var(--text); font-family:'Barlow Condensed'; font-size:13px; padding:6px 10px; }
+  .league-role-select { background:var(--surface3); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:var(--text); font-family:'Barlow Condensed'; font-size:13px; padding:6px 10px; width:160px; flex-shrink:0; }
   .league-role-select:disabled { opacity:0.4; cursor:not-allowed; }
 
   /* ── MATCH RESULTS ─────────────────────────────── */
@@ -831,6 +831,22 @@
       </div>
 
       <div id="league-members-list"></div>
+    </div>
+
+    <!-- Danger Zone — admin only -->
+    <div id="danger-zone-section" style="display:none;margin-top:2rem;">
+      <div style="background:var(--surface2);border-radius:12px;border:1px solid rgba(220,53,69,0.35);overflow:hidden;">
+        <div style="padding:1rem 1.25rem;border-bottom:1px solid rgba(220,53,69,0.2);display:flex;align-items:center;gap:0.5rem;">
+          <span style="font-family:'Barlow Condensed';font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#dc3545;">&#9888; Danger Zone</span>
+        </div>
+        <div style="padding:1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+          <div>
+            <div style="font-weight:600;margin-bottom:0.25rem;">Reset All Test Data</div>
+            <div style="font-size:13px;color:var(--text2);">Clears all drafts, picks, seasons, schedules, and member stats. Use before going live.</div>
+          </div>
+          <button type="button" class="btn" onclick="resetAllTestData()" style="background:rgba(220,53,69,0.15);color:#dc3545;border:1px solid rgba(220,53,69,0.4);white-space:nowrap;">&#x1F5D1; Reset Test Data</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1511,7 +1527,7 @@ async function saveProfile() {
 async function deleteProfile(id) {
   if (!canManageSchedule()) { toast('Only commissioners and admins can remove players'); return; }
   var target = state.players.find(function(p) { return p.id === id; });
-  if (target && target.role === 'admin' && !DnaAuth.isAdmin(currentMember)) { toast('Cannot remove an admin account'); return; }
+  if (target && target.role === 'admin' && !(currentMember && ['admin','commissioner'].includes(currentMember.role))) { toast('Cannot remove an admin account'); return; }
   if (!confirm('Remove this player from the league?')) return;
 
   // Only delete from DB if it's a real Supabase record
@@ -1888,7 +1904,61 @@ function initLeaguePage() {
     toast('Access denied');
     return;
   }
+  var dangerZone = document.getElementById('danger-zone-section');
+  if (dangerZone) dangerZone.style.display = (currentMember && ['admin','commissioner'].includes(currentMember.role)) ? '' : 'none';
   renderLeagueMembers();
+}
+
+async function resetAllTestData() {
+  if (!(currentMember && ['admin','commissioner'].includes(currentMember.role))) { toast('Admin only'); return; }
+  if (!confirm('This will permanently delete ALL drafts, picks, seasons, schedules, and reset every member\'s stats to zero.\n\nThis cannot be undone. Continue?')) return;
+  if (!confirm('Are you sure? There is no undo.')) return;
+
+  var btn = document.querySelector('[onclick="resetAllTestData()"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Resetting…'; }
+
+  try {
+    // 1. Clear Supabase draft data
+    var seasonIds = (state.seasons || []).map(function(s){ return s.id; });
+    await db.from('draft_picks').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await db.from('draft_slots').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await db.from('drafts').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+    // 2. Clear seasons + league_teams from Supabase
+    if (seasonIds.length) {
+      await db.from('league_teams').delete().in('season_id', seasonIds);
+    }
+    await db.from('seasons').delete().eq('league_id', currentLeague.id);
+
+    // 3. Reset all member stats in Supabase
+    await db.from('league_members')
+      .update({ wins: 0, losses: 0, championships: 0, playoffs: 0, mvp: 0, cyyoung: 0 })
+      .eq('league_id', currentLeague.id);
+
+    // 4. Clear localStorage
+    state.players.forEach(function(p) {
+      p.wins = 0; p.losses = 0;
+      p.championships = 0; p.playoffs = 0; p.mvp = 0; p.cyyoung = 0;
+      p.draftHistory = [];
+      p.standingsHistory = [];
+    });
+    state.seasons = [];
+    state.activityLog = [];
+    state.draftsGenerated = false;
+    saveState();
+    localStorage.removeItem('dna_seasons');
+    localStorage.removeItem('dna_schedule');
+    localStorage.removeItem('dna_live_draft');
+
+    toast('Test data reset. All stats and drafts cleared.');
+    renderSeasons();
+    renderSchedule && renderSchedule();
+  } catch(e) {
+    console.error('resetAllTestData:', e);
+    toast('Error during reset: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🗑 Reset Test Data'; }
+  }
 }
 
 function renderLeagueMembers() {
@@ -3959,26 +4029,28 @@ async function syncPlayersFromDB() {
   });
   if (state.players.length !== before) changed = true;
 
-  // Sync live draft picks from Supabase into each player's draftHistory
+  // Rebuild Supabase-sourced draftHistory entries from scratch (so deletes propagate to all devices)
+  state.players.forEach(function(p) {
+    if (p.draftHistory) {
+      p.draftHistory = p.draftHistory.filter(function(d) { return !d.dbPickId; });
+    }
+  });
   var picksRes = await db.from('draft_picks')
     .select('id, member_id, pick_number, mlb_team_id, picked_at, drafts(id, season_id, name, status)')
     .eq('drafts.league_id', currentLeague.id)
     .not('drafts', 'is', null);
   if (!picksRes.error && picksRes.data) {
     picksRes.data.forEach(function(pick) {
-      if (!pick.drafts) return; // filtered out by league_id check
+      if (!pick.drafts) return;
       var player = state.players.find(function(p) { return p.id === pick.member_id; });
       if (!player) return;
       if (!player.draftHistory) player.draftHistory = [];
-      // Find abbreviation from mlbTeamsLookup
       var teamAbbr = '';
       if (pick.mlb_team_id && mlbTeamsLookup) {
         var teamObj = mlbTeamsLookup.find(function(t) { return t.id === pick.mlb_team_id; });
         if (teamObj) teamAbbr = teamObj.abbreviation;
       }
-      // Check if this pick is already in draftHistory (by pick id stored in a field)
-      var existingIdx = player.draftHistory.findIndex(function(d) { return d.dbPickId === pick.id; });
-      var entry = {
+      player.draftHistory.unshift({
         dbPickId:   pick.id,
         type:       'live',
         seasonId:   pick.drafts.season_id || pick.drafts.id,
@@ -3986,14 +4058,9 @@ async function syncPlayersFromDB() {
         team:       teamAbbr,
         pick:       pick.pick_number,
         date:       pick.picked_at ? new Date(pick.picked_at).toLocaleDateString() : '',
-      };
-      if (existingIdx >= 0) {
-        player.draftHistory[existingIdx] = entry;
-      } else {
-        player.draftHistory.unshift(entry);
-        changed = true;
-      }
+      });
     });
+    changed = true;
   }
 
   if (changed) saveState();
