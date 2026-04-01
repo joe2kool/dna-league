@@ -12,6 +12,7 @@ const DraftRoom = (() => {
   let _member       = null;
   let _draft        = null;   // full draft object from localStorage/DB
   let _realtimeChannel = null;
+  let _mlbTeamsLookup = []; // { id, name, abbreviation }
 
   let _timer        = null;   // setInterval handle
   let _timerSeconds = 0;      // current countdown value
@@ -21,9 +22,20 @@ const DraftRoom = (() => {
   let _isComplete   = false;
 
   // ── INIT ──────────────────────────────────────────────────
-  function init(db, member) {
-    _db     = db;
-    _member = member;
+  function init(db, member, mlbTeamsLookup) {
+    _db             = db;
+    _member         = member;
+    _mlbTeamsLookup = mlbTeamsLookup || [];
+  }
+
+  function _getMlbTeamId(teamAbbr) {
+    const t = _mlbTeamsLookup.find(t => t.abbreviation === teamAbbr);
+    return t ? t.id : null;
+  }
+
+  function _getMlbTeamAbbr(mlbTeamId) {
+    const t = _mlbTeamsLookup.find(t => t.id === mlbTeamId);
+    return t ? t.abbreviation : null;
   }
 
   // ── LOAD DRAFT FROM STATE ─────────────────────────────────

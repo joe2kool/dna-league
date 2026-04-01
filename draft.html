@@ -232,6 +232,18 @@
 const db = supabase.createClient(DNA_CONFIG.supabase.url, DNA_CONFIG.supabase.anon);
 DnaAuth.init(db);
 
+let mlbTeamsLookup = []; // { id, name, abbreviation } — loaded once at boot
+
+async function loadMlbTeamsLookup() {
+  const res = await db.from('mlb_teams').select('id, name, abbreviation');
+  if (!res.error) mlbTeamsLookup = res.data;
+}
+
+function getMlbTeamAbbr(mlbTeamId) {
+  const t = mlbTeamsLookup.find(t => t.id === mlbTeamId);
+  return t ? t.abbreviation : null;
+}
+
 let _member      = null;
 let _teamRatings = {};
 let _allAvailable= [];
@@ -250,7 +262,8 @@ async function boot() {
     document.getElementById('dr-nav-user').textContent =
       _member.display_name + ' · ' + _member.role;
   }
-  DraftRoom.init(db, _member);
+  await loadMlbTeamsLookup();
+  DraftRoom.init(db, _member, mlbTeamsLookup);
 
   // Load team ratings in background
   DnaRatings.getTeamRatings().then(ratings => {
