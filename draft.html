@@ -265,28 +265,38 @@ async function boot() {
   await loadMlbTeamsLookup();
   DraftRoom.init(db, _member, mlbTeamsLookup);
 
-  // Load team ratings in background
+  // Load team ratings in background (non-blocking)
   DnaRatings.getTeamRatings().then(ratings => {
     _teamRatings = ratings;
-    // If draft already running, update the teams display
-    const saved = DraftRoom.loadSavedDraft();
-    if (saved && saved.status === 'active') {
-      DraftUI.renderAvailableTeams(saved.availableTeams, _teamRatings);
+    const draft = DraftRoom.getDraft();
+    if (draft && draft.status === 'active') {
+      DraftUI.renderAvailableTeams(draft.availableTeams, _teamRatings);
     }
     renderSetupTeamPool();
   });
 
-  // Check for an active saved draft
-  const saved = DraftRoom.loadSavedDraft();
-  if (saved && saved.status !== 'completed') {
+  // Check Supabase for an active draft in this league
+  const activeDraftRes = await db.from('drafts')
+    .select('id, name, status')
+    .eq('league_id', DNA_CONFIG.league.id)
+    .in('status', ['active', 'paused'])
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (!activeDraftRes.error && activeDraftRes.data && activeDraftRes.data.length) {
+    const activeDraft = activeDraftRes.data[0];
     const resume = confirm(
-      `There is an active draft in progress: "${saved.name || 'Team Draft'}"\n\nResume it?`
+      `There is an active draft in progress: "${activeDraft.name || 'Team Draft'}"\n\nResume it?`
     );
     if (resume) {
-      enterDraftRoom(saved);
-      return;
+      const draft = await DraftRoom.loadDraftFromDB(activeDraft.id);
+      if (draft) {
+        draft.teamRatings = _teamRatings;
+        enterDraftRoom(draft);
+        return;
+      }
     }
-    DraftRoom.clearDraft();
+    // User declined — show setup without deleting the DB draft
   }
 
   // Show setup screen
