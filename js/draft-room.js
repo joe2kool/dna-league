@@ -230,7 +230,7 @@ const DraftRoom = (() => {
     _draft.availableTeams = _draft.availableTeams.filter(t => t !== teamAbbr);
 
     // Auto-save to season team assignments
-    _savePickToSeason(cur.memberId, teamAbbr);
+    await _savePickToSeason(cur.memberId, teamAbbr);
 
     // Broadcast to all
     _broadcast({ type: 'pick', pickNumber: cur.pickNumber, memberId: cur.memberId, teamAbbr });
@@ -320,7 +320,7 @@ const DraftRoom = (() => {
     slot.pickedTeam = teamAbbr;
     slot.pickedAt   = new Date().toISOString();
     _draft.availableTeams = _draft.availableTeams.filter(t => t !== teamAbbr);
-    _savePickToSeason(slot.memberId, teamAbbr);
+    await _savePickToSeason(slot.memberId, teamAbbr);
     _broadcast({ type: 'override', pickNumber, teamAbbr });
     await _deletePickFromDB(slot);
     await _savePickToDB(slot, teamAbbr);
