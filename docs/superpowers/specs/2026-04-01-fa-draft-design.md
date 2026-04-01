@@ -34,7 +34,7 @@ A live, joinable Free Agent draft that runs after the team draft for a season. P
 ```json
 {
   "ratingMin": 70,
-  "ratingMax": 84,
+  "ratingMax": 79,
   "rounds": 1
 }
 ```
