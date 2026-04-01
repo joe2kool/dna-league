@@ -149,33 +149,25 @@ const DraftRoom = (() => {
     if (wrap) wrap.classList.toggle('timer-warning', _timerSeconds <= 15 && _timerSeconds > 0);
   }
 
-  function _onTimerExpired() {
+  async function _onTimerExpired() {
     if (!_draft) return;
     const cur = _getCurrentPick();
     if (!cur) return;
 
-    // Show a toast — if commissioner is present they can confirm skip or reset
-    // Auto-skip only happens after a grace period if no action is taken
-    DraftUI.toast(`⏰ Time expired for ${cur.memberName}!`, 5000);
+    DraftUI.toast(`⏰ Time expired for ${cur.memberName} — skipping!`, 3000);
+    cur.skipped = true;
+    await _saveSkipToDB(cur);
+    _broadcast({ type: 'skip', pickNumber: cur.pickNumber, memberName: cur.memberName });
 
-    // Show skip confirmation banner if commissioner is watching
-    if (DnaAuth.isAdmin(_member)) {
-      if (confirm(`Time expired for ${cur.memberName}.\n\nSkip them (they can pick later)?\n\nPress Cancel to reset their timer instead.`)) {
-        cur.skipped = true;
-        _draft.slots[_draft.slots.indexOf(cur)] = cur;
-        _saveDraftState();
-        _advancePick();
-        DraftBoard.render(_draft);
-        _broadcast({ type: 'skip', pickNumber: cur.pickNumber, memberName: cur.memberName });
-      } else {
-        // Reset timer — give them another full duration
-        startTimer();
-        DraftUI.toast(`Timer reset for ${cur.memberName}`);
-      }
+    const remaining = _draft.slots.filter(s => !s.pickedTeam && !s.skipped);
+    if (remaining.length === 0) {
+      _draft.status = 'skipped_picks';
+      await _saveStatusToDB('skipped_picks');
+      DraftUI.toast('Main picks complete! Skipped players may now pick.');
     } else {
-      // Non-commissioner view — just notify, commissioner handles it
-      DraftUI.toast(`Waiting for commissioner to advance the draft...`, 8000);
+      _advancePick();
     }
+    DraftBoard.render(_draft);
   }
 
   // ── PICK LOGIC ────────────────────────────────────────────
