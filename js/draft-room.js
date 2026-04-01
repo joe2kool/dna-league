@@ -47,6 +47,60 @@ const DraftRoom = (() => {
     _isComplete   = draft.status === 'completed';
   }
 
+  async function loadDraftFromDB(draftId) {
+    if (!_db) return null;
+
+    const draftRes = await _db.from('drafts').select('*').eq('id', draftId).single();
+    if (draftRes.error) { console.error('loadDraftFromDB drafts:', draftRes.error.message); return null; }
+
+    const slotsRes = await _db.from('draft_slots')
+      .select('*')
+      .eq('draft_id', draftId)
+      .order('pick_number', { ascending: true });
+    if (slotsRes.error) { console.error('loadDraftFromDB slots:', slotsRes.error.message); return null; }
+
+    const picksRes = await _db.from('draft_picks')
+      .select('*')
+      .eq('draft_id', draftId);
+    if (picksRes.error) { console.error('loadDraftFromDB picks:', picksRes.error.message); return null; }
+
+    // Build a map of slot_id → pick for fast lookup
+    const picksMap = {};
+    (picksRes.data || []).forEach(p => { picksMap[p.slot_id] = p; });
+
+    const slots = (slotsRes.data || []).map(s => {
+      const pick = picksMap[s.id];
+      return {
+        _dbId:      s.id,
+        pickNumber: s.pick_number,
+        memberId:   s.member_id,
+        memberName: s.member_name,
+        color:      s.color || '#6a9ec7',
+        skipped:    s.skipped || false,
+        pickedTeam: pick ? _getMlbTeamAbbr(pick.mlb_team_id) : null,
+        pickedAt:   pick ? pick.picked_at : null,
+      };
+    });
+
+    // availableTeams = all 30 teams minus those already picked
+    const pickedAbbrs = slots.filter(s => s.pickedTeam).map(s => s.pickedTeam);
+    const availableTeams = DNA_CONFIG.mlbTeams.map(t => t.abbr).filter(a => !pickedAbbrs.includes(a));
+
+    const d = draftRes.data;
+    return {
+      id:           d.id,
+      name:         d.name,
+      seasonId:     d.season_id,
+      status:       d.status,
+      timerSeconds: d.timer_seconds || DNA_CONFIG.draft.defaultTimerSeconds,
+      slots,
+      availableTeams,
+      teamRatings:  {}, // populated in boot() after DnaRatings.getTeamRatings()
+      createdAt:    d.created_at,
+      completedAt:  null,
+    };
+  }
+
   // ── TIMER ─────────────────────────────────────────────────
   function startTimer() {
     stopTimer();
@@ -501,7 +555,7 @@ const DraftRoom = (() => {
 
   // ── PUBLIC API ────────────────────────────────────────────
   return {
-    init, loadDraft, loadSavedDraft, clearDraft,
+    init, loadDraft, loadSavedDraft, loadDraftFromDB, clearDraft,
     startTimer, stopTimer, resetTimer,
     canPick, makePick, undoLastPick, overridePick,
     pauseDraft, resumeDraft,
