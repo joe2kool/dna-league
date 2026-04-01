@@ -624,19 +624,24 @@ function switchMobileTab(tab, btn) {
 }
 
 // ── COMMISSIONER: MANUAL SKIP ────────────────────────────
-function manualSkipCurrent() {
+async function manualSkipCurrent() {
   const draft = DraftRoom.getDraft();
   const cur   = DraftRoom.getCurrentPick();
   if (!cur) { DraftUI.toast('No active pick to skip'); return; }
   if (!confirm(`Skip ${cur.memberName}?\n\nThey will be moved to the end and can pick once everyone else has gone.`)) return;
+
   cur.skipped = true;
   DraftRoom.stopTimer();
+  await DraftRoom.saveSkip(cur);
+  DraftRoom.broadcast({ type: 'skip', pickNumber: cur.pickNumber, memberName: cur.memberName });
+
   DraftBoard.render(draft);
   DraftUI.toast(`${cur.memberName} skipped — they can pick after everyone else`);
-  // Trigger advance
+
   const remaining = draft.slots.filter(s => !s.pickedTeam && !s.skipped);
   if (remaining.length === 0) {
     draft.status = 'skipped_picks';
+    await DraftRoom.saveStatus('skipped_picks');
     DraftUI.toast('Main picks complete! Skipped players may now pick.');
     updateOnClock();
   } else {
@@ -647,7 +652,7 @@ function manualSkipCurrent() {
 }
 
 // ── COMMISSIONER: END EARLY ───────────────────────────────
-function endDraftEarly() {
+async function endDraftEarly() {
   if (!DnaAuth.canManage(_member)) return;
   if (!confirm('End the draft now? Remaining picks will be left incomplete.')) return;
   DraftRoom.stopTimer();
@@ -655,6 +660,7 @@ function endDraftEarly() {
   if (draft) {
     draft.status = 'completed';
     draft.completedAt = new Date().toISOString();
+    await DraftRoom.saveStatus('completed', draft.completedAt);
   }
   DraftUI.showRecap(DraftRoom.getDraft());
   document.getElementById('dr-recap').style.display = '';
