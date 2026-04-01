@@ -232,6 +232,18 @@
 const db = supabase.createClient(DNA_CONFIG.supabase.url, DNA_CONFIG.supabase.anon);
 DnaAuth.init(db);
 
+let mlbTeamsLookup = []; // { id, name, abbreviation } — loaded once at boot
+
+async function loadMlbTeamsLookup() {
+  const res = await db.from('mlb_teams').select('id, name, abbreviation');
+  if (!res.error) mlbTeamsLookup = res.data;
+}
+
+function getMlbTeamAbbr(mlbTeamId) {
+  const t = mlbTeamsLookup.find(t => t.id === mlbTeamId);
+  return t ? t.abbreviation : null;
+}
+
 let _member      = null;
 let _teamRatings = {};
 let _allAvailable= [];
@@ -250,30 +262,41 @@ async function boot() {
     document.getElementById('dr-nav-user').textContent =
       _member.display_name + ' · ' + _member.role;
   }
-  DraftRoom.init(db, _member);
+  await loadMlbTeamsLookup();
+  DraftRoom.init(db, _member, mlbTeamsLookup);
 
-  // Load team ratings in background
+  // Load team ratings in background (non-blocking)
   DnaRatings.getTeamRatings().then(ratings => {
     _teamRatings = ratings;
-    // If draft already running, update the teams display
-    const saved = DraftRoom.loadSavedDraft();
-    if (saved && saved.status === 'active') {
-      DraftUI.renderAvailableTeams(saved.availableTeams, _teamRatings);
+    const draft = DraftRoom.getDraft();
+    if (draft && draft.status === 'active') {
+      DraftUI.renderAvailableTeams(draft.availableTeams, _teamRatings);
     }
     renderSetupTeamPool();
   });
 
-  // Check for an active saved draft
-  const saved = DraftRoom.loadSavedDraft();
-  if (saved && saved.status !== 'completed') {
+  // Check Supabase for an active draft in this league
+  const activeDraftRes = await db.from('drafts')
+    .select('id, name, status')
+    .eq('league_id', DNA_CONFIG.league.id)
+    .in('status', ['active', 'paused'])
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (!activeDraftRes.error && activeDraftRes.data && activeDraftRes.data.length) {
+    const activeDraft = activeDraftRes.data[0];
     const resume = confirm(
-      `There is an active draft in progress: "${saved.name || 'Team Draft'}"\n\nResume it?`
+      `There is an active draft in progress: "${activeDraft.name || 'Team Draft'}"\n\nResume it?`
     );
     if (resume) {
-      enterDraftRoom(saved);
-      return;
+      const draft = await DraftRoom.loadDraftFromDB(activeDraft.id);
+      if (draft) {
+        draft.teamRatings = _teamRatings;
+        enterDraftRoom(draft);
+        return;
+      }
     }
-    DraftRoom.clearDraft();
+    // User declined — show setup without deleting the DB draft
   }
 
   // Show setup screen
@@ -281,33 +304,33 @@ async function boot() {
 }
 
 // ── SETUP ─────────────────────────────────────────────────
-function showSetup() {
+async function showSetup() {
   document.getElementById('screen-setup').style.display = '';
   document.getElementById('screen-draft').style.display  = 'none';
   document.getElementById('dr-recap').style.display      = 'none';
   document.getElementById('dr-nav-status').textContent   = 'Setup';
   document.getElementById('dr-nav-status').className     = 'draft-nav-status status-setup';
 
-  populateSeasonDropdown();
+  await populateSeasonDropdown();
   renderSetupDraftOrder();
   renderSetupTeamPool();
 }
 
-function populateSeasonDropdown() {
+async function populateSeasonDropdown() {
   const sel = document.getElementById('setup-season');
   sel.innerHTML = '<option value="">No season linked</option>';
-  try {
-    const raw = localStorage.getItem('dna_seasons');
-    if (!raw) return;
-    const { seasons } = JSON.parse(raw);
-    (seasons || []).forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = s.name + ' (' + s.status + ')';
-      if (s.status === 'upcoming' || s.status === 'active') opt.selected = true;
-      sel.appendChild(opt);
-    });
-  } catch(e) {}
+  const res = await db.from('seasons')
+    .select('id, name, status')
+    .eq('league_id', DNA_CONFIG.league.id)
+    .order('season_number', { ascending: true });
+  if (res.error || !res.data) return;
+  res.data.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name + ' (' + s.status + ')';
+    if (s.status === 'upcoming' || s.status === 'active') opt.selected = true;
+    sel.appendChild(opt);
+  });
 }
 
 function renderSetupDraftOrder() {
@@ -381,8 +404,8 @@ async function launchDraft() {
     return;
   }
 
-  // Build draft order slots from localStorage draft results
-  let slots = [];
+  // Build draft order slots from localStorage draft results (draft order generator stays local)
+  let slotInputs = [];
   try {
     const raw = localStorage.getItem('dna_league');
     const state = raw ? JSON.parse(raw) : null;
@@ -394,16 +417,14 @@ async function launchDraft() {
       return;
     }
 
-    slots = results.map((r, i) => {
+    slotInputs = results.map((r, i) => {
       const player = players.find(p => p.name === r.name);
       return {
-        pickNumber: i + 1,
-        memberId:   player?.id || null,
-        memberName: r.name,
-        color:      player?.color || '#6a9ec7',
-        pickedTeam: null,
-        pickedAt:   null,
-        skipped:    false,
+        pick_number: i + 1,
+        member_id:   player?.id || null,
+        member_name: r.name,
+        color:       player?.color || '#6a9ec7',
+        skipped:     false,
       };
     });
   } catch(e) {
@@ -411,30 +432,78 @@ async function launchDraft() {
     return;
   }
 
-  // Get selected team pool
   const availableTeams = Array.from(document.querySelectorAll('.pool-team.selected'))
     .map(el => el.id.replace('pt-', ''));
 
-  if (availableTeams.length < slots.length) {
-    if (!confirm(`Only ${availableTeams.length} teams selected for ${slots.length} pickers. Some players may not get a team. Continue?`)) return;
+  if (availableTeams.length < slotInputs.length) {
+    if (!confirm(`Only ${availableTeams.length} teams selected for ${slotInputs.length} pickers. Some players may not get a team. Continue?`)) return;
   }
 
   const timerSeconds = parseInt(document.getElementById('setup-timer').value) || 90;
   const seasonId     = document.getElementById('setup-season').value || null;
   const name         = document.getElementById('setup-name').value || 'Team Draft';
 
+  // Complete any existing active draft for this league before starting new one
+  await db.from('drafts')
+    .update({ status: 'completed' })
+    .eq('league_id', DNA_CONFIG.league.id)
+    .in('status', ['active', 'paused']);
+
+  // Insert new draft row
+  const draftRes = await db.from('drafts').insert({
+    league_id:     DNA_CONFIG.league.id,
+    season_id:     seasonId,
+    type:          'team',
+    status:        'active',
+    order_mode:    'random',
+    name,
+    timer_seconds: timerSeconds,
+    paused:        false,
+  }).select().single();
+
+  if (draftRes.error) {
+    alert('Error creating draft: ' + draftRes.error.message);
+    return;
+  }
+
+  const draftId = draftRes.data.id;
+
+  // Insert draft_slots rows
+  const slotsRes = await db.from('draft_slots')
+    .insert(slotInputs.map(s => ({ ...s, draft_id: draftId })))
+    .select();
+
+  if (slotsRes.error) {
+    alert('Error creating draft slots: ' + slotsRes.error.message);
+    return;
+  }
+
+  // Build in-memory draft object
+  const seasonName = seasonId
+    ? document.getElementById('setup-season').selectedOptions[0]?.text?.split(' (')[0]
+    : null;
+
   const draft = {
-    id:             'draft-' + Date.now(),
+    id:           draftId,
     name,
     seasonId,
-    seasonName:     seasonId ? document.getElementById('setup-season').selectedOptions[0]?.text?.split(' (')[0] : null,
-    status:         'active',
+    seasonName,
+    status:       'active',
     timerSeconds,
-    slots,
+    slots: slotsRes.data.map(s => ({
+      _dbId:      s.id,
+      pickNumber: s.pick_number,
+      memberId:   s.member_id,
+      memberName: s.member_name,
+      color:      s.color || '#6a9ec7',
+      skipped:    false,
+      pickedTeam: null,
+      pickedAt:   null,
+    })),
     availableTeams,
-    teamRatings:    _teamRatings,
-    createdAt:      new Date().toISOString(),
-    completedAt:    null,
+    teamRatings:  _teamRatings,
+    createdAt:    draftRes.data.created_at,
+    completedAt:  null,
   };
 
   enterDraftRoom(draft);
@@ -555,19 +624,24 @@ function switchMobileTab(tab, btn) {
 }
 
 // ── COMMISSIONER: MANUAL SKIP ────────────────────────────
-function manualSkipCurrent() {
+async function manualSkipCurrent() {
   const draft = DraftRoom.getDraft();
   const cur   = DraftRoom.getCurrentPick();
   if (!cur) { DraftUI.toast('No active pick to skip'); return; }
   if (!confirm(`Skip ${cur.memberName}?\n\nThey will be moved to the end and can pick once everyone else has gone.`)) return;
+
   cur.skipped = true;
   DraftRoom.stopTimer();
+  await DraftRoom.saveSkip(cur);
+  DraftRoom.broadcast({ type: 'skip', pickNumber: cur.pickNumber, memberName: cur.memberName });
+
   DraftBoard.render(draft);
   DraftUI.toast(`${cur.memberName} skipped — they can pick after everyone else`);
-  // Trigger advance
+
   const remaining = draft.slots.filter(s => !s.pickedTeam && !s.skipped);
   if (remaining.length === 0) {
     draft.status = 'skipped_picks';
+    await DraftRoom.saveStatus('skipped_picks');
     DraftUI.toast('Main picks complete! Skipped players may now pick.');
     updateOnClock();
   } else {
@@ -578,7 +652,7 @@ function manualSkipCurrent() {
 }
 
 // ── COMMISSIONER: END EARLY ───────────────────────────────
-function endDraftEarly() {
+async function endDraftEarly() {
   if (!DnaAuth.canManage(_member)) return;
   if (!confirm('End the draft now? Remaining picks will be left incomplete.')) return;
   DraftRoom.stopTimer();
@@ -586,6 +660,7 @@ function endDraftEarly() {
   if (draft) {
     draft.status = 'completed';
     draft.completedAt = new Date().toISOString();
+    await DraftRoom.saveStatus('completed', draft.completedAt);
   }
   DraftUI.showRecap(DraftRoom.getDraft());
   document.getElementById('dr-recap').style.display = '';
