@@ -16,6 +16,10 @@ const DNA_CONFIG = {
     game:    'MLB The Show',
   },
 
+  league: {
+    id: '6188efb9-1446-4a31-8259-9997d201a6c1',
+  },
+
   draft: {
     defaultTimerSeconds: 90,
     minTimerSeconds:     30,
