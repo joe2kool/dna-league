@@ -98,29 +98,43 @@ export default {
       try {
         // Step 1: Fetch up to 3 pages of listings to get UUIDs + OVR for filtering
         const pages = [1, 2, 3];
-        const listingResults = await Promise.all(pages.map(p =>
-          fetch(
-            `${MLB_API}/listings.json?type=mlb_card&series_id=${LIVE_SERIES}&team=${apiTeam}&sort=rank&order=desc&page=${p}`,
-            { headers: { 'Accept': 'application/json', 'User-Agent': 'DNA-League-App/1.0' },
-              cf: { cacheTtl: 3600, cacheEverything: true } }
-          ).then(r => r.ok ? r.json() : { listings: [] }).catch(() => ({ listings: [] }))
-        ));
+        let listingResults;
+        try {
+          listingResults = await Promise.all(pages.map(p =>
+            fetch(
+              `${MLB_API}/listings.json?type=mlb_card&series_id=${LIVE_SERIES}&team=${apiTeam}&sort=rank&order=desc&page=${p}`,
+              { headers: { 'Accept': 'application/json', 'User-Agent': 'DNA-League-App/1.0' },
+                cf: { cacheTtl: 3600, cacheEverything: true } }
+            ).then(r => r.ok ? r.json() : { listings: [] }).catch(() => ({ listings: [] }))
+          ));
+        } catch(e) {
+          return json({ error: 'step1-listings: ' + e.message }, 500);
+        }
 
         const allListings = listingResults.flatMap(r => r.listings || []);
 
-        // Filter to OVR range; cap at 40 to stay within CF subrequest limits
+        // Filter to OVR range; cap at 20 to stay well within CF subrequest limits
         const inRange = allListings
           .filter(l => l.item && l.item.uuid && l.item.ovr >= min && l.item.ovr <= max && l.item.name)
-          .slice(0, 40);
+          .slice(0, 20);
+
+        if (inRange.length === 0) {
+          return json({ team: teamAbbr, min, max, players: [], _debug: `listings:${allListings.length}`, source: 'mlb26-item' });
+        }
 
         // Step 2: Fetch full item data (attrs, quirks, pitches) for each player in range
-        const itemResults = await Promise.all(inRange.map(l =>
-          fetch(
-            `${MLB_API}/item.json?uuid=${l.item.uuid}`,
-            { headers: { 'Accept': 'application/json', 'User-Agent': 'DNA-League-App/1.0' },
-              cf: { cacheTtl: 3600, cacheEverything: true } }
-          ).then(r => r.ok ? r.json() : null).catch(() => null)
-        ));
+        let itemResults;
+        try {
+          itemResults = await Promise.all(inRange.map(l =>
+            fetch(
+              `${MLB_API}/item.json?uuid=${l.item.uuid}`,
+              { headers: { 'Accept': 'application/json', 'User-Agent': 'DNA-League-App/1.0' },
+                cf: { cacheTtl: 3600, cacheEverything: true } }
+            ).then(r => r.ok ? r.json() : null).catch(() => null)
+          ));
+        } catch(e) {
+          return json({ error: 'step2-items: ' + e.message, inRangeCount: inRange.length }, 500);
+        }
 
         const players = itemResults
           .filter(i => i && i.name)
