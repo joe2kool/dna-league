@@ -133,11 +133,11 @@ export default {
                 hr_per_bf:       i.hr_per_bf       || 0,
                 velocity:        i.pitch_velocity  || 0,
                 control:         i.pitch_control   || 0,
-                break_rating:    i.pitch_break     || 0,
-                pitch_arsenal: (i.pitching_attributes || []).map(p => ({
-                  name:  p.name  || '',
-                  speed: p.speed || 0,
-                  break: p.break || 0,
+                break_rating:    i.pitch_movement  || 0,
+                pitch_arsenal: (i.pitches || []).map(p => ({
+                  name:  p.name     || '',
+                  speed: p.speed    || 0,
+                  break: p.movement || 0,
                 })).filter(p => p.name),
               };
             } else {
