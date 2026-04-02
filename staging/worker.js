@@ -85,6 +85,7 @@ export default {
     // ── GET /fa-roster?team=LAD&min=70&max=84 ─────────────────
     // Returns all Live Series players for a team within OVR range,
     // with full attribute fields for use in the FA draft room.
+    // Two-step: listings.json to filter by OVR, then item.json per player for full attrs.
     if (path === '/fa-roster') {
       const teamAbbr = (url.searchParams.get('team') || '').toUpperCase();
       const min      = parseInt(url.searchParams.get('min') || '0', 10);
@@ -95,9 +96,9 @@ export default {
       const apiTeam = TEAM_MAP[teamAbbr] || teamAbbr;
 
       try {
-        // Fetch multiple pages to get all players in range (up to 3 pages / 75 cards)
+        // Step 1: Fetch up to 3 pages of listings to get UUIDs + OVR for filtering
         const pages = [1, 2, 3];
-        const results = await Promise.all(pages.map(p =>
+        const listingResults = await Promise.all(pages.map(p =>
           fetch(
             `${MLB_API}/listings.json?type=mlb_card&series_id=${LIVE_SERIES}&team=${apiTeam}&sort=rank&order=desc&page=${p}`,
             { headers: { 'Accept': 'application/json', 'User-Agent': 'DNA-League-App/1.0' },
@@ -105,12 +106,25 @@ export default {
           ).then(r => r.ok ? r.json() : { listings: [] }).catch(() => ({ listings: [] }))
         ));
 
-        const allListings = results.flatMap(r => r.listings || []);
+        const allListings = listingResults.flatMap(r => r.listings || []);
 
-        const players = allListings
-          .filter(l => l.item && l.item.ovr >= min && l.item.ovr <= max && l.item.name)
-          .map(l => {
-            const i = l.item;
+        // Filter to OVR range; cap at 40 to stay within CF subrequest limits
+        const inRange = allListings
+          .filter(l => l.item && l.item.uuid && l.item.ovr >= min && l.item.ovr <= max && l.item.name)
+          .slice(0, 40);
+
+        // Step 2: Fetch full item data (attrs, quirks, pitches) for each player in range
+        const itemResults = await Promise.all(inRange.map(l =>
+          fetch(
+            `${MLB_API}/item.json?uuid=${l.item.uuid}`,
+            { headers: { 'Accept': 'application/json', 'User-Agent': 'DNA-League-App/1.0' },
+              cf: { cacheTtl: 3600, cacheEverything: true } }
+          ).then(r => r.ok ? r.json() : null).catch(() => null)
+        ));
+
+        const players = itemResults
+          .filter(i => i && i.name)
+          .map(i => {
             const isPitcher = ['SP','RP','CP'].includes(i.display_position);
             const base = {
               name:     i.name,
@@ -143,23 +157,23 @@ export default {
             } else {
               return {
                 ...base,
-                contact_left:  i.contact_left  || 0,
-                contact_right: i.contact_right || 0,
-                power_left:    i.power_left    || 0,
-                power_right:   i.power_right   || 0,
-                plate_vision:  i.plate_vision  || 0,
-                plate_discipline: i.plate_discipline || 0,
-                clutch:        i.batting_clutch   || 0,
-                speed:         i.speed            || 0,
-                stealing:      i.baserunning_ability || 0,
-                fielding:      i.fielding_ability  || 0,
-                arm_strength:  i.arm_strength      || 0,
-                arm_accuracy:  i.arm_accuracy      || 0,
+                contact_left:     i.contact_left        || 0,
+                contact_right:    i.contact_right       || 0,
+                power_left:       i.power_left          || 0,
+                power_right:      i.power_right         || 0,
+                plate_vision:     i.plate_vision        || 0,
+                plate_discipline: i.plate_discipline    || 0,
+                clutch:           i.batting_clutch      || 0,
+                speed:            i.speed               || 0,
+                stealing:         i.baserunning_ability || 0,
+                fielding:         i.fielding_ability    || 0,
+                arm_strength:     i.arm_strength        || 0,
+                arm_accuracy:     i.arm_accuracy        || 0,
               };
             }
           });
 
-        return json({ team: teamAbbr, min, max, players, source: 'mlb26-listings' });
+        return json({ team: teamAbbr, min, max, players, source: 'mlb26-item' });
 
       } catch(e) {
         return json({ error: e.message }, 500);
