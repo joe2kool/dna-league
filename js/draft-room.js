@@ -94,6 +94,8 @@ const DraftRoom = (() => {
       seasonId:     d.season_id,
       status:       d.status,
       timerSeconds: d.timer_seconds || DNA_CONFIG.draft.defaultTimerSeconds,
+      timerEndAt:   d.settings?.timerEndAt || null,
+      settings:     d.settings || {},
       slots,
       availableTeams,
       teamRatings:  {}, // populated in boot() after DnaRatings.getTeamRatings()
@@ -113,7 +115,7 @@ const DraftRoom = (() => {
     _renderTimer();
     _timer = setInterval(() => {
       if (_isPaused) return;
-      _timerSeconds--;
+      _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
       _renderTimer();
       if (_timerSeconds <= 0) {
         stopTimer();
@@ -276,7 +278,11 @@ const DraftRoom = (() => {
     } else {
       _advancePick();
       // Broadcast timer start ONCE from the pick-maker so remote clients sync to the same clock.
-      if (_timerTotal && !_isComplete) _broadcast({ type: 'timer_start', endTime: _timerEndTime });
+      // Also persist endTime so late joiners / refreshers see the correct remaining time.
+      if (_timerTotal && !_isComplete) {
+        _broadcast({ type: 'timer_start', endTime: _timerEndTime });
+        _saveTimerEndToDB();
+      }
     }
 
     DraftBoard.render(_draft);
@@ -473,6 +479,15 @@ const DraftRoom = (() => {
     if (res.error) console.error('_saveStatusToDB:', res.error.message);
   }
 
+  function _saveTimerEndToDB() {
+    if (!_db || !_draft?.id || !_timerEndTime) return;
+    // Store in settings jsonb to avoid needing a schema migration.
+    const settings = Object.assign({}, _draft.settings || {}, { timerEndAt: new Date(_timerEndTime).toISOString() });
+    _draft.settings = settings;
+    _db.from('drafts').update({ settings }).eq('id', _draft.id)
+      .then(res => { if (res.error) console.error('_saveTimerEndToDB:', res.error.message); });
+  }
+
   async function _deletePickFromDB(slot) {
     if (!_db || !slot._dbId) return;
     const res = await _db.from('draft_picks').delete().eq('slot_id', slot._dbId);
@@ -551,7 +566,7 @@ const DraftRoom = (() => {
           if (_timerSeconds > 0) {
             _timer = setInterval(() => {
               if (_isPaused) return;
-              _timerSeconds--;
+              _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
               _renderTimer();
               if (_timerSeconds <= 0) { stopTimer(); _onTimerExpired(); }
             }, 1000);
@@ -595,9 +610,11 @@ const DraftRoom = (() => {
     startTimer, stopTimer, resetTimer,
     canPick, makePick, undoLastPick, overridePick,
     pauseDraft, resumeDraft,
-    saveSkip:   _saveSkipToDB,
-    saveStatus: _saveStatusToDB,
-    broadcast:  _broadcast,
+    saveSkip:        _saveSkipToDB,
+    saveStatus:      _saveStatusToDB,
+    saveTimerEnd:    _saveTimerEndToDB,
+    getTimerEndTime: () => _timerEndTime,
+    broadcast:       _broadcast,
     subscribeRealtime, unsubscribeRealtime,
     getCurrentPick: _getCurrentPick,
     getNextPick:    _getNextPick,

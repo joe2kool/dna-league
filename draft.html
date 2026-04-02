@@ -531,9 +531,10 @@ function enterDraftRoom(draft) {
   DraftUI.renderAvailableTeams(draft.availableTeams, draft.teamRatings || _teamRatings);
   updateOnClock();
 
-  // Start timer if active
+  // Start timer if active — pass stored endTime so late joiners sync to remaining time
   if (draft.status === 'active') {
-    DraftRoom.startTimer();
+    const endTime = draft.timerEndAt ? new Date(draft.timerEndAt).getTime() : undefined;
+    DraftRoom.startTimer(endTime);
     checkYourTurn();
   }
 
@@ -646,6 +647,8 @@ async function manualSkipCurrent() {
     updateOnClock();
   } else {
     DraftRoom.startTimer();
+    DraftRoom.broadcast({ type: 'timer_start', endTime: DraftRoom.getTimerEndTime() });
+    DraftRoom.saveTimerEnd();
     updateOnClock();
     checkYourTurn();
   }

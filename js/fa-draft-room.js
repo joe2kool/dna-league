@@ -218,7 +218,7 @@ const FADraftRoom = (() => {
     _renderTimer();
     _timer = setInterval(() => {
       if (_isPaused) return;
-      _timerSeconds--;
+      _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
       _renderTimer();
       if (_timerSeconds <= 0) {
         stopTimer();
@@ -290,7 +290,7 @@ const FADraftRoom = (() => {
     _renderTimer();
     _timer = setInterval(() => {
       if (_isPaused) return;
-      _timerSeconds--;
+      _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
       _renderTimer();
       if (_timerSeconds <= 0) {
         stopTimer();
@@ -779,7 +779,7 @@ ${teamSections}
         if (_timerSeconds > 0) {
           _timer = setInterval(() => {
             if (_isPaused) return;
-            _timerSeconds--;
+            _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
             _renderTimer();
             if (_timerSeconds <= 0) { stopTimer(); _onTimerExpired(); }
           }, 1000);
@@ -798,7 +798,7 @@ ${teamSections}
           if (_timerSeconds > 0) {
             _timer = setInterval(() => {
               if (_isPaused) return;
-              _timerSeconds--;
+              _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
               _renderTimer();
               if (_timerSeconds <= 0) { stopTimer(); _onTimerExpired(); }
             }, 1000);
