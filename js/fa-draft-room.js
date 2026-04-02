@@ -195,6 +195,16 @@ const FADraftRoom = (() => {
     return 'OTHER';
   }
 
+  // Finer position grouping used only for trade return matching.
+  function _tradeGroup(pos) {
+    if (['SP','RP','CP'].includes(pos)) return 'P';
+    if (pos === 'C')                    return 'C';
+    if (['2B','SS'].includes(pos))      return 'MI';
+    if (['1B','3B'].includes(pos))      return 'CI';
+    if (['LF','CF','RF','DH'].includes(pos)) return 'OF';
+    return 'OTHER';
+  }
+
   // ── TIMER ─────────────────────────────────────────────────
   function startTimer() {
     if (!_timerTotal || _isPaused || _isComplete) return;
@@ -297,23 +307,22 @@ const FADraftRoom = (() => {
   async function _nextState() {
     _inSkipWindow = false;
 
-    // More skip-queue members waiting for their re-pick window?
+    // Finish all regular picks first; only drain the skip queue when none remain.
+    if (_regularRemaining().length > 0) {
+      _advancePick();
+      return;
+    }
+
     if (_skipQueue.length > 0) {
       _enterSkipWindow();
       return;
     }
 
-    // Regular picks done?
-    if (_regularRemaining().length === 0) {
-      if (_autoPickQueue.length > 0) {
-        await _processAutoPickQueue();
-      } else {
-        await _completeDraft();
-      }
-      return;
+    if (_autoPickQueue.length > 0) {
+      await _processAutoPickQueue();
+    } else {
+      await _completeDraft();
     }
-
-    _advancePick();
   }
 
   // Assigns the highest available player to each permanently-skipped slot, then completes.
@@ -529,19 +538,26 @@ const FADraftRoom = (() => {
     const candidates = _tradeReturnPool[teamAbbr];
     if (!candidates || !candidates.length) return null;
 
-    // candidates already sorted ascending by OVR
-    const group = _posGroup(slot.pickedPlayerPos || '');
+    // candidates already sorted ascending by OVR (lowest first)
+    const group = _tradeGroup(slot.pickedPlayerPos || '');
+    const pitchers   = candidates.filter(p => _posGroup(p.pos) === 'P');
+    const posPlayers = candidates.filter(p => _posGroup(p.pos) !== 'P');
 
-    const sameGroup = candidates.filter(p => _posGroup(p.pos) === group);
+    // Pitchers must trade for pitchers only — never cross to position players.
+    if (group === 'P') return pitchers[0] || null;
+
+    // Position player: try exact trade group first.
+    const sameGroup = posPlayers.filter(p => _tradeGroup(p.pos) === group);
     if (sameGroup.length) return sameGroup[0];
 
-    // Fallback: same broader group for position players
-    if (group !== 'P') {
-      const posPlayers = candidates.filter(p => _posGroup(p.pos) !== 'P');
-      if (posPlayers.length) return posPlayers[0];
+    // MI ↔ CI fallback (stay within infield).
+    if (group === 'MI' || group === 'CI') {
+      const otherIF = posPlayers.filter(p => _tradeGroup(p.pos) === (group === 'MI' ? 'CI' : 'MI'));
+      if (otherIF.length) return otherIF[0];
     }
 
-    return candidates[0]; // absolute lowest
+    // Final fallback: any position player (no pitcher crossing).
+    return posPlayers[0] || null;
   }
 
   function downloadCSV() {
