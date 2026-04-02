@@ -451,6 +451,20 @@ async function enterDraftRoom(draftId) {
       DNA_CONFIG.ratings.workerUrl
     );
 
+    // Load low-OVR players from each member's drafted team for trade return suggestions
+    const memberTeamRes = await db.from('league_teams')
+      .select('member_id, mlb_teams(abbreviation)')
+      .eq('season_id', seasonId)
+      .not('mlb_team_id', 'is', null)
+      .not('member_id', 'is', null);
+    const memberTeamMap = {};
+    (memberTeamRes.data || []).forEach(r => {
+      if (r.member_id && r.mlb_teams?.abbreviation) {
+        memberTeamMap[r.member_id] = r.mlb_teams.abbreviation;
+      }
+    });
+    await FADraftRoom.loadTradeReturnRosters(memberTeamMap, DNA_CONFIG.ratings.workerUrl);
+
     FADraftRoom.subscribeRealtime(draftId);
 
     document.getElementById('fa-nav-title').textContent = escHtml(draft.name || 'FA Draft');
