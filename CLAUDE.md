@@ -175,6 +175,7 @@ Worker source: `worker.js` (deploy manually at dash.cloudflare.com/workers)
 |-------|-------------|-------|
 | `GET /teams` | Average OVR of top 5 Live Series cards per team | 1 hour |
 | `GET /roster?team=LAD` | Top 5 Live Series players for a team | 1 hour |
+| `GET /fa-roster?team=LAD&min=70&max=84` | All Live Series players for a team in OVR range, full attributes | 1 hour |
 | `GET /history?username=X&platform=Y&page=1` | Player's Diamond Dynasty game history | 5 min |
 | `GET /gamelog?id=X` | Full box score for a completed game | 24 hours |
 
@@ -214,6 +215,8 @@ WSH in our app = `WAS` in the MLB API — handled by `TEAM_MAP` in worker.js
 - **`league_members.role` for admins** — admins have role `'admin'` in the DB. The `get_my_role(p_league_id uuid)` Supabase function must use the param name `p_league_id` (not `league_id`) or season delete RLS will fail.
 - **`draft_picks.member_id` and `league_teams.mlb_team_id`** — both have `NOT NULL` dropped to support null picks and roster adds without full data.
 - **`mlbTeamsLookup`** — must be loaded via `loadMlbTeamsLookup()` before `syncPlayersFromDB()` runs, so team abbreviations can be resolved for draft history entries.
+- **FA draft entry:** `fa-draft.html?season=<id>` — linked from the season card Teams tab (commissioner+ only when teams are assigned). Config screen shown only to admin/commissioner if no FA draft exists yet.
+- **FA draft player pool:** Loaded from Worker `/fa-roster` for each team in `league_teams` for the season. Pitcher cards include pitch repertoire (`pitch_arsenal` array). Trade return player selection matches position group (P→P, C→C, IF→IF, OF→OF), falling back to absolute lowest if same-group candidate is within 5 OVR of the drafted player.
 
 ---
 
@@ -239,6 +242,7 @@ feature branch → staging (auto-deploys on merge) → main (production)
 | #33 | `33-feature-improve-mobile-draft-ui` | Mobile draft room tab bar (Teams / Draft Order). |
 | — | `feature-gamertag-match-tracking` | Gamertag linking per player, auto match result scanning via game history API, Worker v3 (/history + /gamelog routes), League management page for role assignment. |
 | — | `feature/supabase-draft` | Full Supabase integration: drafts/picks/seasons/league_teams write to DB; profile fields (gamertag, platform, stats) synced; draft history rebuilt from DB on sync; admin Reset Test Data button in League page danger zone. |
+| — | `feature/fa-draft` | Standalone FA draft room (`fa-draft.html`). Reversed snake order from team draft, configurable rating range with tier buttons, full player attribute cards (hitting/pitching/pitch arsenal/quirks), CSV + printable trade checklist export. |
 
 ---
 
