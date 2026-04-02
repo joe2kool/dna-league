@@ -277,12 +277,6 @@ const DraftRoom = (() => {
       }
     } else {
       _advancePick();
-      // Broadcast timer start ONCE from the pick-maker so remote clients sync to the same clock.
-      // Also persist endTime so late joiners / refreshers see the correct remaining time.
-      if (_timerTotal && !_isComplete) {
-        _broadcast({ type: 'timer_start', endTime: _timerEndTime });
-        _saveTimerEndToDB();
-      }
     }
 
     DraftBoard.render(_draft);
@@ -292,6 +286,12 @@ const DraftRoom = (() => {
   function _advancePick() {
     resetTimer();
     startTimer();
+    // Broadcast absolute deadline + persist so ALL clients show the same countdown.
+    // Safe here because remote pick/skip handlers do NOT call _advancePick().
+    if (_timerTotal) {
+      _broadcast({ type: 'timer_start', endTime: _timerEndTime });
+      _saveTimerEndToDB();
+    }
     if (typeof updateOnClock === 'function') updateOnClock();
     if (typeof checkYourTurn === 'function') checkYourTurn();
     const next = _getCurrentPick();
@@ -352,10 +352,12 @@ const DraftRoom = (() => {
     if (!DnaAuth.isAdmin(_member)) return;
     _isPaused = false;
     _draft.status = 'active';
+    _timerEndTime = Date.now() + _timerSeconds * 1000;
+    startTimer(_timerEndTime);
     await _saveStatusToDB('active');
-    _broadcast({ type: 'resume' });
+    _broadcast({ type: 'resume', endTime: _timerEndTime });
+    _saveTimerEndToDB();
     DraftUI.updatePauseBtn(false);
-    startTimer();
     DraftUI.toast('Draft resumed');
   }
 
@@ -574,7 +576,7 @@ const DraftRoom = (() => {
         }
         break;
       case 'resume':
-        _isPaused = false; startTimer();
+        _isPaused = false; startTimer(payload.endTime || undefined);
         DraftUI.updatePauseBtn(false);
         DraftUI.toast('Draft resumed');
         break;
@@ -610,6 +612,7 @@ const DraftRoom = (() => {
     startTimer, stopTimer, resetTimer,
     canPick, makePick, undoLastPick, overridePick,
     pauseDraft, resumeDraft,
+    advancePick:     _advancePick,
     saveSkip:        _saveSkipToDB,
     saveStatus:      _saveStatusToDB,
     saveTimerEnd:    _saveTimerEndToDB,

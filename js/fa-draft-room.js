@@ -418,11 +418,6 @@ const FADraftRoom = (() => {
     // If we just resolved a re-pick window slot, remove it from the queue before routing.
     if (_inSkipWindow) _skipQueue.shift();
     await _nextState();
-    // Broadcast timer start ONCE from the pick-maker so remote clients sync to the same clock.
-    if (_timerTotal && !_isComplete) {
-      _broadcast({ type: 'timer_start', endTime: _timerEndTime });
-      await _saveTimerEndToDB();
-    }
     if (typeof renderDraftBoard === 'function') renderDraftBoard();
     if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
   }
@@ -430,6 +425,13 @@ const FADraftRoom = (() => {
   function _advancePick() {
     resetTimer();
     startTimer();
+    // Broadcast absolute deadline + persist so ALL clients (including late joiners)
+    // show the same countdown. This fires only on the local pick-maker because
+    // remote handlers do NOT call _advancePick().
+    if (_timerTotal) {
+      _broadcast({ type: 'timer_start', endTime: _timerEndTime });
+      _saveTimerEndToDB();
+    }
     if (typeof updateOnClock === 'function') updateOnClock();
     if (typeof checkYourTurn === 'function') checkYourTurn();
     const next = _getCurrentPick();
@@ -464,7 +466,7 @@ const FADraftRoom = (() => {
     await _deletePickFromDB(lastPicked);
     if (typeof renderDraftBoard === 'function') renderDraftBoard();
     if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
-    resetTimer(); startTimer();
+    _advancePick();
     faToast('Pick undone');
   }
 
@@ -483,9 +485,12 @@ const FADraftRoom = (() => {
     if (!_isAdminMember()) return;
     _isPaused = false;
     _draft.status = 'active';
+    // Extend the deadline by whatever time was remaining when paused.
+    _timerEndTime = Date.now() + _timerSeconds * 1000;
+    startTimer(_timerEndTime);
     await _saveStatusToDB('active');
-    _broadcast({ type: 'resume' });
-    startTimer();
+    _broadcast({ type: 'resume', endTime: _timerEndTime });
+    _saveTimerEndToDB();
     faToast('Draft resumed');
     if (typeof updatePauseBtn === 'function') updatePauseBtn(false);
   }
@@ -839,7 +844,7 @@ ${teamSections}
       if (typeof updatePauseBtn === 'function') updatePauseBtn(true);
     } else if (payload.type === 'resume') {
       _isPaused = false; _draft.status = 'active';
-      startTimer();
+      startTimer(payload.endTime || undefined);
       if (typeof updatePauseBtn === 'function') updatePauseBtn(false);
     } else if (payload.type === 'complete') {
       _isComplete = true; _draft.status = 'completed'; stopTimer();
@@ -853,6 +858,11 @@ ${teamSections}
     init, setTeamsLookup, loadDraftFromDB, loadDraft,
     loadPlayerPool, loadTradeReturnRosters, getAvailablePlayers,
     startTimer, stopTimer, resetTimer,
+    saveAndBroadcastTimer: () => {
+      if (!_timerTotal || !_timerEndTime) return;
+      _broadcast({ type: 'timer_start', endTime: _timerEndTime });
+      _saveTimerEndToDB();
+    },
     canPick, makePick, undoLastPick,
     pauseDraft, resumeDraft, manualSkipCurrent, endDraftEarly,
     getCurrentPick: _getCurrentPick,

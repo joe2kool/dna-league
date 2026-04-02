@@ -517,6 +517,9 @@ async function enterDraftRoom(draftId) {
     if (draft.status === 'active') {
       const endTime = draft.settings.timerEndAt ? new Date(draft.settings.timerEndAt).getTime() : null;
       FADraftRoom.startTimer(endTime || undefined);
+      // If no endTime was saved yet (first person to start this draft), broadcast + persist
+      // so everyone else who joins sees the correct countdown immediately.
+      if (!endTime && _isAdmin()) FADraftRoom.saveAndBroadcastTimer();
     }
     if (draft.status === 'completed') {
       document.getElementById('fa-export-tab').style.display = '';
