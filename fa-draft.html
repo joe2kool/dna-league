@@ -70,7 +70,7 @@
         <label>Password</label>
         <input type="password" id="auth-password" class="form-input" placeholder="Password">
       </div>
-      <button class="btn btn-gold" style="width:100%;" onclick="signIn()">Sign In</button>
+      <button type="button" class="btn btn-gold" style="width:100%;" onclick="signIn()">Sign In</button>
       <div id="auth-error" style="margin-top:0.75rem;font-size:13px;color:var(--red);"></div>
     </div>
   </div>
@@ -93,11 +93,11 @@
         <div class="setup-card-header">Player Rating Range</div>
         <div class="setup-card-body">
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:0.875rem;">
-            <button class="tier-btn common"  onclick="selectTier(65,69,'common')" >Common<span class="tier-range">65–69</span></button>
-            <button class="tier-btn bronze"  onclick="selectTier(70,74,'bronze')" >Bronze<span class="tier-range">70–74</span></button>
-            <button class="tier-btn silver"  onclick="selectTier(75,79,'silver')" >Silver<span class="tier-range">75–79</span></button>
-            <button class="tier-btn gold"    onclick="selectTier(80,84,'gold')"   >Gold<span class="tier-range">80–84</span></button>
-            <button class="tier-btn diamond" onclick="selectTier(85,99,'diamond')">Diamond<span class="tier-range">85–99</span></button>
+            <button type="button" class="tier-btn common"  onclick="selectTier(65,69,'common')" >Common<span class="tier-range">65–69</span></button>
+            <button type="button" class="tier-btn bronze"  onclick="selectTier(70,74,'bronze')" >Bronze<span class="tier-range">70–74</span></button>
+            <button type="button" class="tier-btn silver"  onclick="selectTier(75,79,'silver')" >Silver<span class="tier-range">75–79</span></button>
+            <button type="button" class="tier-btn gold"    onclick="selectTier(80,84,'gold')"   >Gold<span class="tier-range">80–84</span></button>
+            <button type="button" class="tier-btn diamond" onclick="selectTier(85,99,'diamond')">Diamond<span class="tier-range">85–99</span></button>
           </div>
           <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
             <div class="form-group">
@@ -142,7 +142,7 @@
         </div>
       </div>
 
-      <button class="btn btn-gold" style="font-size:16px;padding:12px 32px;" onclick="launchFADraft()">Launch FA Draft</button>
+      <button type="button" class="btn btn-gold" style="font-size:16px;padding:12px 32px;" onclick="launchFADraft()">Launch FA Draft</button>
     </div>
   </div>
 
@@ -157,19 +157,19 @@
       </div>
       <div id="fa-timer-val" class="fa-timer ok"></div>
       <div class="fa-controls" id="fa-controls" style="display:none;">
-        <button class="btn btn-sm btn-outline" id="fa-pause-btn" onclick="togglePause()">Pause</button>
-        <button class="btn btn-sm btn-outline" onclick="FADraftRoom.manualSkipCurrent()">Skip</button>
-        <button class="btn btn-sm btn-outline" onclick="FADraftRoom.undoLastPick()">Undo</button>
-        <button class="btn btn-sm" onclick="FADraftRoom.endDraftEarly()" style="color:var(--red);border-color:rgba(217,64,64,0.3);">End Draft</button>
+        <button type="button" class="btn btn-sm btn-outline" id="fa-pause-btn" onclick="togglePause()">Pause</button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="FADraftRoom.manualSkipCurrent()">Skip</button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="FADraftRoom.undoLastPick()">Undo</button>
+        <button type="button" class="btn btn-sm" onclick="FADraftRoom.endDraftEarly()" style="color:var(--red);border-color:rgba(217,64,64,0.3);">End Draft</button>
       </div>
     </div>
 
     <!-- Tabs -->
     <div class="fa-tabs">
-      <button class="fa-tab active" onclick="switchTab('players',this)">Available Players</button>
-      <button class="fa-tab"        onclick="switchTab('board',this)">Draft Board</button>
-      <button class="fa-tab"        onclick="switchTab('mypicks',this)">My Picks</button>
-      <button class="fa-tab"        id="fa-export-tab" style="display:none;" onclick="switchTab('export',this)">Export</button>
+      <button type="button" class="fa-tab active" onclick="switchTab('players',this)">Available Players</button>
+      <button type="button" class="fa-tab"        onclick="switchTab('board',this)">Draft Board</button>
+      <button type="button" class="fa-tab"        onclick="switchTab('mypicks',this)">My Picks</button>
+      <button type="button" class="fa-tab"        id="fa-export-tab" style="display:none;" onclick="switchTab('export',this)">Export</button>
     </div>
 
     <!-- Tab: Available Players -->
@@ -177,11 +177,11 @@
       <div class="fa-player-list">
         <div class="fa-filter-bar">
           <span style="font-size:12px;color:var(--text2);">Filter:</span>
-          <button class="fa-filter-btn active" onclick="filterPlayers('ALL',this)">All</button>
-          <button class="fa-filter-btn" onclick="filterPlayers('P',this)">Pitchers</button>
-          <button class="fa-filter-btn" onclick="filterPlayers('C',this)">Catchers</button>
-          <button class="fa-filter-btn" onclick="filterPlayers('IF',this)">Infield</button>
-          <button class="fa-filter-btn" onclick="filterPlayers('OF',this)">Outfield</button>
+          <button type="button" class="fa-filter-btn active" onclick="filterPlayers('ALL',this)">All</button>
+          <button type="button" class="fa-filter-btn" onclick="filterPlayers('P',this)">Pitchers</button>
+          <button type="button" class="fa-filter-btn" onclick="filterPlayers('C',this)">Catchers</button>
+          <button type="button" class="fa-filter-btn" onclick="filterPlayers('IF',this)">Infield</button>
+          <button type="button" class="fa-filter-btn" onclick="filterPlayers('OF',this)">Outfield</button>
         </div>
         <div id="fa-player-list-inner"></div>
       </div>
@@ -202,8 +202,8 @@
       <div class="fa-export">
         <h2 style="font-family:'Bebas Neue';font-size:36px;letter-spacing:2px;margin-bottom:1rem;">Draft Complete</h2>
         <div class="fa-export-btns">
-          <button class="btn btn-outline" onclick="FADraftRoom.downloadCSV()">⬇ Download CSV</button>
-          <button class="btn btn-gold" onclick="FADraftRoom.openPrintChecklist()">🖨 Print Trade Checklist</button>
+          <button type="button" class="btn btn-outline" onclick="FADraftRoom.downloadCSV()">⬇ Download CSV</button>
+          <button type="button" class="btn btn-gold" onclick="FADraftRoom.openPrintChecklist()">🖨 Print Trade Checklist</button>
         </div>
         <div id="fa-export-summary"></div>
       </div>
@@ -567,7 +567,7 @@ function renderAvailablePlayers() {
           <div class="fa-player-name">${escHtml(p.name)}</div>
           <div class="fa-player-meta">${escHtml(p.pos)} · ${escHtml(p.fromTeam)} · ${escHtml(p.series||'Live Series')} · ${escHtml(p.rarity||'')}</div>
         </div>
-        <button class="fa-expand-btn">▼ Details</button>
+        <button type="button" class="fa-expand-btn">▼ Details</button>
       </div>
       <div class="fa-player-detail" id="fpd-${idx}" style="display:none;">
         ${renderPlayerDetail(p, idx, canPick)}
@@ -644,7 +644,7 @@ function renderPlayerDetail(p, idx, canPick) {
     </div>`;
   }
 
-  html += `<button class="fa-select-btn" ${canPick ? '' : 'disabled'} onclick="pickPlayer(${idx})">Select This Player</button>`;
+  html += `<button type="button" class="fa-select-btn" ${canPick ? '' : 'disabled'} onclick="pickPlayer(${idx})">Select This Player</button>`;
   return html;
 }
 
