@@ -2174,6 +2174,9 @@ function renderSeasonCard(s) {
       (hasDraftData
         ? '<button type="button" class="btn btn-outline btn-sm" style="color:var(--gold);border-color:rgba(201,168,76,0.3);" onclick="autoLoadDraftTeams(\'' + s.id + '\')">&#x26A1; Auto-load from Draft</button>'
         : '') +
+      (canManageSchedule() && Object.keys(teams).length > 0
+        ? '<button type="button" class="btn btn-outline btn-sm" style="color:var(--blue);border-color:rgba(106,158,199,0.4);" onclick="openFADraft(\'' + s.id + '\')">&#x1F3CB; FA Draft</button>'
+        : '') +
       '</div>';
   }
 
@@ -2561,6 +2564,10 @@ function updateTeamAssignmentLive(seasonId) {
     });
     sel.innerHTML = html;
   });
+}
+
+function openFADraft(seasonId) {
+  window.open('fa-draft.html?season=' + seasonId, '_blank');
 }
 
 // Auto-load team assignments from players' live draft history for this season
