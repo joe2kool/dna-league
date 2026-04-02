@@ -14,6 +14,8 @@ const FADraftRoom = (() => {
   let _realtimeChannel = null;
   let _playerPool      = [];     // all available players (loaded from Worker)
   let _pickedPlayerIds = new Set(); // track by "name|team" key
+  let _tradeReturnPool = {};    // teamAbbr → low-OVR players for trade return suggestions
+  let _memberTeamMap   = {};    // memberId → drafted team abbreviation
 
   let _timer        = null;
   let _timerSeconds = 0;
@@ -148,6 +150,22 @@ const FADraftRoom = (() => {
     // Sort: highest overall first
     _playerPool.sort((a, b) => b.overall - a.overall);
     return _playerPool;
+  }
+
+  // Fetches ≤65 OVR players from each member's drafted team for trade return suggestions.
+  // memberTeamMap: { memberId: teamAbbr }
+  async function loadTradeReturnRosters(memberTeamMap, workerUrl) {
+    _memberTeamMap   = memberTeamMap;
+    _tradeReturnPool = {};
+    const uniqueTeams = [...new Set(Object.values(memberTeamMap))].filter(Boolean);
+    const results = await Promise.all(uniqueTeams.map(abbr =>
+      fetch(`${workerUrl}/fa-roster?team=${abbr}&min=0&max=65`)
+        .then(r => r.ok ? r.json() : { players: [] })
+        .catch(() => ({ players: [] }))
+    ));
+    uniqueTeams.forEach((abbr, i) => {
+      _tradeReturnPool[abbr] = (results[i].players || []).sort((a, b) => a.overall - b.overall);
+    });
   }
 
   function getAvailablePlayers(posFilter) {
@@ -370,8 +388,7 @@ const FADraftRoom = (() => {
   }
 
   // ── EXPORT ────────────────────────────────────────────────
-  // Requires _playerPool to be loaded so we can look up full rosters
-  // for trade return player selection.
+  // Requires loadTradeReturnRosters to have been called so _tradeReturnPool is populated.
 
   function getExportData() {
     if (!_draft) return [];
@@ -395,35 +412,25 @@ const FADraftRoom = (() => {
   }
 
   function _findTradeReturn(slot) {
-    // Get all players on the receiving team from the pool (full pool, not filtered by range)
-    // We use whatever was loaded. In practice commissioner runs export after draft so pool is loaded.
-    const teamPlayers = _playerPool.filter(p => p.fromTeam === slot.pickedFromTeam);
-    if (!teamPlayers.length) return null;
+    // Trade return comes from the receiving member's drafted team at low OVR (≤65).
+    const teamAbbr = _memberTeamMap[slot.memberId];
+    if (!teamAbbr) return null;
+    const candidates = _tradeReturnPool[teamAbbr];
+    if (!candidates || !candidates.length) return null;
 
-    const draftedPos = slot.pickedPlayerPos || '';
-    const group = _posGroup(draftedPos);
+    // candidates already sorted ascending by OVR
+    const group = _posGroup(slot.pickedPlayerPos || '');
 
-    // Sort ascending by overall
-    const byOvr = [...teamPlayers].sort((a, b) => a.overall - b.overall);
+    const sameGroup = candidates.filter(p => _posGroup(p.pos) === group);
+    if (sameGroup.length) return sameGroup[0];
 
-    // Matching group
-    const sameGroup = byOvr.filter(p => _posGroup(p.pos) === group);
-    if (sameGroup.length) {
-      const candidate = sameGroup[0];
-      // Fallback if candidate is within 5 OVR of drafted player (too valuable)
-      if (Math.abs(candidate.overall - slot.pickedPlayerRating) <= 5) {
-        return byOvr[0]; // absolute lowest
-      }
-      return candidate;
-    }
-
-    // Fallback: same broader group (IF/OF share fallback)
+    // Fallback: same broader group for position players
     if (group !== 'P') {
-      const posPlayers = byOvr.filter(p => _posGroup(p.pos) !== 'P');
+      const posPlayers = candidates.filter(p => _posGroup(p.pos) !== 'P');
       if (posPlayers.length) return posPlayers[0];
     }
 
-    return byOvr[0]; // absolute lowest
+    return candidates[0]; // absolute lowest
   }
 
   function downloadCSV() {
@@ -626,7 +633,7 @@ ${teamSections}
   // ── PUBLIC API ────────────────────────────────────────────
   return {
     init, setTeamsLookup, loadDraftFromDB, loadDraft,
-    loadPlayerPool, getAvailablePlayers,
+    loadPlayerPool, loadTradeReturnRosters, getAvailablePlayers,
     startTimer, stopTimer, resetTimer,
     canPick, makePick, undoLastPick,
     pauseDraft, resumeDraft, manualSkipCurrent, endDraftEarly,
