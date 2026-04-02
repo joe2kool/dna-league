@@ -275,6 +275,8 @@ const DraftRoom = (() => {
       }
     } else {
       _advancePick();
+      // Broadcast timer start ONCE from the pick-maker so remote clients sync to the same clock.
+      if (_timerTotal && !_isComplete) _broadcast({ type: 'timer_start', endTime: _timerEndTime });
     }
 
     DraftBoard.render(_draft);
@@ -284,8 +286,6 @@ const DraftRoom = (() => {
   function _advancePick() {
     resetTimer();
     startTimer();
-    // Broadcast absolute end time so all connected clients display the same countdown.
-    if (_timerTotal) _broadcast({ type: 'timer_start', endTime: _timerEndTime });
     if (typeof updateOnClock === 'function') updateOnClock();
     if (typeof checkYourTurn === 'function') checkYourTurn();
     const next = _getCurrentPick();
@@ -532,7 +532,9 @@ const DraftRoom = (() => {
           _savePickToSeason(payload.memberId, payload.teamAbbr);
           DraftBoard.render(_draft);
           DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
-          _advancePick();
+          // Do NOT call _advancePick() — the pick-maker broadcasts timer_start; wait for it.
+          if (typeof updateOnClock === 'function') updateOnClock();
+          if (typeof checkYourTurn === 'function') checkYourTurn();
         }
         break;
       case 'pause':
