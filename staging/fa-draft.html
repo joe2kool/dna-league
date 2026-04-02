@@ -183,6 +183,24 @@
           <button type="button" class="fa-filter-btn" onclick="filterPlayers('IF',this)">Infield</button>
           <button type="button" class="fa-filter-btn" onclick="filterPlayers('OF',this)">Outfield</button>
         </div>
+        <div class="fa-search-bar">
+          <input type="text" id="fa-search-input" class="form-input" placeholder="Search player name..." oninput="onSearchInput(this.value)" style="max-width:220px;">
+          <select id="fa-team-filter" class="form-input" onchange="onTeamFilter(this.value)" style="max-width:120px;">
+            <option value="ALL">All Teams</option>
+          </select>
+          <select id="fa-throw-filter" class="form-input" onchange="onThrowFilter(this.value)" style="max-width:100px;">
+            <option value="ALL">Throws: Any</option>
+            <option value="L">Throws L</option>
+            <option value="R">Throws R</option>
+          </select>
+          <select id="fa-bat-filter" class="form-input" onchange="onBatFilter(this.value)" style="max-width:100px;">
+            <option value="ALL">Bats: Any</option>
+            <option value="L">Bats L</option>
+            <option value="R">Bats R</option>
+            <option value="S">Switch</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-outline" onclick="clearFilters()" style="white-space:nowrap;">Clear Filters</button>
+        </div>
         <div id="fa-player-list-inner"></div>
       </div>
     </div>
@@ -224,6 +242,10 @@ let mlbTeamsLookup = [];
 let activeDraftId     = null;
 let activeDraftRounds = 1;
 let currentPosFilter  = 'ALL';
+let currentSearchText = '';
+let currentTeamFilter = 'ALL';
+let currentThrowFilter = 'ALL';
+let currentBatFilter  = 'ALL';
 let currentPlayerPage = 0;
 const PLAYERS_PER_PAGE = 50;
 
@@ -453,6 +475,15 @@ async function enterDraftRoom(draftId) {
       DNA_CONFIG.ratings.workerUrl
     );
 
+    // Populate team filter dropdown
+    const teamSelect = document.getElementById('fa-team-filter');
+    const teamsInPool = [...new Set(FADraftRoom.getAvailablePlayers(null).map(p => p.fromTeam))].sort();
+    teamsInPool.forEach(abbr => {
+      const opt = document.createElement('option');
+      opt.value = abbr; opt.textContent = abbr;
+      teamSelect.appendChild(opt);
+    });
+
     // Load low-OVR players from each member's drafted team for trade return suggestions
     const memberTeamRes = await db.from('league_teams')
       .select('member_id, mlb_teams(abbreviation)')
@@ -484,7 +515,8 @@ async function enterDraftRoom(draftId) {
     renderMyPicks();
 
     if (draft.status === 'active') {
-      FADraftRoom.startTimer();
+      const endTime = draft.settings.timerEndAt ? new Date(draft.settings.timerEndAt).getTime() : null;
+      FADraftRoom.startTimer(endTime || undefined);
     }
     if (draft.status === 'completed') {
       document.getElementById('fa-export-tab').style.display = '';
@@ -576,8 +608,32 @@ function playerPageNav(dir) {
 window.playerPageNav = playerPageNav;
 window.filterPlayers = filterPlayers;
 
+function onSearchInput(v) { currentSearchText = v.toLowerCase(); currentPlayerPage = 0; renderAvailablePlayers(); }
+function onTeamFilter(v)  { currentTeamFilter = v;  currentPlayerPage = 0; renderAvailablePlayers(); }
+function onThrowFilter(v) { currentThrowFilter = v; currentPlayerPage = 0; renderAvailablePlayers(); }
+function onBatFilter(v)   { currentBatFilter = v;   currentPlayerPage = 0; renderAvailablePlayers(); }
+function clearFilters() {
+  currentSearchText = ''; currentTeamFilter = 'ALL'; currentThrowFilter = 'ALL'; currentBatFilter = 'ALL';
+  currentPlayerPage = 0;
+  document.getElementById('fa-search-input').value = '';
+  document.getElementById('fa-team-filter').value = 'ALL';
+  document.getElementById('fa-throw-filter').value = 'ALL';
+  document.getElementById('fa-bat-filter').value = 'ALL';
+  renderAvailablePlayers();
+}
+window.onSearchInput = onSearchInput; window.onTeamFilter = onTeamFilter;
+window.onThrowFilter = onThrowFilter; window.onBatFilter = onBatFilter;
+window.clearFilters = clearFilters;
+
 function renderAvailablePlayers() {
-  const allPlayers = FADraftRoom.getAvailablePlayers(currentPosFilter);
+  const allPlayers = FADraftRoom.getAvailablePlayers(currentPosFilter)
+    .filter(p => {
+      if (currentSearchText && !p.name.toLowerCase().includes(currentSearchText)) return false;
+      if (currentTeamFilter !== 'ALL' && p.fromTeam !== currentTeamFilter) return false;
+      if (currentThrowFilter !== 'ALL' && p.throws !== currentThrowFilter) return false;
+      if (currentBatFilter !== 'ALL' && p.bats !== currentBatFilter) return false;
+      return true;
+    });
   const canPick    = FADraftRoom.canPick(currentMember?.id);
   const el         = document.getElementById('fa-player-list-inner');
 
@@ -696,7 +752,14 @@ function renderPlayerDetail(p, idx, canPick) {
 }
 
 function pickPlayer(idx) {
-  const players = FADraftRoom.getAvailablePlayers(currentPosFilter);
+  const players = FADraftRoom.getAvailablePlayers(currentPosFilter)
+    .filter(p => {
+      if (currentSearchText && !p.name.toLowerCase().includes(currentSearchText)) return false;
+      if (currentTeamFilter !== 'ALL' && p.fromTeam !== currentTeamFilter) return false;
+      if (currentThrowFilter !== 'ALL' && p.throws !== currentThrowFilter) return false;
+      if (currentBatFilter !== 'ALL' && p.bats !== currentBatFilter) return false;
+      return true;
+    });
   if (!players[idx]) return;
   FADraftRoom.makePick(players[idx]);
 }
