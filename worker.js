@@ -107,10 +107,6 @@ export default {
 
         const allListings = results.flatMap(r => r.listings || []);
 
-        // DEBUG: expose raw item keys on first player so we can map field names correctly
-        const debugItem = allListings.find(l => l.item?.ovr >= min && l.item?.ovr <= max);
-        const _debugKeys = debugItem ? Object.keys(debugItem.item) : [];
-
         const players = allListings
           .filter(l => l.item && l.item.ovr >= min && l.item.ovr <= max && l.item.name)
           .map(l => {
@@ -137,11 +133,11 @@ export default {
                 hr_per_bf:       i.hr_per_bf       || 0,
                 velocity:        i.pitch_velocity  || 0,
                 control:         i.pitch_control   || 0,
-                break_rating:    i.pitch_break     || 0,
-                pitch_arsenal: (i.pitching_attributes || []).map(p => ({
-                  name:  p.name  || '',
-                  speed: p.speed || 0,
-                  break: p.break || 0,
+                break_rating:    i.pitch_movement  || 0,
+                pitch_arsenal: (i.pitches || []).map(p => ({
+                  name:  p.name     || '',
+                  speed: p.speed    || 0,
+                  break: p.movement || 0,
                 })).filter(p => p.name),
               };
             } else {
@@ -163,7 +159,7 @@ export default {
             }
           });
 
-        return json({ team: teamAbbr, min, max, players, _debugKeys, source: 'mlb26-listings' });
+        return json({ team: teamAbbr, min, max, players, source: 'mlb26-listings' });
 
       } catch(e) {
         return json({ error: e.message }, 500);
