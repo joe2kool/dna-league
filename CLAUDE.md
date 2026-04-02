@@ -62,9 +62,13 @@ All pages are `<div id="page-X" class="page">` toggled via `showPage(id, tabEl)`
 | `dna_schedule` | `{ generatedWeeks[], seriesLength, matchupsPerWeek, seasonId, savedAt }` |
 | `dna_live_draft` | Active draft session state |
 
-**Supabase sync:** Only for real auth accounts. `syncPlayersFromDB()` merges DB users into existing localStorage state — never replaces. `loadState()` must run BEFORE `syncPlayersFromDB()`.
+**Supabase sync:** Only for real auth accounts. `syncPlayersFromDB()` merges DB users into existing localStorage state — never replaces. `loadState()` must run BEFORE `syncPlayersFromDB()`. Draft history (Supabase-sourced entries with `dbPickId`) is rebuilt from scratch on every sync so deletes propagate to all devices.
 
-**Supabase table:** `league_members` — columns include `id`, `user_id`, `league_id`, `display_name`, `real_name`, `avatar_color`, `favorite_mlb_team`, `role`, `joined_at`
+**Supabase table:** `league_members` — columns include `id`, `user_id`, `league_id`, `display_name`, `real_name`, `avatar_color`, `favorite_mlb_team`, `role`, `joined_at`, `gamertag`, `platform`, `wins`, `losses`, `championships`, `playoffs`, `mvp`, `cyyoung`
+
+**Seasons/schedule stored in Supabase:** `seasons`, `league_teams`, `drafts`, `draft_slots`, `draft_picks`. The `dna_seasons` and `dna_schedule` localStorage keys are removed on login (one-time cleanup in `loadLeagueContext`).
+
+**`handle_new_user` trigger:** Auto-inserts new signups into `league_members` with role `member`. If members are missing from the app after signup, check this trigger exists in Supabase.
 
 ---
 
@@ -81,7 +85,9 @@ admin > commissioner > co_commissioner > helper > member
 | `helper` | Read-only assist |
 | `member` | Standard player |
 
-Key functions: `canManageSchedule()`, `DnaAuth.canManage(member)`, `DnaAuth.isAdmin(member)`
+Key functions: `canManageSchedule()` in index.html, `DnaAuth.canManage(member)` / `DnaAuth.isAdmin(member)` in draft.html only.
+
+**IMPORTANT:** `DnaAuth` (from `js/auth.js`) is only loaded in `draft.html`. Do NOT use `DnaAuth.*` in `index.html` — use inline role checks instead: `['admin','commissioner'].includes(currentMember.role)`.
 
 ---
 
@@ -103,6 +109,7 @@ Key functions: `canManageSchedule()`, `DnaAuth.canManage(member)`, `DnaAuth.isAd
   localOnly,        // true if commissioner-added, not yet a real Supabase user
   draftHistory: [   // Array of draft entries
     {
+      dbPickId,     // Present on Supabase-sourced entries; absent on local Draft Order Generator saves
       type,         // 'live' | 'order'
       seasonId,     // Present for live draft picks; absent for Draft Order Generator saves
       seasonName,
@@ -168,6 +175,7 @@ Worker source: `worker.js` (deploy manually at dash.cloudflare.com/workers)
 |-------|-------------|-------|
 | `GET /teams` | Average OVR of top 5 Live Series cards per team | 1 hour |
 | `GET /roster?team=LAD` | Top 5 Live Series players for a team | 1 hour |
+| `GET /fa-roster?team=LAD&min=70&max=84` | All Live Series players for a team in OVR range, full attributes | 1 hour |
 | `GET /history?username=X&platform=Y&page=1` | Player's Diamond Dynasty game history | 5 min |
 | `GET /gamelog?id=X` | Full box score for a completed game | 24 hours |
 
@@ -201,8 +209,14 @@ WSH in our app = `WAS` in the MLB API — handled by `TEAM_MAP` in worker.js
 - **Weekly date math:** Week N starts at `startDate + (N-1)*7 days`. Always parse startDate as `new Date(startDate + 'T00:00:00')` to avoid UTC offset issues.
 - **Auto week advancement:** Calculated from `Math.floor(daysSinceStart / 7)`. Falls back to `completed` flag if no startDate.
 - **Local-only players excluded from League page** — they have no `league_members` DB row so role changes can't be saved.
-- **`syncPlayersFromDB()` never wipes local players** — it only adds new DB users and updates name/color/role on existing ones.
+- **`syncPlayersFromDB()` never wipes local players** — it only adds new DB users and updates name/color/role on existing ones. Stale UUID players (deleted accounts) are filtered out.
 - **Commissioner controls gated by** `canManageSchedule()` in index.html and `DnaAuth.canManage()` / `DnaAuth.isAdmin()` in draft.html.
+- **Commissioner cannot delete admin accounts** — guarded in both `deleteProfile()` and the UI.
+- **`league_members.role` for admins** — admins have role `'admin'` in the DB. The `get_my_role(p_league_id uuid)` Supabase function must use the param name `p_league_id` (not `league_id`) or season delete RLS will fail.
+- **`draft_picks.member_id` and `league_teams.mlb_team_id`** — both have `NOT NULL` dropped to support null picks and roster adds without full data.
+- **`mlbTeamsLookup`** — must be loaded via `loadMlbTeamsLookup()` before `syncPlayersFromDB()` runs, so team abbreviations can be resolved for draft history entries.
+- **FA draft entry:** `fa-draft.html?season=<id>` — linked from the season card Teams tab (commissioner+ only when teams are assigned). Config screen shown only to admin/commissioner if no FA draft exists yet.
+- **FA draft player pool:** Loaded from Worker `/fa-roster` for each team in `league_teams` for the season. Pitcher cards include pitch repertoire (`pitch_arsenal` array). Trade return player selection matches position group (P→P, C→C, IF→IF, OF→OF), falling back to absolute lowest if same-group candidate is within 5 OVR of the drafted player.
 
 ---
 
@@ -227,6 +241,8 @@ feature branch → staging (auto-deploys on merge) → main (production)
 | #32 | `32-feature-display-weekly-dates` | Weekly date ranges in schedule headers and home widget. Auto-advancement by date. |
 | #33 | `33-feature-improve-mobile-draft-ui` | Mobile draft room tab bar (Teams / Draft Order). |
 | — | `feature-gamertag-match-tracking` | Gamertag linking per player, auto match result scanning via game history API, Worker v3 (/history + /gamelog routes), League management page for role assignment. |
+| — | `feature/supabase-draft` | Full Supabase integration: drafts/picks/seasons/league_teams write to DB; profile fields (gamertag, platform, stats) synced; draft history rebuilt from DB on sync; admin Reset Test Data button in League page danger zone. |
+| — | `feature/fa-draft` | Standalone FA draft room (`fa-draft.html`). Reversed snake order from team draft, configurable rating range with tier buttons, full player attribute cards (hitting/pitching/pitch arsenal/quirks), CSV + printable trade checklist export. |
 
 ---
 

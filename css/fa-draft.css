@@ -1,0 +1,136 @@
+/* ============================================================
+   THE DNA LEAGUE — fa-draft.css
+   Free Agent draft room styles. Shares design tokens defined
+   inline in fa-draft.html (:root variables).
+   ============================================================ */
+
+/* ── LAYOUT ─────────────────────────────────────────────── */
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Barlow',sans-serif; min-height:100vh; }
+
+.fa-page { display:flex; flex-direction:column; min-height:100vh; }
+
+/* ── NAV ────────────────────────────────────────────────── */
+.fa-nav { position:sticky; top:0; z-index:100; background:rgba(8,11,16,0.92); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); padding:0 1.5rem; height:56px; display:flex; align-items:center; gap:1rem; }
+.fa-nav-logo { display:flex; align-items:center; gap:10px; text-decoration:none; color:inherit; }
+.fa-nav-logo .logo-icon { width:36px; height:36px; background:linear-gradient(135deg,var(--chrome2),var(--chrome1)); clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display:flex; align-items:center; justify-content:center; font-family:'Bebas Neue'; font-size:15px; color:var(--bg); flex-shrink:0; }
+.fa-nav-title { font-family:'Barlow Condensed'; font-size:15px; letter-spacing:2px; text-transform:uppercase; color:var(--text2); }
+.fa-nav-status { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:2px; text-transform:uppercase; border-radius:4px; padding:3px 8px; }
+.fa-nav-status.status-setup    { background:rgba(168,189,212,0.1); color:var(--gold); }
+.fa-nav-status.status-active   { background:rgba(46,204,113,0.15); color:var(--green); }
+.fa-nav-status.status-paused   { background:rgba(245,197,66,0.15); color:#f5c542; }
+.fa-nav-status.status-complete { background:rgba(168,189,212,0.1); color:var(--text2); }
+
+/* ── SETUP SCREEN ───────────────────────────────────────── */
+.fa-setup { max-width:640px; margin:0 auto; padding:2rem 1.5rem; }
+.fa-setup h1 { font-family:'Bebas Neue'; font-size:44px; letter-spacing:3px; line-height:1; }
+.setup-card { background:var(--surface2); border-radius:12px; border:1px solid rgba(255,255,255,0.06); margin-bottom:1.25rem; overflow:hidden; }
+.setup-card-header { padding:0.875rem 1.25rem; border-bottom:1px solid rgba(255,255,255,0.06); font-family:'Barlow Condensed'; font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--text2); }
+.setup-card-body { padding:1.25rem; }
+
+/* Tier buttons */
+.tier-btn { background:var(--surface3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:8px 14px; font-family:'Barlow Condensed'; font-size:13px; cursor:pointer; color:var(--text2); transition:border-color 0.15s,color 0.15s; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:72px; }
+.tier-btn .tier-range { font-size:10px; opacity:0.7; }
+.tier-btn.common.active   { border-color:rgba(168,189,212,0.6); color:var(--text); }
+.tier-btn.bronze.active   { border-color:#cd7f32; color:#cd7f32; background:rgba(205,127,50,0.08); }
+.tier-btn.silver.active   { border-color:#c0c0c0; color:#c0c0c0; background:rgba(192,192,192,0.08); }
+.tier-btn.gold.active     { border-color:#f5c542; color:#f5c542; background:rgba(245,197,66,0.08); }
+.tier-btn.diamond.active  { border-color:#b9d4ff; color:#b9d4ff; background:rgba(185,212,255,0.08); }
+
+/* ── ON-CLOCK HEADER ────────────────────────────────────── */
+.fa-on-clock { background:var(--surface2); border-bottom:1px solid var(--border); padding:0.75rem 1.25rem; display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+.fa-on-clock-label { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--text2); }
+.fa-on-clock-name { font-family:'Barlow Condensed'; font-size:20px; font-weight:700; color:var(--text); letter-spacing:1px; }
+.fa-on-clock-name.your-turn { color:var(--green); }
+.fa-timer { font-family:'Bebas Neue'; font-size:28px; letter-spacing:2px; margin-left:auto; }
+.fa-timer.urgent { color:var(--red); }
+.fa-timer.warning { color:#f5c542; }
+.fa-timer.ok { color:var(--green); }
+
+/* Commissioner controls */
+.fa-controls { display:flex; gap:8px; flex-wrap:wrap; }
+.fa-controls .btn { font-size:12px; padding:4px 12px; }
+
+/* ── TABS ───────────────────────────────────────────────── */
+.fa-tabs { display:flex; border-bottom:1px solid var(--border); background:var(--surface); position:sticky; top:56px; z-index:90; }
+.fa-tab { font-family:'Barlow Condensed'; font-size:13px; letter-spacing:2px; text-transform:uppercase; padding:12px 20px; cursor:pointer; border-bottom:2px solid transparent; color:var(--text2); background:none; border-top:none; border-left:none; border-right:none; transition:color 0.15s,border-color 0.15s; }
+.fa-tab.active { color:var(--gold2); border-bottom-color:var(--gold2); }
+.fa-tab-content { display:none; }
+.fa-tab-content.active { display:block; }
+
+/* ── PLAYER LIST ────────────────────────────────────────── */
+.fa-player-list { padding:1rem; max-width:800px; margin:0 auto; }
+.fa-filter-bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:1rem; align-items:center; }
+.fa-filter-btn { background:var(--surface3); border:1px solid rgba(255,255,255,0.08); border-radius:20px; padding:4px 12px; font-size:12px; cursor:pointer; color:var(--text2); }
+.fa-filter-btn.active { background:rgba(168,189,212,0.12); border-color:rgba(168,189,212,0.4); color:var(--text); }
+
+.fa-player-row { background:var(--surface2); border-radius:8px; margin-bottom:6px; overflow:hidden; border:1px solid rgba(255,255,255,0.04); }
+.fa-player-row-header { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; }
+.fa-player-row-header:hover { background:rgba(255,255,255,0.02); }
+.fa-ovr-badge { width:38px; height:38px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px; flex-shrink:0; border-width:2px; border-style:solid; }
+.fa-ovr-badge.common  { background:rgba(168,189,212,0.05); border-color:rgba(168,189,212,0.3); color:var(--text); }
+.fa-ovr-badge.bronze  { background:rgba(205,127,50,0.08);  border-color:#cd7f32; color:#cd7f32; }
+.fa-ovr-badge.silver  { background:rgba(192,192,192,0.08);  border-color:#c0c0c0; color:#c0c0c0; }
+.fa-ovr-badge.gold    { background:rgba(245,197,66,0.08);   border-color:#f5c542; color:#f5c542; }
+.fa-ovr-badge.diamond { background:rgba(185,212,255,0.08);  border-color:#b9d4ff; color:#b9d4ff; }
+.fa-player-name { font-weight:600; font-size:14px; }
+.fa-player-meta { font-size:11px; color:var(--text2); margin-top:2px; }
+.fa-expand-btn { margin-left:auto; background:rgba(168,189,212,0.08); border:1px solid rgba(168,189,212,0.2); border-radius:6px; padding:4px 10px; font-size:12px; color:var(--text2); cursor:pointer; white-space:nowrap; flex-shrink:0; }
+
+.fa-player-detail { border-top:1px solid rgba(255,255,255,0.06); padding:12px 14px; }
+.fa-attr-section { margin-bottom:10px; }
+.fa-attr-label { font-family:'Barlow Condensed'; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--text2); margin-bottom:6px; }
+.fa-attr-grid { display:grid; grid-template-columns:1fr 1fr; gap:3px 20px; }
+.fa-attr-row { display:flex; justify-content:space-between; font-size:12px; }
+.fa-attr-name { color:var(--text2); }
+.fa-attr-val { font-weight:600; }
+.fa-attr-val.high   { color:var(--green); }
+.fa-attr-val.mid    { color:#f5c542; }
+.fa-attr-val.low    { color:#cd7f32; }
+.fa-attr-val.vlow   { color:var(--red); }
+
+.fa-quirks { display:flex; gap:6px; flex-wrap:wrap; }
+.fa-quirk { background:rgba(46,204,113,0.1); border:1px solid rgba(46,204,113,0.2); color:var(--green); border-radius:4px; padding:2px 8px; font-size:11px; }
+
+.fa-pitch-row { display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+.fa-pitch-row:last-child { border-bottom:none; }
+.fa-pitch-name { color:var(--text); }
+.fa-pitch-stats { display:flex; gap:12px; color:var(--text2); font-size:11px; }
+.fa-pitch-stats span { color:var(--text); font-weight:600; }
+
+.fa-select-btn { display:block; width:100%; margin-top:12px; background:linear-gradient(135deg,#c8daea,#8fafc8); color:var(--bg); border:none; border-radius:6px; padding:8px; font-family:'Barlow Condensed'; font-size:15px; font-weight:700; letter-spacing:1px; cursor:pointer; }
+.fa-select-btn:disabled { opacity:0.35; cursor:not-allowed; background:var(--surface3); color:var(--text2); }
+
+/* ── DRAFT BOARD TAB ────────────────────────────────────── */
+.fa-board { padding:1rem; max-width:800px; margin:0 auto; }
+.fa-board-round { margin-bottom:1.5rem; }
+.fa-board-round-label { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--text2); margin-bottom:8px; }
+.fa-board-pick { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:6px; margin-bottom:4px; background:var(--surface2); border:1px solid rgba(255,255,255,0.04); font-size:13px; }
+.fa-board-pick.on-clock { border-color:var(--green); background:rgba(46,204,113,0.06); }
+.fa-board-pick.done { opacity:0.7; }
+.fa-board-pick-num { font-family:'Barlow Condensed'; color:var(--text2); width:28px; flex-shrink:0; }
+.fa-board-pick-member { flex:1; }
+.fa-board-pick-result { font-family:'Barlow Condensed'; font-size:13px; color:var(--gold2); }
+
+/* ── MY PICKS TAB ───────────────────────────────────────── */
+.fa-my-picks { padding:1rem; max-width:800px; margin:0 auto; }
+
+/* ── EXPORT ─────────────────────────────────────────────── */
+.fa-export { padding:1rem; max-width:800px; margin:0 auto; }
+.fa-export-btns { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:1.5rem; }
+
+/* ── RECAP ──────────────────────────────────────────────── */
+.fa-recap { padding:2rem 1.5rem; max-width:640px; margin:0 auto; text-align:center; }
+.fa-recap h2 { font-family:'Bebas Neue'; font-size:44px; letter-spacing:3px; margin-bottom:0.5rem; }
+
+/* ── TOAST ──────────────────────────────────────────────── */
+#fa-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--surface3); border:1px solid var(--border); border-radius:8px; padding:10px 20px; font-size:14px; z-index:999; pointer-events:none; opacity:0; transition:opacity 0.2s; white-space:nowrap; }
+#fa-toast.show { opacity:1; }
+
+/* ── RESPONSIVE ─────────────────────────────────────────── */
+@media (max-width:480px) {
+  .fa-setup { padding:1rem; }
+  .fa-on-clock { flex-wrap:wrap; }
+  .fa-timer { margin-left:0; width:100%; }
+  .fa-attr-grid { grid-template-columns:1fr; }
+}
