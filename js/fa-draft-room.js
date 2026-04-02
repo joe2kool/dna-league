@@ -106,9 +106,10 @@ const FADraftRoom = (() => {
       status:       d.status,
       timerSeconds: d.timer_seconds || 0,
       settings: {
-        ratingMin: settings.ratingMin ?? 70,
-        ratingMax: settings.ratingMax ?? 79,
-        rounds:    settings.rounds    ?? 1,
+        ratingMin:  settings.ratingMin  ?? 70,
+        ratingMax:  settings.ratingMax  ?? 79,
+        rounds:     settings.rounds     ?? 1,
+        timerEndAt: settings.timerEndAt ?? null,
       },
       slots,
     };
@@ -284,6 +285,7 @@ const FADraftRoom = (() => {
     _broadcast({ type: 'skip_window_start', pickNumber: slot.pickNumber, endTime: _timerEndTime });
     if (typeof updateOnClock === 'function') updateOnClock();
     if (typeof checkYourTurn === 'function') checkYourTurn();
+    if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
     _timerSeconds = SKIP_WINDOW_SECS;
     _renderTimer();
     _timer = setInterval(() => {
@@ -416,6 +418,11 @@ const FADraftRoom = (() => {
     // If we just resolved a re-pick window slot, remove it from the queue before routing.
     if (_inSkipWindow) _skipQueue.shift();
     await _nextState();
+    // Broadcast timer start ONCE from the pick-maker so remote clients sync to the same clock.
+    if (_timerTotal && !_isComplete) {
+      _broadcast({ type: 'timer_start', endTime: _timerEndTime });
+      await _saveTimerEndToDB();
+    }
     if (typeof renderDraftBoard === 'function') renderDraftBoard();
     if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
   }
@@ -423,8 +430,6 @@ const FADraftRoom = (() => {
   function _advancePick() {
     resetTimer();
     startTimer();
-    // Broadcast absolute end time so all connected clients display the same countdown.
-    if (_timerTotal) _broadcast({ type: 'timer_start', endTime: _timerEndTime });
     if (typeof updateOnClock === 'function') updateOnClock();
     if (typeof checkYourTurn === 'function') checkYourTurn();
     const next = _getCurrentPick();
@@ -682,6 +687,13 @@ ${teamSections}
     if (res.error) console.error('_savePickToDB:', res.error.message);
   }
 
+  async function _saveTimerEndToDB() {
+    if (!_draft?.id || !_timerEndTime) return;
+    _draft.settings.timerEndAt = new Date(_timerEndTime).toISOString();
+    const res = await _db.from('drafts').update({ settings: _draft.settings }).eq('id', _draft.id);
+    if (res.error) console.error('_saveTimerEndToDB:', res.error.message);
+  }
+
   async function _saveSkipToDB(slot) {
     if (!slot._dbId) return;
     const res = await _db.from('draft_slots').update({ skipped: true }).eq('id', slot._dbId);
@@ -739,7 +751,9 @@ ${teamSections}
         const sqIdx = _skipQueue.indexOf(slot);
         if (sqIdx !== -1) _skipQueue.splice(sqIdx, 1);
         _inSkipWindow = false;
-        _advancePick();
+        // Do NOT call _advancePick() here — the pick-maker will broadcast timer_start.
+        if (typeof updateOnClock === 'function') updateOnClock();
+        if (typeof checkYourTurn === 'function') checkYourTurn();
         if (typeof renderDraftBoard === 'function') renderDraftBoard();
         if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
       }

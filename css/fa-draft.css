@@ -63,6 +63,7 @@ body { background:var(--bg); color:var(--text); font-family:'Barlow',sans-serif;
 .fa-filter-bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:1rem; align-items:center; }
 .fa-filter-btn { background:var(--surface3); border:1px solid rgba(255,255,255,0.08); border-radius:20px; padding:4px 12px; font-size:12px; cursor:pointer; color:var(--text2); }
 .fa-filter-btn.active { background:rgba(168,189,212,0.12); border-color:rgba(168,189,212,0.4); color:var(--text); }
+.fa-search-bar { display:flex; flex-wrap:wrap; gap:8px; padding:10px 12px; border-bottom:1px solid var(--border); align-items:center; }
 
 .fa-player-row { background:var(--surface2); border-radius:8px; margin-bottom:6px; overflow:hidden; border:1px solid rgba(255,255,255,0.04); }
 .fa-player-row-header { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; }
