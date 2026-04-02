@@ -485,11 +485,16 @@ async function enterDraftRoom(draftId) {
 }
 
 async function getSeasonTeamAbbrs(seasonId) {
+  // FA draft pools from UNDRAFTED teams — all MLB teams minus those assigned in this season
   const res = await db.from('league_teams')
-    .select('mlb_team_id, mlb_teams(abbreviation)')
+    .select('mlb_teams(abbreviation)')
     .eq('season_id', seasonId)
     .not('mlb_team_id', 'is', null);
-  return (res.data || []).map(r => r.mlb_teams?.abbreviation).filter(Boolean);
+  const draftedAbbrs = new Set((res.data || []).map(r => r.mlb_teams?.abbreviation).filter(Boolean));
+  // Return all teams from config that were NOT drafted
+  return DNA_CONFIG.mlbTeams
+    .map(t => t.abbr)
+    .filter(abbr => !draftedAbbrs.has(abbr));
 }
 
 // ── ON-CLOCK / TURN ───────────────────────────────────────
