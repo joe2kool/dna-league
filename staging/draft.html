@@ -531,9 +531,15 @@ function enterDraftRoom(draft) {
   DraftUI.renderAvailableTeams(draft.availableTeams, draft.teamRatings || _teamRatings);
   updateOnClock();
 
-  // Start timer if active
+  // Start timer if active — pass stored endTime so late joiners sync to remaining time
   if (draft.status === 'active') {
-    DraftRoom.startTimer();
+    const endTime = draft.timerEndAt ? new Date(draft.timerEndAt).getTime() : null;
+    DraftRoom.startTimer(endTime || undefined);
+    // If no endTime stored yet (draft just launched), broadcast + persist for all clients.
+    if (!endTime && DnaAuth.isAdmin(_member)) {
+      DraftRoom.broadcast({ type: 'timer_start', endTime: DraftRoom.getTimerEndTime() });
+      DraftRoom.saveTimerEnd();
+    }
     checkYourTurn();
   }
 
@@ -645,7 +651,7 @@ async function manualSkipCurrent() {
     DraftUI.toast('Main picks complete! Skipped players may now pick.');
     updateOnClock();
   } else {
-    DraftRoom.startTimer();
+    DraftRoom.advancePick();
     updateOnClock();
     checkYourTurn();
   }
