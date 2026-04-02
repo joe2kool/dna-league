@@ -648,8 +648,9 @@ function renderPlayerDetail(p, idx, canPick) {
       <div class="fa-attr-label">Pitching</div>
       <div class="fa-attr-grid">
         ${[['Velocity', p.velocity],['Control', p.control],['Break', p.break_rating],
-           ['Stamina', p.stamina],['K/BF', p.k_per_bf],['BB/BF', p.bb_per_bf],
-           ['HR/BF', p.hr_per_bf],['Clutch', p.pitching_clutch]
+           ['Stamina', p.stamina],['K/BF vs L', p.k_per_bf_l],['K/BF vs R', p.k_per_bf_r],
+           ['H/BF vs L', p.hits_per_bf_l],['H/BF vs R', p.hits_per_bf_r],
+           ['BB/BF', p.bb_per_bf],['HR/BF', p.hr_per_bf],['Clutch', p.pitching_clutch]
           ].map(([n,v]) => `<div class="fa-attr-row"><span class="fa-attr-name">${n}</span><span class="fa-attr-val ${attrColor(v)}">${attrVal(v)}</span></div>`).join('')}
       </div>
     </div>`;
