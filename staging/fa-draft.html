@@ -223,7 +223,9 @@ let currentSeason = null;
 let mlbTeamsLookup = [];
 let activeDraftId     = null;
 let activeDraftRounds = 1;
-let currentPosFilter = 'ALL';
+let currentPosFilter  = 'ALL';
+let currentPlayerPage = 0;
+const PLAYERS_PER_PAGE = 50;
 
 // ── TOAST ─────────────────────────────────────────────────
 function faToast(msg, dur) {
@@ -560,27 +562,47 @@ function togglePause() {
 
 // ── RENDER: AVAILABLE PLAYERS ─────────────────────────────
 function filterPlayers(group, btn) {
-  currentPosFilter = group;
+  currentPosFilter  = group;
+  currentPlayerPage = 0;
   document.querySelectorAll('.fa-filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderAvailablePlayers();
 }
+
+function playerPageNav(dir) {
+  currentPlayerPage += dir;
+  renderAvailablePlayers();
+}
+window.playerPageNav = playerPageNav;
 window.filterPlayers = filterPlayers;
 
 function renderAvailablePlayers() {
-  const players = FADraftRoom.getAvailablePlayers(currentPosFilter);
-  const canPick  = FADraftRoom.canPick(currentMember?.id);
-  const el = document.getElementById('fa-player-list-inner');
+  const allPlayers = FADraftRoom.getAvailablePlayers(currentPosFilter);
+  const canPick    = FADraftRoom.canPick(currentMember?.id);
+  const el         = document.getElementById('fa-player-list-inner');
 
-  if (!players.length) {
+  if (!allPlayers.length) {
     el.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text2);font-size:13px;">No available players in this range.</div>';
     return;
   }
 
+  const totalPages = Math.ceil(allPlayers.length / PLAYERS_PER_PAGE);
+  currentPlayerPage = Math.max(0, Math.min(currentPlayerPage, totalPages - 1));
+  const start   = currentPlayerPage * PLAYERS_PER_PAGE;
+  const players = allPlayers.slice(start, start + PLAYERS_PER_PAGE);
+
+  const pagination = totalPages > 1 ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;font-size:12px;color:var(--text2);border-top:1px solid var(--border);">
+      <button type="button" class="btn btn-outline btn-sm" onclick="playerPageNav(-1)" ${currentPlayerPage === 0 ? 'disabled' : ''}>‹ Prev</button>
+      <span>Page ${currentPlayerPage + 1} of ${totalPages} &nbsp;·&nbsp; ${allPlayers.length} players</span>
+      <button type="button" class="btn btn-outline btn-sm" onclick="playerPageNav(1)" ${currentPlayerPage >= totalPages - 1 ? 'disabled' : ''}>Next ›</button>
+    </div>` : '';
+
   el.innerHTML = players.map((p, idx) => {
+    const globalIdx = start + idx;
     const tier = p.overall >= 85 ? 'diamond' : p.overall >= 80 ? 'gold' : p.overall >= 75 ? 'silver' : p.overall >= 70 ? 'bronze' : 'common';
-    return `<div class="fa-player-row" id="fpr-${idx}">
-      <div class="fa-player-row-header" onclick="togglePlayerDetail(${idx})">
+    return `<div class="fa-player-row" id="fpr-${globalIdx}">
+      <div class="fa-player-row-header" onclick="togglePlayerDetail(${globalIdx})">
         <div class="fa-ovr-badge ${tier}">${p.overall}</div>
         <div>
           <div class="fa-player-name">${escHtml(p.name)}</div>
@@ -588,11 +610,11 @@ function renderAvailablePlayers() {
         </div>
         <button type="button" class="fa-expand-btn">▼ Details</button>
       </div>
-      <div class="fa-player-detail" id="fpd-${idx}" style="display:none;">
-        ${renderPlayerDetail(p, idx, canPick)}
+      <div class="fa-player-detail" id="fpd-${globalIdx}" style="display:none;">
+        ${renderPlayerDetail(p, globalIdx, canPick)}
       </div>
     </div>`;
-  }).join('');
+  }).join('') + pagination;
 }
 window.renderAvailablePlayers = renderAvailablePlayers;
 
@@ -606,10 +628,15 @@ function togglePlayerDetail(idx) {
 window.togglePlayerDetail = togglePlayerDetail;
 
 function attrColor(val) {
+  if (!val) return '';
   if (val >= 85) return 'high';
   if (val >= 70) return 'mid';
   if (val >= 55) return 'low';
   return 'vlow';
+}
+
+function attrVal(v) {
+  return (v || v === 0) && v > 0 ? v : '—';
 }
 
 function renderPlayerDetail(p, idx, canPick) {
@@ -621,9 +648,9 @@ function renderPlayerDetail(p, idx, canPick) {
       <div class="fa-attr-label">Pitching</div>
       <div class="fa-attr-grid">
         ${[['Velocity', p.velocity],['Control', p.control],['Break', p.break_rating],
-           ['Stamina', p.stamina],['K/9', p.k_per_bf],['BB/9', p.bb_per_bf],
-           ['HR/9', p.hr_per_bf],['Clutch', p.pitching_clutch]
-          ].map(([n,v]) => `<div class="fa-attr-row"><span class="fa-attr-name">${n}</span><span class="fa-attr-val ${attrColor(v||0)}">${v||0}</span></div>`).join('')}
+           ['Stamina', p.stamina],['K/BF', p.k_per_bf],['BB/BF', p.bb_per_bf],
+           ['HR/BF', p.hr_per_bf],['Clutch', p.pitching_clutch]
+          ].map(([n,v]) => `<div class="fa-attr-row"><span class="fa-attr-name">${n}</span><span class="fa-attr-val ${attrColor(v)}">${attrVal(v)}</span></div>`).join('')}
       </div>
     </div>`;
     if (p.pitch_arsenal && p.pitch_arsenal.length) {
@@ -643,15 +670,15 @@ function renderPlayerDetail(p, idx, canPick) {
         ${[['Contact L', p.contact_left],['Contact R', p.contact_right],
            ['Power L', p.power_left],['Power R', p.power_right],
            ['Vision', p.plate_vision],['Discipline', p.plate_discipline],['Clutch', p.clutch]
-          ].map(([n,v]) => `<div class="fa-attr-row"><span class="fa-attr-name">${n}</span><span class="fa-attr-val ${attrColor(v||0)}">${v||0}</span></div>`).join('')}
+          ].map(([n,v]) => `<div class="fa-attr-row"><span class="fa-attr-name">${n}</span><span class="fa-attr-val ${attrColor(v)}">${attrVal(v)}</span></div>`).join('')}
       </div>
     </div>
     <div class="fa-attr-section">
       <div class="fa-attr-label">Speed & Fielding</div>
       <div class="fa-attr-grid">
         ${[['Speed', p.speed],['Stealing', p.stealing],
-           ['Fielding', p.fielding],['Arm Strength', p.arm_strength],['Arm Accuracy', p.arm_accuracy]
-          ].map(([n,v]) => `<div class="fa-attr-row"><span class="fa-attr-name">${n}</span><span class="fa-attr-val ${attrColor(v||0)}">${v||0}</span></div>`).join('')}
+           ['Fielding', p.fielding],['Arm Str', p.arm_strength],['Arm Acc', p.arm_accuracy]
+          ].map(([n,v]) => `<div class="fa-attr-row"><span class="fa-attr-name">${n}</span><span class="fa-attr-val ${attrColor(v)}">${attrVal(v)}</span></div>`).join('')}
       </div>
     </div>`;
   }

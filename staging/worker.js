@@ -108,10 +108,10 @@ export default {
 
         const allListings = listingResults.flatMap(r => r.listings || []);
 
-        // Filter to OVR range; cap at 40 to stay within CF subrequest limits
+        // Filter to OVR range; cap at 20 to stay well within CF subrequest limits
         const inRange = allListings
           .filter(l => l.item && l.item.uuid && l.item.ovr >= min && l.item.ovr <= max && l.item.name)
-          .slice(0, 40);
+          .slice(0, 20);
 
         // Step 2: Fetch full item data (attrs, quirks, pitches) for each player in range
         const itemResults = await Promise.all(inRange.map(l =>
@@ -134,7 +134,7 @@ export default {
               rarity:   i.rarity || '',
               bats:     i.bat_hand || '',
               throws:   i.throw_hand || '',
-              quirks:   (i.quirks || []).map(q => q.name || q).filter(Boolean),
+              quirks:   (Array.isArray(i.quirks) ? i.quirks : []).map(q => q.name || q).filter(Boolean),
             };
             if (isPitcher) {
               return {
@@ -148,7 +148,7 @@ export default {
                 velocity:        i.pitch_velocity  || 0,
                 control:         i.pitch_control   || 0,
                 break_rating:    i.pitch_movement  || 0,
-                pitch_arsenal: (i.pitches || []).map(p => ({
+                pitch_arsenal: (Array.isArray(i.pitches) ? i.pitches : []).map(p => ({
                   name:  p.name     || '',
                   speed: p.speed    || 0,
                   break: p.movement || 0,

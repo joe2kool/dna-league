@@ -24,6 +24,14 @@ const FADraftRoom = (() => {
   let _isPaused  = false;
   let _isComplete = false;
 
+  // Skip-queue state: timer expiry / manual skip adds the slot here;
+  // after all regular picks finish, each slot gets a 15-second re-pick window.
+  // If still unused the slot moves to _autoPickQueue for end-of-draft auto-assignment.
+  let _skipQueue     = [];
+  let _autoPickQueue = [];
+  let _inSkipWindow  = false;
+  const SKIP_WINDOW_SECS = 15;
+
   // ── HTML ESCAPE ───────────────────────────────────────────
   function _esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -229,28 +237,127 @@ const FADraftRoom = (() => {
     if (!_draft) return;
     const cur = _getCurrentPick();
     if (!cur) return;
-    faToast(`⏰ Time expired for ${cur.memberName} — skipping`);
-    cur.skipped = true;
-    await _saveSkipToDB(cur);
-    _broadcast({ type: 'skip', pickNumber: cur.pickNumber });
-    const remaining = _draft.slots.filter(s => !s.pickedPlayerName && !s.skipped);
-    if (remaining.length === 0) {
-      await _completeDraft();
+
+    if (_inSkipWindow) {
+      // The 15-second re-pick window itself expired.
+      await _onSkipWindowExpired();
+      return;
+    }
+
+    // Regular pick timer expired — defer to skip queue, not permanent skip.
+    faToast(`⏰ Time expired for ${cur.memberName} — re-pick window coming after remaining picks`);
+    _skipQueue.push(cur);
+    _broadcast({ type: 'timed_out', pickNumber: cur.pickNumber });
+
+    const regularLeft = _regularRemaining();
+    if (regularLeft.length === 0) {
+      _enterSkipWindow();
     } else {
       _advancePick();
     }
     if (typeof renderDraftBoard === 'function') renderDraftBoard();
   }
 
+  // Opens a 15-second re-pick window for _skipQueue[0].
+  function _enterSkipWindow() {
+    if (!_skipQueue.length) return;
+    _inSkipWindow = true;
+    stopTimer();
+    const slot = _skipQueue[0];
+    faToast(`⏱ ${slot.memberName} has ${SKIP_WINDOW_SECS}s to re-pick`);
+    _broadcast({ type: 'skip_window_start', pickNumber: slot.pickNumber });
+    if (typeof updateOnClock === 'function') updateOnClock();
+    if (typeof checkYourTurn === 'function') checkYourTurn();
+    _timerSeconds = SKIP_WINDOW_SECS;
+    _renderTimer();
+    _timer = setInterval(() => {
+      if (_isPaused) return;
+      _timerSeconds--;
+      _renderTimer();
+      if (_timerSeconds <= 0) {
+        stopTimer();
+        _onSkipWindowExpired();
+      }
+    }, 1000);
+  }
+
+  // Re-pick window elapsed — permanently skip and move to auto-pick queue.
+  async function _onSkipWindowExpired() {
+    const slot = _skipQueue.shift();
+    if (!slot) { _inSkipWindow = false; return; }
+    slot.skipped = true;
+    await _saveSkipToDB(slot);
+    _autoPickQueue.push(slot);
+    _broadcast({ type: 'skip_window_expired', pickNumber: slot.pickNumber });
+    faToast(`${slot.memberName}'s re-pick window expired — auto-assigning at draft end`);
+    await _nextState();
+  }
+
+  // Central routing after any pick or skip-window resolution.
+  async function _nextState() {
+    _inSkipWindow = false;
+
+    // More skip-queue members waiting for their re-pick window?
+    if (_skipQueue.length > 0) {
+      _enterSkipWindow();
+      return;
+    }
+
+    // Regular picks done?
+    if (_regularRemaining().length === 0) {
+      if (_autoPickQueue.length > 0) {
+        await _processAutoPickQueue();
+      } else {
+        await _completeDraft();
+      }
+      return;
+    }
+
+    _advancePick();
+  }
+
+  // Assigns the highest available player to each permanently-skipped slot, then completes.
+  async function _processAutoPickQueue() {
+    for (const slot of _autoPickQueue) {
+      const available = getAvailablePlayers(null);
+      if (!available.length) break;
+      const player = available[0];
+      slot.pickedPlayerName   = player.name;
+      slot.pickedPlayerRating = player.overall;
+      slot.pickedPlayerPos    = player.pos;
+      slot.pickedFromTeam     = player.fromTeam;
+      slot.pickedAt           = new Date().toISOString();
+      _pickedPlayerIds.add(`${player.name}|${player.fromTeam}`);
+      _broadcast({ type: 'pick', pickNumber: slot.pickNumber, playerName: player.name,
+                   playerRating: player.overall, playerPos: player.pos, fromTeam: player.fromTeam });
+      await _savePickToDB(slot, player);
+      faToast(`🤖 Auto-assigned ${player.name} to ${slot.memberName}`);
+    }
+    _autoPickQueue = [];
+    if (typeof renderDraftBoard === 'function') renderDraftBoard();
+    if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
+    await _completeDraft();
+  }
+
   // ── PICK LOGIC ────────────────────────────────────────────
+  // Slots that are in the skip queue have NOT been permanently skipped — they are
+  // just deferred and excluded from the normal pick sequence.
+  function _regularRemaining() {
+    if (!_draft?.slots) return [];
+    return _draft.slots.filter(s => !s.pickedPlayerName && !s.skipped && !_skipQueue.includes(s));
+  }
+
   function _getCurrentPick() {
     if (!_draft?.slots) return null;
-    return _draft.slots.find(s => !s.pickedPlayerName && !s.skipped) || null;
+    // During a re-pick window, the on-clock seat is the head of the skip queue.
+    if (_inSkipWindow && _skipQueue.length) return _skipQueue[0];
+    return _draft.slots.find(s => !s.pickedPlayerName && !s.skipped && !_skipQueue.includes(s)) || null;
   }
 
   function _getNextPick() {
     if (!_draft?.slots) return null;
-    const active = _draft.slots.filter(s => !s.pickedPlayerName && !s.skipped);
+    if (_inSkipWindow) return _skipQueue[1] || null;
+    const active = _draft.slots.filter(s => !s.pickedPlayerName && !s.skipped && !_skipQueue.includes(s));
     return active[1] || null;
   }
 
@@ -291,12 +398,9 @@ const FADraftRoom = (() => {
 
     await _savePickToDB(cur, player);
 
-    const remaining = _draft.slots.filter(s => !s.pickedPlayerName && !s.skipped);
-    if (remaining.length === 0) {
-      await _completeDraft();
-    } else {
-      _advancePick();
-    }
+    // If we just resolved a re-pick window slot, remove it from the queue before routing.
+    if (_inSkipWindow) _skipQueue.shift();
+    await _nextState();
     if (typeof renderDraftBoard === 'function') renderDraftBoard();
     if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
   }
@@ -368,17 +472,24 @@ const FADraftRoom = (() => {
     if (!_isAdminMember()) return;
     const cur = _getCurrentPick();
     if (!cur) return;
-    cur.skipped = true;
-    await _saveSkipToDB(cur);
-    _broadcast({ type: 'skip', pickNumber: cur.pickNumber });
-    const remaining = _draft.slots.filter(s => !s.pickedPlayerName && !s.skipped);
-    if (remaining.length === 0) {
-      await _completeDraft();
+
+    if (_inSkipWindow) {
+      // Commissioner manually ends the re-pick window for the current queued slot.
+      await _onSkipWindowExpired();
+      return;
+    }
+
+    // Defer to skip queue — player gets a 15s re-pick window after remaining picks.
+    _skipQueue.push(cur);
+    _broadcast({ type: 'timed_out', pickNumber: cur.pickNumber });
+    const regularLeft = _regularRemaining();
+    if (regularLeft.length === 0) {
+      _enterSkipWindow();
     } else {
       _advancePick();
     }
     if (typeof renderDraftBoard === 'function') renderDraftBoard();
-    faToast(`Skipped ${cur.memberName}`);
+    faToast(`${cur.memberName} skipped — re-pick window coming after remaining picks`);
   }
 
   async function endDraftEarly() {
@@ -596,11 +707,45 @@ ${teamSections}
         slot.pickedFromTeam     = payload.fromTeam;
         slot.pickedAt           = new Date().toISOString();
         _pickedPlayerIds.add(`${payload.playerName}|${payload.fromTeam}`);
+        // If this was a re-pick window pick, remove from skip queue.
+        const sqIdx = _skipQueue.indexOf(slot);
+        if (sqIdx !== -1) _skipQueue.splice(sqIdx, 1);
+        _inSkipWindow = false;
         _advancePick();
         if (typeof renderDraftBoard === 'function') renderDraftBoard();
         if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
       }
+    } else if (payload.type === 'timed_out') {
+      const slot = _draft.slots.find(s => s.pickNumber === payload.pickNumber);
+      if (slot && !_skipQueue.includes(slot)) {
+        _skipQueue.push(slot);
+        const regularLeft = _regularRemaining();
+        if (regularLeft.length === 0) {
+          _enterSkipWindow();
+        } else {
+          if (typeof renderDraftBoard === 'function') renderDraftBoard();
+          if (typeof updateOnClock === 'function') updateOnClock();
+        }
+      }
+    } else if (payload.type === 'skip_window_start') {
+      const slot = _draft.slots.find(s => s.pickNumber === payload.pickNumber);
+      if (slot) {
+        _inSkipWindow = true;
+        if (typeof updateOnClock === 'function') updateOnClock();
+        if (typeof checkYourTurn === 'function') checkYourTurn();
+      }
+    } else if (payload.type === 'skip_window_expired') {
+      const idx = _skipQueue.findIndex(s => s.pickNumber === payload.pickNumber);
+      if (idx !== -1) {
+        const slot = _skipQueue.splice(idx, 1)[0];
+        slot.skipped = true;
+        _autoPickQueue.push(slot);
+        _inSkipWindow = false;
+        if (_skipQueue.length) _enterSkipWindow();
+        else if (typeof renderDraftBoard === 'function') renderDraftBoard();
+      }
     } else if (payload.type === 'skip') {
+      // Legacy permanent-skip event — treat same as skip_window_expired for compatibility.
       const slot = _draft.slots.find(s => s.pickNumber === payload.pickNumber);
       if (slot) { slot.skipped = true; _advancePick(); if (typeof renderDraftBoard === 'function') renderDraftBoard(); }
     } else if (payload.type === 'undo') {
