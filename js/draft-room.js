@@ -94,6 +94,8 @@ const DraftRoom = (() => {
       seasonId:     d.season_id,
       status:       d.status,
       timerSeconds: d.timer_seconds || DNA_CONFIG.draft.defaultTimerSeconds,
+      timerEndAt:   d.settings?.timerEndAt || null,
+      settings:     d.settings || {},
       slots,
       availableTeams,
       teamRatings:  {}, // populated in boot() after DnaRatings.getTeamRatings()
@@ -113,7 +115,7 @@ const DraftRoom = (() => {
     _renderTimer();
     _timer = setInterval(() => {
       if (_isPaused) return;
-      _timerSeconds--;
+      _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
       _renderTimer();
       if (_timerSeconds <= 0) {
         stopTimer();
@@ -275,8 +277,6 @@ const DraftRoom = (() => {
       }
     } else {
       _advancePick();
-      // Broadcast timer start ONCE from the pick-maker so remote clients sync to the same clock.
-      if (_timerTotal && !_isComplete) _broadcast({ type: 'timer_start', endTime: _timerEndTime });
     }
 
     DraftBoard.render(_draft);
@@ -286,6 +286,12 @@ const DraftRoom = (() => {
   function _advancePick() {
     resetTimer();
     startTimer();
+    // Broadcast absolute deadline + persist so ALL clients show the same countdown.
+    // Safe here because remote pick/skip handlers do NOT call _advancePick().
+    if (_timerTotal) {
+      _broadcast({ type: 'timer_start', endTime: _timerEndTime });
+      _saveTimerEndToDB();
+    }
     if (typeof updateOnClock === 'function') updateOnClock();
     if (typeof checkYourTurn === 'function') checkYourTurn();
     const next = _getCurrentPick();
@@ -346,10 +352,12 @@ const DraftRoom = (() => {
     if (!DnaAuth.isAdmin(_member)) return;
     _isPaused = false;
     _draft.status = 'active';
+    _timerEndTime = Date.now() + _timerSeconds * 1000;
+    startTimer(_timerEndTime);
     await _saveStatusToDB('active');
-    _broadcast({ type: 'resume' });
+    _broadcast({ type: 'resume', endTime: _timerEndTime });
+    _saveTimerEndToDB();
     DraftUI.updatePauseBtn(false);
-    startTimer();
     DraftUI.toast('Draft resumed');
   }
 
@@ -473,6 +481,15 @@ const DraftRoom = (() => {
     if (res.error) console.error('_saveStatusToDB:', res.error.message);
   }
 
+  function _saveTimerEndToDB() {
+    if (!_db || !_draft?.id || !_timerEndTime) return;
+    // Store in settings jsonb to avoid needing a schema migration.
+    const settings = Object.assign({}, _draft.settings || {}, { timerEndAt: new Date(_timerEndTime).toISOString() });
+    _draft.settings = settings;
+    _db.from('drafts').update({ settings }).eq('id', _draft.id)
+      .then(res => { if (res.error) console.error('_saveTimerEndToDB:', res.error.message); });
+  }
+
   async function _deletePickFromDB(slot) {
     if (!_db || !slot._dbId) return;
     const res = await _db.from('draft_picks').delete().eq('slot_id', slot._dbId);
@@ -551,7 +568,7 @@ const DraftRoom = (() => {
           if (_timerSeconds > 0) {
             _timer = setInterval(() => {
               if (_isPaused) return;
-              _timerSeconds--;
+              _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
               _renderTimer();
               if (_timerSeconds <= 0) { stopTimer(); _onTimerExpired(); }
             }, 1000);
@@ -559,7 +576,7 @@ const DraftRoom = (() => {
         }
         break;
       case 'resume':
-        _isPaused = false; startTimer();
+        _isPaused = false; startTimer(payload.endTime || undefined);
         DraftUI.updatePauseBtn(false);
         DraftUI.toast('Draft resumed');
         break;
@@ -595,9 +612,12 @@ const DraftRoom = (() => {
     startTimer, stopTimer, resetTimer,
     canPick, makePick, undoLastPick, overridePick,
     pauseDraft, resumeDraft,
-    saveSkip:   _saveSkipToDB,
-    saveStatus: _saveStatusToDB,
-    broadcast:  _broadcast,
+    advancePick:     _advancePick,
+    saveSkip:        _saveSkipToDB,
+    saveStatus:      _saveStatusToDB,
+    saveTimerEnd:    _saveTimerEndToDB,
+    getTimerEndTime: () => _timerEndTime,
+    broadcast:       _broadcast,
     subscribeRealtime, unsubscribeRealtime,
     getCurrentPick: _getCurrentPick,
     getNextPick:    _getNextPick,
