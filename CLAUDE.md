@@ -228,7 +228,7 @@ feature branch → staging (auto-deploys on merge) → main (production)
 
 - Always branch from `staging` (not `main`) for new features
 - When pulling before starting a branch: `git pull origin staging`
-- `gh` CLI is NOT installed — PRs must be opened manually on GitHub
+- `gh` CLI is installed — invoke via `cmd.exe /c "gh ..."` from bash if not on PATH directly
 - Commits include `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`
 
 ---
@@ -260,4 +260,4 @@ feature branch → staging (auto-deploys on merge) → main (production)
 - Windows 11, shell: bash (Git Bash / WSL) — use Unix path syntax
 - VSCode extension environment — file references should use markdown link format
 - No build tooling — edits go directly to source files
-- `gh` CLI not installed — use git push + manual GitHub PR creation
+- `gh` CLI is installed — invoke via `cmd.exe /c "gh ..."` from bash if not on PATH directly
