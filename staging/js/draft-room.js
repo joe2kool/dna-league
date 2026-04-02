@@ -17,6 +17,7 @@ const DraftRoom = (() => {
   let _timer        = null;   // setInterval handle
   let _timerSeconds = 0;      // current countdown value
   let _timerTotal   = 90;     // full duration for this draft
+  let _timerEndTime = 0;      // absolute ms timestamp when current countdown reaches 0
 
   let _isPaused     = false;
   let _isComplete   = false;
@@ -102,10 +103,13 @@ const DraftRoom = (() => {
   }
 
   // ── TIMER ─────────────────────────────────────────────────
-  function startTimer() {
+  // Pass an absolute endTime (ms) to sync to a remote clock;
+  // omit to start a fresh countdown from _timerTotal.
+  function startTimer(endTime) {
     stopTimer();
     if (_isPaused || _isComplete) return;
-    _timerSeconds = _timerTotal;
+    _timerEndTime = endTime || (Date.now() + _timerTotal * 1000);
+    _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
     _renderTimer();
     _timer = setInterval(() => {
       if (_isPaused) return;
@@ -280,6 +284,8 @@ const DraftRoom = (() => {
   function _advancePick() {
     resetTimer();
     startTimer();
+    // Broadcast absolute end time so all connected clients display the same countdown.
+    if (_timerTotal) _broadcast({ type: 'timer_start', endTime: _timerEndTime });
     if (typeof updateOnClock === 'function') updateOnClock();
     if (typeof checkYourTurn === 'function') checkYourTurn();
     const next = _getCurrentPick();
@@ -533,6 +539,22 @@ const DraftRoom = (() => {
         _isPaused = true; stopTimer();
         DraftUI.updatePauseBtn(true);
         DraftUI.toast('Commissioner paused the draft');
+        break;
+      case 'timer_start':
+        if (payload.endTime && !_isPaused && !_isComplete) {
+          stopTimer();
+          _timerEndTime = payload.endTime;
+          _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
+          _renderTimer();
+          if (_timerSeconds > 0) {
+            _timer = setInterval(() => {
+              if (_isPaused) return;
+              _timerSeconds--;
+              _renderTimer();
+              if (_timerSeconds <= 0) { stopTimer(); _onTimerExpired(); }
+            }, 1000);
+          }
+        }
         break;
       case 'resume':
         _isPaused = false; startTimer();
