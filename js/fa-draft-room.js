@@ -20,6 +20,7 @@ const FADraftRoom = (() => {
   let _timer        = null;
   let _timerSeconds = 0;
   let _timerTotal   = 120;
+  let _timerEndTime = 0;   // absolute ms timestamp when current countdown reaches 0
 
   let _isPaused  = false;
   let _isComplete = false;
@@ -206,10 +207,13 @@ const FADraftRoom = (() => {
   }
 
   // ── TIMER ─────────────────────────────────────────────────
-  function startTimer() {
+  // Start countdown. Pass an absolute endTime (ms) to sync to a remote clock;
+  // omit to start a fresh countdown from _timerTotal.
+  function startTimer(endTime) {
     if (!_timerTotal || _isPaused || _isComplete) return;
     stopTimer();
-    _timerSeconds = _timerTotal;
+    _timerEndTime = endTime || (Date.now() + _timerTotal * 1000);
+    _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
     _renderTimer();
     _timer = setInterval(() => {
       if (_isPaused) return;
@@ -274,8 +278,10 @@ const FADraftRoom = (() => {
     _inSkipWindow = true;
     stopTimer();
     const slot = _skipQueue[0];
+    _timerEndTime = Date.now() + SKIP_WINDOW_SECS * 1000;
     faToast(`⏱ ${slot.memberName} has ${SKIP_WINDOW_SECS}s to re-pick`);
-    _broadcast({ type: 'skip_window_start', pickNumber: slot.pickNumber });
+    // Include endTime so remote clients show the same countdown.
+    _broadcast({ type: 'skip_window_start', pickNumber: slot.pickNumber, endTime: _timerEndTime });
     if (typeof updateOnClock === 'function') updateOnClock();
     if (typeof checkYourTurn === 'function') checkYourTurn();
     _timerSeconds = SKIP_WINDOW_SECS;
@@ -417,6 +423,8 @@ const FADraftRoom = (() => {
   function _advancePick() {
     resetTimer();
     startTimer();
+    // Broadcast absolute end time so all connected clients display the same countdown.
+    if (_timerTotal) _broadcast({ type: 'timer_start', endTime: _timerEndTime });
     if (typeof updateOnClock === 'function') updateOnClock();
     if (typeof checkYourTurn === 'function') checkYourTurn();
     const next = _getCurrentPick();
@@ -521,7 +529,7 @@ const FADraftRoom = (() => {
           pick:                s.pickNumber,
           playerName:          s.pickedPlayerName,
           playerOvr:           s.pickedPlayerRating,
-          playerPos:           s.pickedPlayerPos || '',
+          playerPos:           s.pickedPlayerPos || _playerPool.find(p => p.name === s.pickedPlayerName && p.fromTeam === s.pickedFromTeam)?.pos || '',
           originalTeam:        s.pickedFromTeam  || '',
           draftedBy:           s.memberName,
           tradeReturnName:     tradeReturn?.name    || '—',
@@ -538,8 +546,12 @@ const FADraftRoom = (() => {
     const candidates = _tradeReturnPool[teamAbbr];
     if (!candidates || !candidates.length) return null;
 
+    // pickedPlayerPos is null after a DB reload — look it up from the loaded player pool.
+    const pos = slot.pickedPlayerPos
+      || _playerPool.find(p => p.name === slot.pickedPlayerName && p.fromTeam === slot.pickedFromTeam)?.pos
+      || '';
     // candidates already sorted ascending by OVR (lowest first)
-    const group = _tradeGroup(slot.pickedPlayerPos || '');
+    const group = _tradeGroup(pos);
     const pitchers   = candidates.filter(p => _posGroup(p.pos) === 'P');
     const posPlayers = candidates.filter(p => _posGroup(p.pos) !== 'P');
 
@@ -743,10 +755,41 @@ ${teamSections}
           if (typeof updateOnClock === 'function') updateOnClock();
         }
       }
+    } else if (payload.type === 'timer_start') {
+      // Sync countdown to the broadcaster's absolute end time.
+      if (payload.endTime && _timerTotal && !_isPaused && !_isComplete) {
+        stopTimer();
+        _timerEndTime = payload.endTime;
+        _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
+        _renderTimer();
+        if (_timerSeconds > 0) {
+          _timer = setInterval(() => {
+            if (_isPaused) return;
+            _timerSeconds--;
+            _renderTimer();
+            if (_timerSeconds <= 0) { stopTimer(); _onTimerExpired(); }
+          }, 1000);
+        }
+      }
     } else if (payload.type === 'skip_window_start') {
       const slot = _draft.slots.find(s => s.pickNumber === payload.pickNumber);
       if (slot) {
         _inSkipWindow = true;
+        // Sync the 15s countdown to the broadcaster's clock.
+        if (payload.endTime) {
+          stopTimer();
+          _timerEndTime = payload.endTime;
+          _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
+          _renderTimer();
+          if (_timerSeconds > 0) {
+            _timer = setInterval(() => {
+              if (_isPaused) return;
+              _timerSeconds--;
+              _renderTimer();
+              if (_timerSeconds <= 0) { stopTimer(); _onTimerExpired(); }
+            }, 1000);
+          }
+        }
         if (typeof updateOnClock === 'function') updateOnClock();
         if (typeof checkYourTurn === 'function') checkYourTurn();
       }
