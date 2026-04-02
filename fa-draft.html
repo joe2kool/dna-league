@@ -215,13 +215,14 @@
 
 <script>
 // ── GLOBALS ───────────────────────────────────────────────
-const db = supabase.createClient(DNA_CONFIG.supabase.url, DNA_CONFIG.supabase.anonKey);
+const db = supabase.createClient(DNA_CONFIG.supabase.url, DNA_CONFIG.supabase.anon);
 let currentUser   = null;
 let currentMember = null;
 let currentLeague = null;
 let currentSeason = null;
 let mlbTeamsLookup = [];
-let activeDraftId  = null;
+let activeDraftId     = null;
+let activeDraftRounds = 1;
 let currentPosFilter = 'ALL';
 
 // ── TOAST ─────────────────────────────────────────────────
@@ -438,6 +439,7 @@ async function enterDraftRoom(draftId) {
   try {
     const draft = await FADraftRoom.loadDraftFromDB(draftId);
     FADraftRoom.loadDraft(draft);
+    activeDraftRounds = draft.settings.rounds || 1;
 
     // Load player pool from Worker
     const seasonId = new URL(location.href).searchParams.get('season');
@@ -665,7 +667,7 @@ function renderDraftBoard() {
       if (res.error || !res.data) return;
       const slots = res.data;
       const cur = FADraftRoom.getCurrentPick?.();
-      const totalRounds = parseInt(document.getElementById('setup-rounds')?.value || '1') || 1;
+      const totalRounds = activeDraftRounds || 1;
       const membersPerRound = Math.ceil(slots.length / totalRounds);
 
       // Group by round

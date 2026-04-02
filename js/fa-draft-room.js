@@ -22,6 +22,11 @@ const FADraftRoom = (() => {
   let _isPaused  = false;
   let _isComplete = false;
 
+  // ── HTML ESCAPE ───────────────────────────────────────────
+  function _esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   // ── INIT ──────────────────────────────────────────────────
   function init(db, member) {
     _db     = db;
@@ -429,9 +434,9 @@ const FADraftRoom = (() => {
     rows.forEach(r => {
       lines.push([
         r.round, r.pick,
-        `"${r.playerName}"`, r.playerOvr, r.playerPos,
-        r.originalTeam, `"${r.draftedBy}"`,
-        `"${r.tradeReturnName}"`, r.tradeReturnOvr, r.tradeReturnPos,
+        `"${r.playerName.replace(/"/g,'""')}"`, r.playerOvr, r.playerPos,
+        r.originalTeam, `"${r.draftedBy.replace(/"/g,'""')}"`,
+        `"${String(r.tradeReturnName).replace(/"/g,'""')}"`, r.tradeReturnOvr, r.tradeReturnPos,
       ].join(','));
     });
     const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
@@ -457,26 +462,26 @@ const FADraftRoom = (() => {
     const teamSections = Object.keys(byTeam).sort().map(team => {
       const picks = byTeam[team];
       const tradeRows = picks.map((r, idx) => `
-        <div class="trade-row" id="tr-${team}-${idx}">
-          <input type="checkbox" onchange="document.getElementById('tr-${team}-${idx}').classList.toggle('done',this.checked);updateProgress()">
+        <div class="trade-row" id="tr-${_esc(team)}-${idx}">
+          <input type="checkbox" onchange="document.getElementById('tr-${_esc(team)}-${idx}').classList.toggle('done',this.checked);updateProgress()">
           <div class="trade-info">
             <div class="trade-player">
-              <strong>${r.playerName}</strong>
+              <strong>${_esc(r.playerName)}</strong>
               <span class="ovr-badge" style="color:${tierColor(r.playerOvr)};border-color:${tierColor(r.playerOvr)}">${r.playerOvr}</span>
-              <span class="pos">${r.playerPos}</span>
+              <span class="pos">${_esc(r.playerPos)}</span>
               <span class="pick-num">Rd ${r.round}, Pick ${r.pick}</span>
             </div>
             <div class="trade-details">
-              Drafted by: <strong>${r.draftedBy}</strong>
+              Drafted by: <strong>${_esc(r.draftedBy)}</strong>
               &nbsp;·&nbsp;
-              Trade return: <strong style="color:#d94040">${r.tradeReturnName}</strong>
+              Trade return: <strong style="color:#d94040">${_esc(r.tradeReturnName)}</strong>
               <span class="ovr-badge" style="color:#d94040;border-color:#d94040">${r.tradeReturnOvr}</span>
-              <span class="pos">${r.tradeReturnPos}</span>
+              <span class="pos">${_esc(r.tradeReturnPos)}</span>
             </div>
-            <div class="trade-hint">Rejoin as ${team} → trade ${r.playerName} to ${r.draftedBy}'s team</div>
+            <div class="trade-hint">Rejoin as ${_esc(team)} → trade ${_esc(r.playerName)} to ${_esc(r.draftedBy)}'s team</div>
           </div>
         </div>`).join('');
-      return `<div class="team-section"><div class="team-header">${team} &mdash; ${picks.length} trade${picks.length !== 1 ? 's' : ''}</div>${tradeRows}</div>`;
+      return `<div class="team-section"><div class="team-header">${_esc(team)} &mdash; ${picks.length} trade${picks.length !== 1 ? 's' : ''}</div>${tradeRows}</div>`;
     }).join('');
 
     const total = rows.length;
@@ -601,6 +606,8 @@ ${teamSections}
         if (typeof renderDraftBoard === 'function') renderDraftBoard();
         if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
         resetTimer(); startTimer();
+        if (typeof updateOnClock === 'function') updateOnClock();
+        if (typeof checkYourTurn === 'function') checkYourTurn();
       }
     } else if (payload.type === 'pause') {
       _isPaused = true; _draft.status = 'paused'; stopTimer();
