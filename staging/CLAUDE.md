@@ -19,15 +19,17 @@ Custom MLB The Show 26 online league management web app.
 ## File Structure
 
 ```
-index.html          — Main app (all pages except draft room)
-draft.html          — Live draft room (standalone page)
+index.html          — Main app (all pages except draft rooms)
+draft.html          — Live team draft room (standalone page)
+fa-draft.html       — FA draft room (standalone page, ?season=<id>)
 worker.js           — Cloudflare Worker source (deploy manually to Cloudflare)
 css/draft.css       — Draft room styles
 js/config.js        — Supabase config, MLB teams array, Worker URL
 js/auth.js          — Shared auth helpers (DnaAuth)
 js/ratings.js       — Live Series ratings fetcher (DnaRatings)
-js/draft-room.js    — Live draft engine (DraftRoom)
+js/draft-room.js    — Live team draft engine (DraftRoom)
 js/draft-board.js   — Draft board renderer (DraftBoard / DraftUI)
+js/fa-draft-room.js — FA draft engine (FADraftRoom)
 .github/workflows/
   security-pipeline.yml   — Secret scan, lint, HTML validation on every push
   deploy-staging.yml      — Auto-deploy to staging branch
@@ -60,7 +62,8 @@ All pages are `<div id="page-X" class="page">` toggled via `showPage(id, tabEl)`
 | `dna_league` | `{ players[], lastResult, draftsGenerated, draftMode, slotCount, activityLog[] }` |
 | `dna_seasons` | `{ seasons[] }` |
 | `dna_schedule` | `{ generatedWeeks[], seriesLength, matchupsPerWeek, seasonId, savedAt }` |
-| `dna_live_draft` | Active draft session state |
+
+**Note:** `dna_live_draft` localStorage key is abandoned — draft state lives entirely in Supabase.
 
 **Supabase sync:** Only for real auth accounts. `syncPlayersFromDB()` merges DB users into existing localStorage state — never replaces. `loadState()` must run BEFORE `syncPlayersFromDB()`. Draft history (Supabase-sourced entries with `dbPickId`) is rebuilt from scratch on every sync so deletes propagate to all devices.
 
@@ -87,7 +90,7 @@ admin > commissioner > co_commissioner > helper > member
 
 Key functions: `canManageSchedule()` in index.html, `DnaAuth.canManage(member)` / `DnaAuth.isAdmin(member)` in draft.html only.
 
-**IMPORTANT:** `DnaAuth` (from `js/auth.js`) is only loaded in `draft.html`. Do NOT use `DnaAuth.*` in `index.html` — use inline role checks instead: `['admin','commissioner'].includes(currentMember.role)`.
+**IMPORTANT:** `DnaAuth` (from `js/auth.js`) is only loaded in `draft.html`. Do NOT use `DnaAuth.*` in `index.html` or `fa-draft.html` — use inline role checks instead: `['admin','commissioner'].includes(currentMember.role)`. `fa-draft-room.js` uses `_isAdminMember()` which checks `_member.role` directly.
 
 ---
 
@@ -185,6 +188,8 @@ MLB The Show API base: `https://mlb26.theshow.com/apis`
 Live Series series_id: `1337`
 WSH in our app = `WAS` in the MLB API — handled by `TEAM_MAP` in worker.js
 
+**FA roster fields:** `base_stealing` (not `baserunning_ability`). Pitcher split stats: `k_per_bf_left` / `k_per_bf_right` and `hits_per_bf_left` / `hits_per_bf_right` — exposed as `k_per_bf_l`, `k_per_bf_r`, `hits_per_bf_l`, `hits_per_bf_r`. `pitches` and `quirks` must be guarded with `Array.isArray()` before `.map()`.
+
 ---
 
 ## MLB The Show 26 API Endpoints (via Worker)
@@ -216,7 +221,26 @@ WSH in our app = `WAS` in the MLB API — handled by `TEAM_MAP` in worker.js
 - **`draft_picks.member_id` and `league_teams.mlb_team_id`** — both have `NOT NULL` dropped to support null picks and roster adds without full data.
 - **`mlbTeamsLookup`** — must be loaded via `loadMlbTeamsLookup()` before `syncPlayersFromDB()` runs, so team abbreviations can be resolved for draft history entries.
 - **FA draft entry:** `fa-draft.html?season=<id>` — linked from the season card Teams tab (commissioner+ only when teams are assigned). Config screen shown only to admin/commissioner if no FA draft exists yet.
-- **FA draft player pool:** Loaded from Worker `/fa-roster` for each team in `league_teams` for the season. Pitcher cards include pitch repertoire (`pitch_arsenal` array). Trade return player selection matches position group (P→P, C→C, IF→IF, OF→OF), falling back to absolute lowest if same-group candidate is within 5 OVR of the drafted player.
+- **FA draft player pool:** Loaded from Worker `/fa-roster` for each team in `league_teams` for the season. Pitcher cards include pitch repertoire (`pitch_arsenal` array). Trade return player selection uses `_tradeGroup()`: P→P only (no position player fallback), C→C, MI (2B/SS)→MI, CI (1B/3B)→CI, OF/DH→OF. Falls back to absolute lowest available if no same-group candidate within 5 OVR. `pickedPlayerPos` is null after DB reload — fall back to `_playerPool` lookup by name+team to resolve position.
+
+### Draft Timer Sync Architecture
+
+Both `draft-room.js` and `fa-draft-room.js` use the **absolute deadline pattern** for timer sync:
+
+- `_timerEndTime` stores the absolute `Date.now() + duration` ms timestamp.
+- Every tick recalculates: `_timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000))` — self-corrects clock drift between clients.
+- `_advancePick()` is the **single chokepoint** for all clock advances (pick, timeout, manual skip, undo). It always broadcasts `{ type: 'timer_start', endTime: _timerEndTime }` and saves to `drafts.settings.timerEndAt`.
+- Remote handlers (`pick`, `timed_out`) do **NOT** call `_advancePick()` — they update local state only and wait for the incoming `timer_start` broadcast.
+- **Page load:** reads `timerEndAt` from DB and passes to `startTimer(endTime)` so late joiners sync automatically. If `timerEndAt` is null (fresh launch), `saveAndBroadcastTimer()` is called once to seed the deadline in DB and broadcast to all clients.
+- `_timedOutForPick` dedup flag prevents all clients from double-processing the same timer expiry simultaneously.
+
+### FA Draft Skip Queue
+
+- Timer expiry / manual commissioner skip pushes the slot to `_skipQueue` (deferred, not permanent).
+- After all regular picks finish, each queued slot gets a `SKIP_WINDOW_SECS` (15s) re-pick window via `_enterSkipWindow()`.
+- If unused, the slot moves to `_autoPickQueue` for auto-assignment at draft end.
+- `_nextState()` enforces ordering: regular picks → skip window → auto-pick → complete.
+- Skip window broadcasts `{ type: 'skip_window_start', pickNumber, endTime }` so remote clients show the same countdown.
 
 ---
 
@@ -242,7 +266,7 @@ feature branch → staging (auto-deploys on merge) → main (production)
 | #33 | `33-feature-improve-mobile-draft-ui` | Mobile draft room tab bar (Teams / Draft Order). |
 | — | `feature-gamertag-match-tracking` | Gamertag linking per player, auto match result scanning via game history API, Worker v3 (/history + /gamelog routes), League management page for role assignment. |
 | — | `feature/supabase-draft` | Full Supabase integration: drafts/picks/seasons/league_teams write to DB; profile fields (gamertag, platform, stats) synced; draft history rebuilt from DB on sync; admin Reset Test Data button in League page danger zone. |
-| — | `feature/fa-draft` | Standalone FA draft room (`fa-draft.html`). Reversed snake order from team draft, configurable rating range with tier buttons, full player attribute cards (hitting/pitching/pitch arsenal/quirks), CSV + printable trade checklist export. |
+| — | `feature/fa-draft` | Standalone FA draft room (`fa-draft.html`). Reversed snake order from team draft, configurable rating range with tier buttons, full player attribute cards (hitting/pitching/pitch arsenal/quirks), CSV + printable trade checklist export. Skip queue with 15s re-pick windows. Absolute deadline timer sync across all clients. Search bar + name/team/throw/bat filters. Import players from latest team draft button on season Roster tab. Pitcher split stats (K/BF and H/BF separate vs-L/vs-R). Trade return position matching with MI/CI infield split. |
 
 ---
 
