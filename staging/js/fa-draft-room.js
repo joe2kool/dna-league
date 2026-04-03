@@ -772,6 +772,8 @@ ${teamSections}
         } else {
           if (typeof renderDraftBoard === 'function') renderDraftBoard();
           if (typeof updateOnClock === 'function') updateOnClock();
+          if (typeof checkYourTurn === 'function') checkYourTurn();
+          if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
         }
       }
     } else if (payload.type === 'timer_start') {
@@ -789,6 +791,10 @@ ${teamSections}
             if (_timerSeconds <= 0) { stopTimer(); _onTimerExpired(); }
           }, 1000);
         }
+        // Re-evaluate whose turn it is now that the clock has advanced.
+        if (typeof updateOnClock === 'function') updateOnClock();
+        if (typeof checkYourTurn === 'function') checkYourTurn();
+        if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
       }
     } else if (payload.type === 'skip_window_start') {
       const slot = _draft.slots.find(s => s.pickNumber === payload.pickNumber);

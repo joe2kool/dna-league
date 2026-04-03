@@ -535,11 +535,6 @@ function enterDraftRoom(draft) {
   if (draft.status === 'active') {
     const endTime = draft.timerEndAt ? new Date(draft.timerEndAt).getTime() : null;
     DraftRoom.startTimer(endTime || undefined);
-    // If no endTime stored yet (draft just launched), broadcast + persist for all clients.
-    if (!endTime && DnaAuth.isAdmin(_member)) {
-      DraftRoom.broadcast({ type: 'timer_start', endTime: DraftRoom.getTimerEndTime() });
-      DraftRoom.saveTimerEnd();
-    }
     checkYourTurn();
   }
 
