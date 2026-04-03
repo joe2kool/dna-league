@@ -573,6 +573,8 @@ const DraftRoom = (() => {
               if (_timerSeconds <= 0) { stopTimer(); _onTimerExpired(); }
             }, 1000);
           }
+          if (typeof updateOnClock === 'function') updateOnClock();
+          if (typeof checkYourTurn === 'function') checkYourTurn();
         }
         break;
       case 'resume':
