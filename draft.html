@@ -535,6 +535,9 @@ function enterDraftRoom(draft) {
   if (draft.status === 'active') {
     const endTime = draft.timerEndAt ? new Date(draft.timerEndAt).getTime() : null;
     DraftRoom.startTimer(endTime || undefined);
+    // First client to open the draft (no stored deadline yet) saves + broadcasts so all others sync.
+    // Subsequent loads use the stored deadline and skip the broadcast.
+    if (!endTime && draft.timerSeconds) DraftRoom.saveAndBroadcastTimer();
     checkYourTurn();
   }
 

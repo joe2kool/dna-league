@@ -32,6 +32,7 @@ const FADraftRoom = (() => {
   let _autoPickQueue = [];
   let _inSkipWindow  = false;
   const SKIP_WINDOW_SECS = 15;
+  let _timedOutForPick = null; // dedup: prevents all clients from double-processing same timeout
 
   // ── HTML ESCAPE ───────────────────────────────────────────
   function _esc(s) {
@@ -260,6 +261,9 @@ const FADraftRoom = (() => {
     }
 
     // Regular pick timer expired — defer to skip queue, not permanent skip.
+    // Guard: if this pick was already processed (e.g. timer fired on multiple clients), skip.
+    if (_timedOutForPick === cur.pickNumber) return;
+    _timedOutForPick = cur.pickNumber;
     faToast(`⏰ Time expired for ${cur.memberName} — re-pick window coming after remaining picks`);
     _skipQueue.push(cur);
     _broadcast({ type: 'timed_out', pickNumber: cur.pickNumber });
