@@ -21,6 +21,7 @@ const DraftRoom = (() => {
 
   let _isPaused     = false;
   let _isComplete   = false;
+  let _timedOutForPick = null; // dedup: prevents all clients from double-processing same timeout
 
   // ── INIT ──────────────────────────────────────────────────
   function init(db, member, mlbTeamsLookup) {
@@ -159,6 +160,8 @@ const DraftRoom = (() => {
     if (!_draft) return;
     const cur = _getCurrentPick();
     if (!cur) return;
+    if (_timedOutForPick === cur.pickNumber) return; // prevent double-processing on multi-client expiry
+    _timedOutForPick = cur.pickNumber;
 
     DraftUI.toast(`⏰ Time expired for ${cur.memberName} — skipping!`, 3000);
     cur.skipped = true;
@@ -615,6 +618,11 @@ const DraftRoom = (() => {
     canPick, makePick, undoLastPick, overridePick,
     pauseDraft, resumeDraft,
     advancePick:     _advancePick,
+    saveAndBroadcastTimer: () => {
+      if (!_timerTotal || !_timerEndTime) return;
+      _broadcast({ type: 'timer_start', endTime: _timerEndTime });
+      _saveTimerEndToDB();
+    },
     saveSkip:        _saveSkipToDB,
     saveStatus:      _saveStatusToDB,
     saveTimerEnd:    _saveTimerEndToDB,

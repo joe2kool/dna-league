@@ -517,6 +517,8 @@ async function enterDraftRoom(draftId) {
     if (draft.status === 'active') {
       const endTime = draft.settings.timerEndAt ? new Date(draft.settings.timerEndAt).getTime() : null;
       FADraftRoom.startTimer(endTime || undefined);
+      // First client to open the draft (no stored deadline yet) saves + broadcasts so all others sync.
+      if (!endTime && draft.timerSeconds) FADraftRoom.saveAndBroadcastTimer();
     }
     if (draft.status === 'completed') {
       document.getElementById('fa-export-tab').style.display = '';
