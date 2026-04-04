@@ -596,7 +596,7 @@ window.checkYourTurn = checkYourTurn;
 function updateNavStatus(status) {
   const el = document.getElementById('fa-nav-status');
   el.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-  el.className = 'fa-nav-status status-' + (status === 'paused' ? 'paused' : status === 'active' ? 'active' : status === 'completed' ? 'complete' : 'setup');
+  el.className = 'fa-nav-status status-' + (status === 'paused' ? 'paused' : status === 'active' ? 'active' : status === 'completed' ? 'complete' : 'setup'); // countdown maps to setup styling
 }
 
 function updatePauseBtn(isPaused) {
@@ -911,7 +911,6 @@ function renderCountdown(endTime) {
   const remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
   updateCountdownDisplay(remaining);
 }
-window.renderCountdown = renderCountdown;
 
 function updateCountdownDisplay(seconds) {
   const el = document.getElementById('fa-countdown-val');
@@ -920,14 +919,12 @@ function updateCountdownDisplay(seconds) {
   const s = seconds % 60;
   el.textContent = `${m}:${s.toString().padStart(2, '0')}`;
 }
-window.updateCountdownDisplay = updateCountdownDisplay;
 
 function hideCountdown() {
   document.getElementById('fa-countdown-bar').classList.remove('visible');
   document.getElementById('fa-on-clock-bar').style.display = '';
   document.getElementById('tab-players').classList.remove('fa-players-locked');
 }
-window.hideCountdown = hideCountdown;
 
 // ── BOOT ─────────────────────────────────────────────────
 boot();
