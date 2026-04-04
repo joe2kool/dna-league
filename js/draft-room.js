@@ -28,6 +28,9 @@ const DraftRoom = (() => {
   let _countdownTimer   = null;
   let _countdownExpired = false; // dedup: prevents re-entrant double-firing on this client
 
+  let _onlineMembers = new Set(); // Set of memberIds currently in Presence
+  let _chatMessages  = [];        // local ephemeral array, capped at 50
+
   // ── INIT ──────────────────────────────────────────────────
   function init(db, member, mlbTeamsLookup) {
     _db             = db;
@@ -147,6 +150,7 @@ const DraftRoom = (() => {
   function startCountdown(endTime) {
     if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
     _isCountdown = true;
+    _addChatMessage({ system: true, text: '🕐 Draft starting in 2:00 — get ready!' });
     _countdownEndTime = endTime;
     if (typeof renderCountdown === 'function') renderCountdown(_countdownEndTime);
     const tick = () => {
@@ -563,6 +567,8 @@ const DraftRoom = (() => {
     _isCountdown      = false;
     _countdownEndTime = 0;
     _countdownExpired = false;
+    _onlineMembers = new Set();
+    _chatMessages  = [];
   }
 
   // ── SUPABASE REALTIME ─────────────────────────────────────
@@ -581,7 +587,36 @@ const DraftRoom = (() => {
       .on('broadcast', { event: 'draft_event' }, ({ payload }) => {
         _handleRemoteEvent(payload);
       })
-      .subscribe();
+      .on('presence', { event: 'sync' }, () => {
+        const state = _realtimeChannel.presenceState();
+        _onlineMembers = new Set(
+          Object.values(state).flatMap(presences => presences.map(p => p.memberId))
+        );
+        if (typeof renderSidebar === 'function') renderSidebar();
+      })
+      .on('presence', { event: 'join' }, ({ newPresences }) => {
+        newPresences.forEach(p => {
+          _onlineMembers.add(p.memberId);
+          _addChatMessage({ system: true, text: `● ${p.memberName} joined` });
+        });
+        if (typeof renderSidebar === 'function') renderSidebar();
+      })
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        leftPresences.forEach(p => {
+          _onlineMembers.delete(p.memberId);
+          _addChatMessage({ system: true, text: `● ${p.memberName} disconnected` });
+        });
+        if (typeof renderSidebar === 'function') renderSidebar();
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED' && _member) {
+          await _realtimeChannel.track({
+            memberId:   _member.id,
+            memberName: _member.name,
+            color:      _member.color,
+          });
+        }
+      });
   }
 
   function unsubscribeRealtime() {
@@ -603,6 +638,7 @@ const DraftRoom = (() => {
           _savePickToSeason(payload.memberId, payload.teamAbbr);
           DraftBoard.render(_draft);
           DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
+          _addChatMessage({ system: true, text: `⚾ ${slot.memberName} picked ${payload.teamAbbr}` });
           // Do NOT call _advancePick() — the pick-maker broadcasts timer_start; wait for it.
           if (typeof updateOnClock === 'function') updateOnClock();
           if (typeof checkYourTurn === 'function') checkYourTurn();
@@ -654,6 +690,17 @@ const DraftRoom = (() => {
         DraftUI.toast(`${payload.memberName || 'A player'} was skipped`);
         DraftBoard.render(_draft);
         break;
+      case 'chat_message':
+        // Don't add if it's from this member (already added in sendChatMessage)
+        if (payload.memberId !== _member?.id) {
+          _addChatMessage({
+            memberId:    payload.memberId,
+            memberName:  payload.memberName,
+            memberColor: payload.memberColor,
+            text:        payload.text,
+          });
+        }
+        break;
       case 'countdown_skip':
         if (_isCountdown) {
           _isCountdown = false;
@@ -669,6 +716,27 @@ const DraftRoom = (() => {
         DraftUI.showRecap(_draft);
         break;
     }
+  }
+
+  // ── CHAT ──────────────────────────────────────────────────
+  function _addChatMessage(msg) {
+    _chatMessages.push(msg);
+    if (_chatMessages.length > 50) _chatMessages.shift();
+    if (typeof renderChatMessages === 'function') renderChatMessages(_chatMessages);
+  }
+
+  function sendChatMessage(text) {
+    if (!text || !text.trim()) return;
+    if (text.length > 200) text = text.slice(0, 200);
+    const msg = {
+      memberId:    _member?.id,
+      memberName:  _member?.name || 'Unknown',
+      memberColor: _member?.color || '#6a9ec7',
+      text:        text.trim(),
+      ts:          Date.now(),
+    };
+    _addChatMessage(msg); // show immediately to sender
+    _broadcast({ type: 'chat_message', ...msg });
   }
 
   // ── PUBLIC API ────────────────────────────────────────────
@@ -695,5 +763,8 @@ const DraftRoom = (() => {
     getDraft: () => _draft,
     isPaused: () => _isPaused,
     isComplete: () => _isComplete,
+    sendChatMessage,
+    getOnlineMembers: () => _onlineMembers,
+    getChatMessages:  () => _chatMessages,
   };
 })();
