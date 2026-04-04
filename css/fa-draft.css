@@ -152,7 +152,7 @@ body { background:var(--bg); color:var(--text); font-family:'Barlow',sans-serif;
 }
 
 /* ── PLAYERS LOCKED ───────────────────────────────────── */
-.fa-players-locked .fa-player-card { pointer-events: none; opacity: 0.4; }
+.fa-players-locked .fa-player-row  { pointer-events: none; opacity: 0.4; }
 .fa-players-locked .fa-select-btn  { pointer-events: none; opacity: 0.4; }
 
 /* ── RESPONSIVE ─────────────────────────────────────────── */
