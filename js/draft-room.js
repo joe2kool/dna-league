@@ -417,7 +417,7 @@ const DraftRoom = (() => {
     _timerEndTime = Date.now() + _timerSeconds * 1000;
     startTimer(_timerEndTime);
     await _saveStatusToDB('active');
-    _broadcast({ type: 'resume', endTime: _timerEndTime });
+    _broadcast({ type: 'resume', endTime: _timerEndTime, duration: _currentTimerDuration });
     _saveTimerEndToDB();
     DraftUI.updatePauseBtn(false);
     DraftUI.toast('Draft resumed');
