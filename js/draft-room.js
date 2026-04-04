@@ -53,6 +53,7 @@ const DraftRoom = (() => {
     _isPaused     = draft.status === 'paused';
     _isComplete   = draft.status === 'completed';
     _isCountdown  = draft.status === 'countdown';
+    _countdownExpired = false;
   }
 
   async function loadDraftFromDB(draftId) {
@@ -162,6 +163,7 @@ const DraftRoom = (() => {
   }
 
   async function _onCountdownExpired() {
+    if (_isComplete) return; // draft already ended — discard stale countdown
     if (_countdownExpired) return; // dedup guard — prevents re-entrant double-firing on this client
     _countdownExpired = true;
     _isCountdown = false;

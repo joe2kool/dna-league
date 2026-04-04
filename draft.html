@@ -290,7 +290,7 @@ async function boot() {
   const activeDraftRes = await db.from('drafts')
     .select('id, name, status')
     .eq('league_id', DNA_CONFIG.league.id)
-    .in('status', ['active', 'paused'])
+    .in('status', ['active', 'paused', 'countdown'])
     .order('created_at', { ascending: false })
     .limit(1);
 
@@ -458,7 +458,7 @@ async function launchDraft() {
   await db.from('drafts')
     .update({ status: 'completed' })
     .eq('league_id', DNA_CONFIG.league.id)
-    .in('status', ['active', 'paused']);
+    .in('status', ['active', 'paused', 'countdown']);
 
   // Insert new draft row
   const draftRes = await db.from('drafts').insert({
@@ -695,7 +695,7 @@ function renderCountdown(endTime) {
   document.getElementById('dr-countdown-wrap').classList.add('visible');
   document.getElementById('dr-timer-wrap').style.display = 'none';
   document.getElementById('dr-teams-grid').classList.add('teams-locked');
-  if (DnaAuth.canManage(_member)) {
+  if (DnaAuth.isAdmin(_member)) {
     document.getElementById('dr-start-now-btn').style.display = '';
   }
   const remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
