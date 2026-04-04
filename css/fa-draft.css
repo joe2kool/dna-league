@@ -212,6 +212,6 @@ body { background:var(--bg); color:var(--text); font-family:'Barlow',sans-serif;
   .fa-attr-grid { grid-template-columns:1fr; }
 }
 
-@media (min-width: 769px) {
+@media (min-width: 481px) {
   #fa-chat-tab { display: none; }
 }
