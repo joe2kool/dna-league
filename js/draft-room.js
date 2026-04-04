@@ -23,6 +23,11 @@ const DraftRoom = (() => {
   let _isComplete   = false;
   let _timedOutForPick = null; // dedup: prevents all clients from double-processing same timeout
 
+  let _isCountdown      = false;
+  let _countdownEndTime = 0;
+  let _countdownTimer   = null;
+  let _countdownExpired = false; // dedup: prevents multiple clients from double-firing expiry
+
   // ── INIT ──────────────────────────────────────────────────
   function init(db, member, mlbTeamsLookup) {
     _db             = db;
@@ -47,6 +52,7 @@ const DraftRoom = (() => {
     _timerSeconds = _timerTotal;
     _isPaused     = draft.status === 'paused';
     _isComplete   = draft.status === 'completed';
+    _isCountdown  = draft.status === 'countdown';
   }
 
   async function loadDraftFromDB(draftId) {
@@ -94,9 +100,10 @@ const DraftRoom = (() => {
       name:         d.name,
       seasonId:     d.season_id,
       status:       d.status,
-      timerSeconds: d.timer_seconds || DNA_CONFIG.draft.defaultTimerSeconds,
-      timerEndAt:   d.settings?.timerEndAt || null,
-      settings:     d.settings || {},
+      timerSeconds:   d.timer_seconds || DNA_CONFIG.draft.defaultTimerSeconds,
+      timerEndAt:     d.settings?.timerEndAt || null,
+      countdownEndAt: d.settings?.countdownEndAt || null,
+      settings:       d.settings || {},
       slots,
       availableTeams,
       teamRatings:  {}, // populated in boot() after DnaRatings.getTeamRatings()
@@ -133,6 +140,42 @@ const DraftRoom = (() => {
     stopTimer();
     _timerSeconds = _timerTotal;
     _renderTimer();
+  }
+
+  // ── COUNTDOWN (pre-draft 2-minute wait) ───────────────────
+  function startCountdown(endTime) {
+    _isCountdown = true;
+    _countdownEndTime = endTime;
+    if (typeof renderCountdown === 'function') renderCountdown(_countdownEndTime);
+    const tick = () => {
+      const remaining = Math.max(0, Math.round((_countdownEndTime - Date.now()) / 1000));
+      if (typeof updateCountdownDisplay === 'function') updateCountdownDisplay(remaining);
+      if (remaining <= 0) {
+        clearInterval(_countdownTimer);
+        _countdownTimer = null;
+        _onCountdownExpired();
+      }
+    };
+    tick();
+    _countdownTimer = setInterval(tick, 1000);
+  }
+
+  function _onCountdownExpired() {
+    if (_countdownExpired) return; // dedup guard
+    _countdownExpired = true;
+    _isCountdown = false;
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _draft.status = 'active';
+    _saveStatusToDB('active');
+    // Do NOT call _advancePick() here — all clients (including this one) react to the broadcast
+    _broadcast({ type: 'countdown_skip' });
+  }
+
+  function skipCountdown() {
+    if (!DnaAuth.isAdmin(_member)) return;
+    if (!_isCountdown) return;
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _onCountdownExpired();
   }
 
   function _renderTimer() {
@@ -603,6 +646,13 @@ const DraftRoom = (() => {
         DraftUI.toast(`${payload.memberName || 'A player'} was skipped`);
         DraftBoard.render(_draft);
         break;
+      case 'countdown_skip':
+        _isCountdown = false;
+        if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+        _draft.status = 'active';
+        if (typeof hideCountdown === 'function') hideCountdown();
+        _advancePick();
+        break;
       case 'complete':
         stopTimer();
         _isComplete = true;
@@ -615,6 +665,7 @@ const DraftRoom = (() => {
   return {
     init, loadDraft, loadSavedDraft, loadDraftFromDB, clearDraft,
     startTimer, stopTimer, resetTimer,
+    startCountdown, skipCountdown,
     canPick, makePick, undoLastPick, overridePick,
     pauseDraft, resumeDraft,
     advancePick:     _advancePick,
