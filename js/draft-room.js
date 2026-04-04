@@ -29,6 +29,8 @@ const DraftRoom = (() => {
   let _countdownExpired = false; // dedup: prevents re-entrant double-firing on this client
 
   let _onlineMembers = new Set(); // Set of memberIds currently in Presence
+  let _offlineTimerSecs    = 30;  // shortened timer for offline members (configurable)
+  let _currentTimerDuration = 90; // duration used for ring fill calc on current pick
   let _chatMessages  = [];        // local ephemeral array, capped at 50
 
   // ── INIT ──────────────────────────────────────────────────
@@ -56,6 +58,7 @@ const DraftRoom = (() => {
     _isPaused     = draft.status === 'paused';
     _isComplete   = draft.status === 'completed';
     _isCountdown  = draft.status === 'countdown';
+    _offlineTimerSecs = draft.settings?.offlineTimerSeconds || 30;
     _countdownExpired = false;
   }
 
@@ -119,10 +122,12 @@ const DraftRoom = (() => {
   // ── TIMER ─────────────────────────────────────────────────
   // Pass an absolute endTime (ms) to sync to a remote clock;
   // omit to start a fresh countdown from _timerTotal.
-  function startTimer(endTime) {
+  function startTimer(endTime, duration) {
     stopTimer();
     if (_isPaused || _isComplete) return;
-    _timerEndTime = endTime || (Date.now() + _timerTotal * 1000);
+    const dur = duration || _timerTotal;
+    _currentTimerDuration = dur;
+    _timerEndTime = endTime || (Date.now() + dur * 1000);
     _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
     _renderTimer();
     _timer = setInterval(() => {
@@ -194,7 +199,7 @@ const DraftRoom = (() => {
     const secs = _timerSeconds % 60;
     el.textContent = `${mins}:${secs.toString().padStart(2,'0')}`;
     // Color shifts: green → gold → red
-    const pct = _timerSeconds / _timerTotal;
+    const pct = _currentTimerDuration > 0 ? _timerSeconds / _currentTimerDuration : 1;
     el.style.color = pct > 0.5 ? 'var(--green)' : pct > 0.25 ? 'var(--gold)' : 'var(--red)';
     // SVG ring progress
     if (ring) {
@@ -339,10 +344,13 @@ const DraftRoom = (() => {
 
   function _advancePick() {
     resetTimer();
-    startTimer();
+    const cur = _getCurrentPick();
+    const isOffline = cur && !_onlineMembers.has(cur.memberId);
+    const duration  = (isOffline && _offlineTimerSecs) ? _offlineTimerSecs : undefined;
+    startTimer(undefined, duration);
     // Broadcast absolute deadline + persist so ALL clients show the same countdown.
     // Safe here because remote pick/skip handlers do NOT call _advancePick().
-    if (_timerTotal) {
+    if (_timerTotal || duration) {
       _broadcast({ type: 'timer_start', endTime: _timerEndTime });
       _saveTimerEndToDB();
     }
