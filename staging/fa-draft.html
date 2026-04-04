@@ -270,6 +270,11 @@
     <!-- Tab: Chat (mobile only, hidden on desktop since sidebar is visible) -->
     <div id="tab-chat" class="fa-tab-content">
       <div style="display:flex;flex-direction:column;height:400px;">
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
+          <span style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);font-family:'Barlow Condensed';">👥 Online</span>
+          <span id="mobile-online-count" style="color:var(--green);font-size:10px;"></span>
+        </div>
+        <div id="mobile-online-list" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px;border-bottom:1px solid var(--border);flex-shrink:0;"></div>
         <div class="chat-messages" id="chat-messages-mobile" style="flex:1;overflow-y:auto;padding:4px 0;"></div>
         <div class="chat-input-row">
           <input type="text" class="chat-input" id="chat-input-mobile" placeholder="Message..."
@@ -638,17 +643,30 @@ function renderSidebar() {
   const members = slots.filter((s, i, arr) => arr.findIndex(x => x.memberId === s.memberId) === i);
   const onlineCount = members.filter(s => online.has(s.memberId)).length;
 
-  const countEl = document.getElementById('sidebar-online-count');
-  if (countEl) countEl.textContent = `${onlineCount}/${members.length}`;
+  const countHtml = `${onlineCount}/${members.length}`;
+  ['sidebar-online-count', 'mobile-online-count'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = countHtml;
+  });
 
+  const listHtml = members.map(s => {
+    const isOnline = online.has(s.memberId);
+    return `<div class="sidebar-online-item">
+      <div class="online-dot${isOnline ? '' : ' offline'}"></div>
+      <span style="color:${isOnline ? 'var(--text)' : 'var(--text3)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(s.memberName)}</span>
+    </div>`;
+  }).join('');
   const listEl = document.getElementById('sidebar-online-list');
-  if (listEl) {
-    listEl.innerHTML = members.map(s => {
+  if (listEl) listEl.innerHTML = listHtml;
+
+  const mobileListEl = document.getElementById('mobile-online-list');
+  if (mobileListEl) {
+    mobileListEl.innerHTML = members.map(s => {
       const isOnline = online.has(s.memberId);
-      return `<div class="sidebar-online-item">
-        <div class="online-dot${isOnline ? '' : ' offline'}"></div>
-        <span style="color:${isOnline ? 'var(--text)' : 'var(--text3)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(s.memberName)}</span>
-      </div>`;
+      return `<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:${isOnline ? 'var(--text)' : 'var(--text3)'};">
+        <span style="width:6px;height:6px;border-radius:50%;background:${isOnline ? 'var(--green)' : 'var(--text3)'};flex-shrink:0;display:inline-block;"></span>
+        ${_esc(s.memberName)}
+      </span>`;
     }).join('');
   }
 }

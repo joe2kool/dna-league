@@ -220,6 +220,11 @@
 
         <!-- Mobile Chat Panel (hidden on desktop, toggled on mobile) -->
         <div id="dr-mobile-chat" style="display:none;flex-direction:column;flex:1;">
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
+            <span style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text2);font-family:'Barlow Condensed';">👥 Online</span>
+            <span id="mobile-online-count" style="color:var(--green);font-size:10px;"></span>
+          </div>
+          <div id="mobile-online-list" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px;border-bottom:1px solid var(--border);flex-shrink:0;"></div>
           <div class="chat-messages" id="chat-messages-mobile"></div>
           <div class="chat-input-row">
             <input type="text" class="chat-input" id="chat-input-mobile" placeholder="Message..."
@@ -762,23 +767,35 @@ function renderSidebar() {
   const online = DraftRoom.getOnlineMembers();
 
   // Online count
-  const total = draft.slots.length;
-  const onlineCount = draft.slots.filter(s => online.has(s.memberId)).length;
-  const countEl = document.getElementById('sidebar-online-count');
-  if (countEl) countEl.textContent = `${onlineCount}/${total}`;
+  const members = draft.slots.filter((s, i, arr) => arr.findIndex(x => x.memberId === s.memberId) === i);
+  const onlineCount = members.filter(s => online.has(s.memberId)).length;
+  const countHtml = `${onlineCount}/${members.length}`;
+  ['sidebar-online-count', 'mobile-online-count'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = countHtml;
+  });
 
-  // Online list
+  // Online list (sidebar + mobile)
+  const listHtml = members.map(s => {
+    const isOnline = online.has(s.memberId);
+    return `<div class="sidebar-online-item">
+      <div class="online-dot${isOnline ? '' : ' offline'}"></div>
+      <span style="color:${isOnline ? 'var(--text)' : 'var(--text3)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(s.memberName)}</span>
+    </div>`;
+  }).join('');
   const listEl = document.getElementById('sidebar-online-list');
-  if (listEl) {
-    listEl.innerHTML = draft.slots
-      .filter((s, i, arr) => arr.findIndex(x => x.memberId === s.memberId) === i) // dedupe
-      .map(s => {
-        const isOnline = online.has(s.memberId);
-        return `<div class="sidebar-online-item">
-          <div class="online-dot${isOnline ? '' : ' offline'}"></div>
-          <span style="color:${isOnline ? 'var(--text)' : 'var(--text3)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(s.memberName)}</span>
-        </div>`;
-      }).join('');
+  if (listEl) listEl.innerHTML = listHtml;
+
+  // Mobile compact online list (dots + names inline)
+  const mobileListEl = document.getElementById('mobile-online-list');
+  if (mobileListEl) {
+    mobileListEl.innerHTML = members.map(s => {
+      const isOnline = online.has(s.memberId);
+      return `<span style="display:flex;align-items:center;gap:4px;font-size:11px;color:${isOnline ? 'var(--text)' : 'var(--text3)'};">
+        <span style="width:6px;height:6px;border-radius:50%;background:${isOnline ? 'var(--green)' : 'var(--text3)'};flex-shrink:0;display:inline-block;"></span>
+        ${escHtml(s.memberName)}
+      </span>`;
+    }).join('');
   }
 }
 

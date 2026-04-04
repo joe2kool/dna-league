@@ -219,6 +219,17 @@ const DraftRoom = (() => {
     if (_timedOutForPick === cur.pickNumber) return; // prevent double-processing on multi-client expiry
     _timedOutForPick = cur.pickNumber;
 
+    if (_draft.status === 'skipped_picks') {
+      // Second timeout in skip window — auto-assign best available team
+      const best = [..._draft.availableTeams]
+        .sort((a, b) => ((_draft.teamRatings?.[b]?.overall || 0) - (_draft.teamRatings?.[a]?.overall || 0)))[0];
+      if (best) {
+        DraftUI.toast(`⏰ Auto-assigning ${best} to ${cur.memberName}`, 3000);
+        await _autoAssign(cur, best);
+      }
+      return;
+    }
+
     DraftUI.toast(`⏰ Time expired for ${cur.memberName} — skipping!`, 3000);
     cur.skipped = true;
     await _saveSkipToDB(cur);
@@ -233,6 +244,24 @@ const DraftRoom = (() => {
       _advancePick();
     }
     DraftBoard.render(_draft);
+  }
+
+  async function _autoAssign(cur, teamAbbr) {
+    cur.pickedTeam = teamAbbr;
+    cur.pickedAt   = new Date().toISOString();
+    cur.skipped    = false;
+    _draft.availableTeams = _draft.availableTeams.filter(t => t !== teamAbbr);
+    await _savePickToSeason(cur.memberId, teamAbbr);
+    _broadcast({ type: 'pick', pickNumber: cur.pickNumber, memberId: cur.memberId, teamAbbr });
+    await _savePickToDB(cur, teamAbbr);
+    const stillSkipped = _draft.slots.filter(s => s.skipped && !s.pickedTeam);
+    if (stillSkipped.length === 0) {
+      _completeDraft();
+    } else {
+      _advancePick();
+      DraftBoard.render(_draft);
+      DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
+    }
   }
 
   // ── PICK LOGIC ────────────────────────────────────────────
@@ -624,8 +653,8 @@ const DraftRoom = (() => {
         if (status === 'SUBSCRIBED' && _member) {
           await _realtimeChannel.track({
             memberId:   _member.id,
-            memberName: _member.name,
-            color:      _member.color,
+            memberName: _member.name || _member.display_name || 'Unknown',
+            color:      _member.color || _member.avatar_color || '#6a9ec7',
           });
         }
       });

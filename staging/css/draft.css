@@ -419,10 +419,9 @@ input, select { font-family: inherit; }
 }
 
 /* ── TEAMS LOCKED (during countdown) ─────────────────── */
-.teams-locked {
-  pointer-events: none;
-  opacity: 0.4;
-}
+/* Cards are dimmed but Top 5 detail button remains clickable */
+.teams-locked .team-card { opacity: 0.5; cursor: default; pointer-events: none; }
+.teams-locked .team-card-btn { pointer-events: all; opacity: 1; cursor: pointer; }
 
 /* ── SIDEBAR (online presence + chat) ─────────────────── */
 .draft-sidebar {

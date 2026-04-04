@@ -152,8 +152,10 @@ body { background:var(--bg); color:var(--text); font-family:'Barlow',sans-serif;
 }
 
 /* ── PLAYERS LOCKED ───────────────────────────────────── */
-.fa-players-locked .fa-player-row  { pointer-events: none; opacity: 0.4; }
-.fa-players-locked .fa-select-btn  { pointer-events: none; opacity: 0.4; }
+.fa-players-locked .fa-player-row  { opacity: 0.6; }
+.fa-players-locked .fa-select-btn  { pointer-events: none; opacity: 0.3; }
+/* fa-player-row-header (expand/details) stays clickable — only the select btn is blocked */
+.fa-players-locked .fa-player-row-header { pointer-events: all; cursor: pointer; }
 
 /* ── FA DRAFT BODY (sidebar + main) ───────────────────── */
 .fa-draft-body {
@@ -205,7 +207,8 @@ body { background:var(--bg); color:var(--text); font-family:'Barlow',sans-serif;
 /* ── RESPONSIVE ─────────────────────────────────────────── */
 @media (max-width:480px) {
   .draft-sidebar { display: none; }
-  .fa-draft-body { display: block; }
+  .fa-draft-body { display: block; overflow: visible; min-height: unset; }
+  .fa-draft-main { overflow-y: visible; }
   .fa-setup { padding:1rem; }
   .fa-on-clock { flex-wrap:wrap; }
   .fa-timer { margin-left:0; width:100%; }
