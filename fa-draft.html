@@ -177,12 +177,34 @@
       </div>
     </div>
 
+    <div class="fa-draft-body">
+      <!-- SIDEBAR: Online Presence + Chat -->
+      <div class="draft-sidebar" id="draft-sidebar">
+        <div class="sidebar-section-header">
+          <span>👥 Online</span>
+          <span id="sidebar-online-count" style="color:var(--green);font-size:9px;"></span>
+        </div>
+        <div class="sidebar-online" id="sidebar-online-list"></div>
+        <div class="sidebar-section-header" style="margin-top:auto;">💬 Chat</div>
+        <div class="sidebar-chat">
+          <div class="chat-messages" id="chat-messages"></div>
+          <div class="chat-input-row">
+            <input class="chat-input" id="chat-input" placeholder="Message..."
+              maxlength="200" onkeydown="if(event.key==='Enter')sendChat()">
+            <button class="chat-send" onclick="sendChat()">→</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAIN: Tabs + Content -->
+      <div class="fa-draft-main">
     <!-- Tabs -->
     <div class="fa-tabs">
       <button type="button" class="fa-tab active" onclick="switchTab('players',this)">Available Players</button>
       <button type="button" class="fa-tab"        onclick="switchTab('board',this)">Draft Board</button>
       <button type="button" class="fa-tab"        onclick="switchTab('mypicks',this)">My Picks</button>
       <button type="button" class="fa-tab"        id="fa-export-tab" style="display:none;" onclick="switchTab('export',this)">Export</button>
+      <button type="button" class="fa-tab"        onclick="switchTab('chat',this)" id="fa-chat-tab">💬 Chat</button>
     </div>
 
     <!-- Tab: Available Players -->
@@ -240,6 +262,20 @@
       </div>
     </div>
 
+    <!-- Tab: Chat (mobile only, hidden on desktop since sidebar is visible) -->
+    <div id="tab-chat" class="fa-tab-content">
+      <div style="display:flex;flex-direction:column;height:400px;">
+        <div class="chat-messages" id="chat-messages-mobile" style="flex:1;overflow-y:auto;padding:4px 0;"></div>
+        <div class="chat-input-row">
+          <input class="chat-input" id="chat-input-mobile" placeholder="Message..."
+            maxlength="200" onkeydown="if(event.key==='Enter')sendChat()">
+          <button class="chat-send" onclick="sendChat()">→</button>
+        </div>
+      </div>
+    </div>
+
+      </div><!-- end fa-draft-main -->
+    </div><!-- end fa-draft-body -->
   </div><!-- end screen-draft -->
 
 </div><!-- end fa-page -->
@@ -582,8 +618,62 @@ function updateOnClock() {
   }
   nameEl.textContent = cur.memberName;
   nameEl.className = 'fa-on-clock-name' + (cur.memberId === currentMember?.id ? ' your-turn' : '');
+  renderSidebar();
 }
 window.updateOnClock = updateOnClock;
+
+// ── SIDEBAR ───────────────────────────────────────────────
+function renderSidebar() {
+  const draft = FADraftRoom.getDraft ? FADraftRoom.getDraft() : null;
+  if (!draft) return;
+  const online = FADraftRoom.getOnlineMembers();
+  const slots  = draft.slots || [];
+
+  const members = slots.filter((s, i, arr) => arr.findIndex(x => x.memberId === s.memberId) === i);
+  const onlineCount = members.filter(s => online.has(s.memberId)).length;
+
+  const countEl = document.getElementById('sidebar-online-count');
+  if (countEl) countEl.textContent = `${onlineCount}/${members.length}`;
+
+  const listEl = document.getElementById('sidebar-online-list');
+  if (listEl) {
+    listEl.innerHTML = members.map(s => {
+      const isOnline = online.has(s.memberId);
+      return `<div class="sidebar-online-item">
+        <div class="online-dot${isOnline ? '' : ' offline'}"></div>
+        <span style="color:${isOnline ? 'var(--text)' : 'var(--text3)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(s.memberName)}</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+function renderChatMessages(messages) {
+  ['chat-messages', 'chat-messages-mobile'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = messages.map(m => {
+      if (m.system) return `<div class="chat-msg-system">${_esc(m.text)}</div>`;
+      const safeColor = /^#[0-9a-fA-F]{3,8}$/.test(m.memberColor) ? m.memberColor : 'var(--text2)';
+      return `<div class="chat-msg">
+        <div class="chat-msg-sender" style="color:${safeColor}">${_esc(m.memberName)}</div>
+        <div class="chat-msg-text">${_esc(m.text)}</div>
+      </div>`;
+    }).join('');
+    el.scrollTop = el.scrollHeight;
+  });
+}
+
+function sendChat() {
+  const inputs = ['chat-input', 'chat-input-mobile'].map(id => document.getElementById(id)).filter(Boolean);
+  const text = inputs.find(el => el.value.trim())?.value?.trim();
+  if (!text) return;
+  FADraftRoom.sendChatMessage(text);
+  inputs.forEach(el => el.value = '');
+}
+
+function _esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 function checkYourTurn() {
   const cur = FADraftRoom.getCurrentPick?.();
