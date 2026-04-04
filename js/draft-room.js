@@ -425,6 +425,8 @@ const DraftRoom = (() => {
 
   async function _completeDraft() {
     stopTimer();
+    _currentTimerDuration = 90;
+    _offlineTimerSecs     = 30;
     _isComplete = true;
     _draft.status = 'completed';
     _draft.completedAt = new Date().toISOString();
