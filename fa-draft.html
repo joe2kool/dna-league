@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>FA Draft — The DNA League</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/fa-draft.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/fa-draft-room.js"></script>
+<style>
+  :root {
+    --bg:#0a0d12; --surface:#0f1318; --surface2:#151c24; --surface3:#1c2530;
+    --gold:#a8bdd4; --gold2:#d0e4f5; --red:#d94040; --green:#2ecc71;
+    --blue:#6a9ec7; --text:#dde6ef; --text2:#7a93aa;
+    --border:rgba(168,189,212,0.2);
+    --chrome1:#c8daea; --chrome2:#8fafc8; --chrome3:#4a7a9b;
+  }
+  /* Shared btn styles */
+  .btn { display:inline-flex; align-items:center; gap:6px; padding:8px 18px; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--text); font-family:'Barlow Condensed'; font-size:14px; letter-spacing:1px; cursor:pointer; transition:background 0.15s,border-color 0.15s; }
+  .btn:hover { background:rgba(168,189,212,0.06); }
+  .btn-gold { background:linear-gradient(135deg,var(--chrome2),var(--chrome1)); color:var(--bg); border:none; font-weight:700; }
+  .btn-outline { border-color:rgba(168,189,212,0.3); }
+  .btn-ghost { border-color:transparent; }
+  .btn-sm { font-size:12px; padding:5px 12px; }
+  .form-group { display:flex; flex-direction:column; gap:6px; }
+  .form-group label { font-family:'Barlow Condensed'; font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--text2); }
+  .form-input { background:var(--surface3); border:1px solid rgba(255,255,255,0.1); border-radius:6px; color:var(--text); padding:7px 12px; font-size:14px; font-family:'Barlow',sans-serif; width:100%; }
+  select.form-input option { background:var(--surface3); }
+
+  /* Screens */
+  #screen-auth, #screen-setup, #screen-draft, #screen-loading { display:none; }
+  #screen-auth.show, #screen-setup.show, #screen-draft.show, #screen-loading.show { display:block; }
+
+  /* Auth screen */
+  .auth-wrap { max-width:380px; margin:80px auto; padding:1.5rem; background:var(--surface2); border-radius:12px; border:1px solid var(--border); }
+  .auth-wrap h2 { font-family:'Bebas Neue'; font-size:32px; letter-spacing:2px; margin-bottom:1rem; }
+</style>
+</head>
+<body>
+
+<div id="fa-toast"></div>
+
+<div class="fa-page">
+
+  <!-- NAV -->
+  <nav class="fa-nav">
+    <a href="index.html" class="fa-nav-logo" title="Back to League">
+      <div class="logo-icon">DNA</div>
+      <div style="font-family:'Barlow Condensed';font-size:13px;letter-spacing:1px;">DNA League</div>
+    </a>
+    <div class="fa-nav-title" id="fa-nav-title">FA Draft</div>
+    <div class="fa-nav-status status-setup" id="fa-nav-status">Setup</div>
+    <div style="margin-left:auto;">
+      <span id="fa-nav-user" style="font-family:'Barlow Condensed';font-size:13px;color:var(--text2);letter-spacing:1px;"></span>
+    </div>
+  </nav>
+
+  <!-- AUTH SCREEN -->
+  <div id="screen-auth">
+    <div class="auth-wrap">
+      <h2>Sign In</h2>
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label>Email</label>
+        <input type="email" id="auth-email" class="form-input" placeholder="your@email.com">
+      </div>
+      <div class="form-group" style="margin-bottom:1.25rem;">
+        <label>Password</label>
+        <input type="password" id="auth-password" class="form-input" placeholder="Password">
+      </div>
+      <button type="button" class="btn btn-gold" style="width:100%;" onclick="signIn()">Sign In</button>
+      <div id="auth-error" style="margin-top:0.75rem;font-size:13px;color:var(--red);"></div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div id="screen-loading">
+    <div style="padding:4rem;text-align:center;color:var(--text2);font-family:'Barlow Condensed';font-size:14px;letter-spacing:2px;">LOADING...</div>
+  </div>
+
+  <!-- SETUP SCREEN (commissioner only) -->
+  <div id="screen-setup">
+    <div class="fa-setup">
+      <div style="margin-bottom:2rem;">
+        <h1>FA Draft <span style="color:var(--gold2);">Setup</span></h1>
+        <p style="color:var(--text2);margin-top:6px;" id="setup-subtitle">Configure the free agent draft</p>
+      </div>
+
+      <!-- Rating Range -->
+      <div class="setup-card">
+        <div class="setup-card-header">Player Rating Range</div>
+        <div class="setup-card-body">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:0.875rem;">
+            <button type="button" class="tier-btn common"  onclick="selectTier(65,69,'common')" >Common<span class="tier-range">65–69</span></button>
+            <button type="button" class="tier-btn bronze"  onclick="selectTier(70,74,'bronze')" >Bronze<span class="tier-range">70–74</span></button>
+            <button type="button" class="tier-btn silver"  onclick="selectTier(75,79,'silver')" >Silver<span class="tier-range">75–79</span></button>
+            <button type="button" class="tier-btn gold"    onclick="selectTier(80,84,'gold')"   >Gold<span class="tier-range">80–84</span></button>
+            <button type="button" class="tier-btn diamond" onclick="selectTier(85,99,'diamond')">Diamond<span class="tier-range">85–99</span></button>
+          </div>
+          <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <div class="form-group">
+              <label>Min Overall</label>
+              <input type="number" id="setup-min" class="form-input" style="width:80px;" value="70" min="60" max="99" oninput="syncTierHighlight()">
+            </div>
+            <div style="padding-bottom:9px;color:var(--text2);">—</div>
+            <div class="form-group">
+              <label>Max Overall</label>
+              <input type="number" id="setup-max" class="form-input" style="width:80px;" value="79" min="60" max="99" oninput="syncTierHighlight()">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rounds & Timer -->
+      <div class="setup-card">
+        <div class="setup-card-header">Draft Settings</div>
+        <div class="setup-card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <div class="form-group">
+            <label>Rounds</label>
+            <input type="number" id="setup-rounds" class="form-input" style="width:80px;" value="1" min="1" max="20">
+            <div style="font-size:11px;color:var(--text2);">Snake order if &gt; 1</div>
+          </div>
+          <div class="form-group">
+            <label>Pick Timer</label>
+            <select id="setup-timer" class="form-input" style="width:140px;">
+              <option value="0">No timer</option>
+              <option value="120" selected>2 minutes</option>
+              <option value="180">3 minutes</option>
+              <option value="300">5 minutes</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Draft Order Preview -->
+      <div class="setup-card">
+        <div class="setup-card-header">Draft Order <span style="font-size:10px;color:var(--text2);letter-spacing:1px;">(reversed from team draft)</span></div>
+        <div class="setup-card-body">
+          <div id="setup-order-preview" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-gold" style="font-size:16px;padding:12px 32px;" onclick="launchFADraft()">Launch FA Draft</button>
+    </div>
+  </div>
+
+  <!-- DRAFT ROOM -->
+  <div id="screen-draft">
+
+    <!-- On-Clock Header -->
+    <div class="fa-on-clock" id="fa-on-clock-bar">
+      <div>
+        <div class="fa-on-clock-label">On the Clock</div>
+        <div class="fa-on-clock-name" id="fa-on-clock-name">—</div>
+      </div>
+      <div id="fa-timer-val" class="fa-timer ok"></div>
+      <div class="fa-controls" id="fa-controls" style="display:none;">
+        <button type="button" class="btn btn-sm btn-outline" id="fa-pause-btn" onclick="togglePause()">Pause</button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="FADraftRoom.manualSkipCurrent()">Skip</button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="FADraftRoom.undoLastPick()">Undo</button>
+        <button type="button" class="btn btn-sm" onclick="FADraftRoom.endDraftEarly()" style="color:var(--red);border-color:rgba(217,64,64,0.3);">End Draft</button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="fa-tabs">
+      <button type="button" class="fa-tab active" onclick="switchTab('players',this)">Available Players</button>
+      <button type="button" class="fa-tab"        onclick="switchTab('board',this)">Draft Board</button>
+      <button type="button" class="fa-tab"        onclick="switchTab('mypicks',this)">My Picks</button>
+      <button type="button" class="fa-tab"        id="fa-export-tab" style="display:none;" onclick="switchTab('export',this)">Export</button>
+    </div>
+
+    <!-- Tab: Available Players -->
+    <div id="tab-players" class="fa-tab-content active">
+      <div class="fa-player-list">
+        <div class="fa-filter-bar">
+          <span style="font-size:12px;color:var(--text2);">Filter:</span>
+          <button type="button" class="fa-filter-btn active" onclick="filterPlayers('ALL',this)">All</button>
+          <button type="button" class="fa-filter-btn" onclick="filterPlayers('P',this)">Pitchers</button>
+          <button type="button" class="fa-filter-btn" onclick="filterPlayers('C',this)">Catchers</button>
+          <button type="button" class="fa-filter-btn" onclick="filterPlayers('IF',this)">Infield</button>
+          <button type="button" class="fa-filter-btn" onclick="filterPlayers('OF',this)">Outfield</button>
+        </div>
+        <div class="fa-search-bar">
+          <input type="text" id="fa-search-input" class="form-input" placeholder="Search player name..." oninput="onSearchInput(this.value)" style="max-width:220px;">
+          <select id="fa-team-filter" class="form-input" onchange="onTeamFilter(this.value)" style="max-width:120px;">
+            <option value="ALL">All Teams</option>
+          </select>
+          <select id="fa-throw-filter" class="form-input" onchange="onThrowFilter(this.value)" style="max-width:100px;">
+            <option value="ALL">Throws: Any</option>
+            <option value="L">Throws L</option>
+            <option value="R">Throws R</option>
+          </select>
+          <select id="fa-bat-filter" class="form-input" onchange="onBatFilter(this.value)" style="max-width:100px;">
+            <option value="ALL">Bats: Any</option>
+            <option value="L">Bats L</option>
+            <option value="R">Bats R</option>
+            <option value="S">Switch</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-outline" onclick="clearFilters()" style="white-space:nowrap;">Clear Filters</button>
+        </div>
+        <div id="fa-player-list-inner"></div>
+      </div>
+    </div>
+
+    <!-- Tab: Draft Board -->
+    <div id="tab-board" class="fa-tab-content">
+      <div class="fa-board" id="fa-board-inner"></div>
+    </div>
+
+    <!-- Tab: My Picks -->
+    <div id="tab-mypicks" class="fa-tab-content">
+      <div class="fa-my-picks" id="fa-mypicks-inner"></div>
+    </div>
+
+    <!-- Tab: Export (shown after draft complete) -->
+    <div id="tab-export" class="fa-tab-content">
+      <div class="fa-export">
+        <h2 style="font-family:'Bebas Neue';font-size:36px;letter-spacing:2px;margin-bottom:1rem;">Draft Complete</h2>
+        <div class="fa-export-btns">
+          <button type="button" class="btn btn-outline" onclick="FADraftRoom.downloadCSV()">⬇ Download CSV</button>
+          <button type="button" class="btn btn-gold" onclick="FADraftRoom.openPrintChecklist()">🖨 Print Trade Checklist</button>
+        </div>
+        <div id="fa-export-summary"></div>
+      </div>
+    </div>
+
+  </div><!-- end screen-draft -->
+
+</div><!-- end fa-page -->
+
+<script>
+// ── GLOBALS ───────────────────────────────────────────────
+const db = supabase.createClient(DNA_CONFIG.supabase.url, DNA_CONFIG.supabase.anon);
+let currentUser   = null;
+let currentMember = null;
+let currentLeague = null;
+let currentSeason = null;
+let mlbTeamsLookup = [];
+let activeDraftId     = null;
+let activeDraftRounds = 1;
+let currentPosFilter  = 'ALL';
+let currentSearchText = '';
+let currentTeamFilter = 'ALL';
+let currentThrowFilter = 'ALL';
+let currentBatFilter  = 'ALL';
+let currentPlayerPage = 0;
+const PLAYERS_PER_PAGE = 50;
+
+// ── TOAST ─────────────────────────────────────────────────
+function faToast(msg, dur) {
+  const el = document.getElementById('fa-toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), dur || 2500);
+}
+window.faToast = faToast; // make accessible to FADraftRoom
+
+// ── AUTH ──────────────────────────────────────────────────
+async function signIn() {
+  const email    = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const errEl    = document.getElementById('auth-error');
+  errEl.textContent = '';
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  if (error) { errEl.textContent = error.message; }
+}
+
+async function boot() {
+  showScreen('loading');
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) { showScreen('auth'); return; }
+  currentUser = session.user;
+  await loadContext();
+
+  db.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+      await loadContext();
+    } else if (event === 'SIGNED_OUT') {
+      showScreen('auth');
+    }
+  });
+}
+
+async function loadContext() {
+  showScreen('loading');
+  // Load member + league
+  const mRes = await db.from('league_members')
+    .select('*, leagues(*)')
+    .eq('user_id', currentUser.id)
+    .maybeSingle();
+  if (!mRes.data) { faToast('Member record not found'); showScreen('auth'); return; }
+  currentMember = mRes.data;
+  currentLeague = mRes.data.leagues;
+
+  document.getElementById('fa-nav-user').textContent = currentMember.display_name;
+
+  // Load mlbTeamsLookup
+  const teamsRes = await db.from('mlb_teams').select('id, name, abbreviation').order('name');
+  mlbTeamsLookup = teamsRes.data || [];
+  FADraftRoom.init(db, currentMember);
+  FADraftRoom.setTeamsLookup(mlbTeamsLookup);
+
+  // Get season from URL param
+  const params   = new URL(location.href).searchParams;
+  const seasonId = params.get('season');
+  if (!seasonId) { faToast('No season specified'); showScreen('auth'); return; }
+
+  const sRes = await db.from('seasons')
+    .select('id, name, status')
+    .eq('id', seasonId)
+    .single();
+  if (sRes.error) { faToast('Season not found'); return; }
+  currentSeason = sRes.data;
+
+  // Check for existing FA draft for this season
+  const dRes = await db.from('drafts')
+    .select('id, status')
+    .eq('season_id', seasonId)
+    .eq('type', 'player')
+    .maybeSingle();
+
+  if (!dRes.data) {
+    // No FA draft yet — show config to commissioner
+    if (!_isAdmin()) { faToast('No FA draft created yet — ask your commissioner'); showScreen('loading'); return; }
+    await showSetupScreen(seasonId);
+  } else {
+    activeDraftId = dRes.data.id;
+    await enterDraftRoom(activeDraftId);
+  }
+}
+
+function _isAdmin() {
+  return currentMember && ['admin','commissioner'].includes(currentMember.role);
+}
+
+// ── SETUP SCREEN ──────────────────────────────────────────
+async function showSetupScreen(seasonId) {
+  // Build draft order preview from existing team draft slots (reversed)
+  const teamDraftRes = await db.from('drafts')
+    .select('id')
+    .eq('season_id', seasonId)
+    .eq('type', 'team')
+    .maybeSingle();
+
+  let orderNames = [];
+  if (teamDraftRes.data) {
+    const slotsRes = await db.from('draft_slots')
+      .select('pick_number, member_id, league_members(display_name)')
+      .eq('draft_id', teamDraftRes.data.id)
+      .order('pick_number', { ascending: true });
+    if (slotsRes.data) {
+      // Take only unique members (first-round slots), then reverse
+      const seen = new Set();
+      const unique = [];
+      slotsRes.data.forEach(s => {
+        if (!seen.has(s.member_id)) { seen.add(s.member_id); unique.push(s); }
+      });
+      unique.reverse();
+      orderNames = unique.map(s => s.league_members?.display_name || 'Unknown');
+    }
+  }
+
+  const preview = document.getElementById('setup-order-preview');
+  if (orderNames.length) {
+    preview.innerHTML = orderNames.map((n, i) =>
+      `<div style="background:var(--surface3);border-radius:6px;padding:4px 10px;font-size:12px;">
+        <span style="color:var(--text2);">${i+1}.</span> ${escHtml(n)}
+      </div>`
+    ).join('');
+  } else {
+    preview.innerHTML = '<div style="font-size:13px;color:var(--text2);">No team draft found — order will be set when you launch.</div>';
+  }
+
+  document.getElementById('fa-nav-title').textContent = 'FA Draft — ' + escHtml(currentSeason.name);
+  showScreen('setup');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function selectTier(min, max, cls) {
+  document.getElementById('setup-min').value = min;
+  document.getElementById('setup-max').value = max;
+  syncTierHighlight(cls);
+}
+
+function syncTierHighlight(activeCls) {
+  const min = parseInt(document.getElementById('setup-min').value);
+  const max = parseInt(document.getElementById('setup-max').value);
+  const tiers = { common:[65,69], bronze:[70,74], silver:[75,79], gold:[80,84], diamond:[85,99] };
+  document.querySelectorAll('.tier-btn').forEach(btn => {
+    btn.classList.remove('active');
+    const cls = [...btn.classList].find(c => tiers[c]);
+    if (cls && tiers[cls][0] === min && tiers[cls][1] === max) btn.classList.add('active');
+  });
+}
+
+async function launchFADraft() {
+  const ratingMin   = parseInt(document.getElementById('setup-min').value) || 70;
+  const ratingMax   = parseInt(document.getElementById('setup-max').value) || 79;
+  const rounds      = parseInt(document.getElementById('setup-rounds').value) || 1;
+  const timerSecs   = parseInt(document.getElementById('setup-timer').value) || 0;
+
+  if (ratingMin > ratingMax) { faToast('Min must be ≤ Max'); return; }
+
+  const params   = new URL(location.href).searchParams;
+  const seasonId = params.get('season');
+
+  // Get reversed team draft order
+  const teamDraftRes = await db.from('drafts').select('id').eq('season_id', seasonId).eq('type','team').maybeSingle();
+  let memberOrder = [];
+  if (teamDraftRes.data) {
+    const slotsRes = await db.from('draft_slots')
+      .select('pick_number, member_id')
+      .eq('draft_id', teamDraftRes.data.id)
+      .order('pick_number', { ascending: true });
+    const seen = new Set(); const unique = [];
+    (slotsRes.data || []).forEach(s => { if (!seen.has(s.member_id)) { seen.add(s.member_id); unique.push(s.member_id); } });
+    unique.reverse();
+    memberOrder = unique;
+  }
+
+  if (!memberOrder.length) { faToast('No team draft found to derive order'); return; }
+
+  // Create draft row
+  const draftRes = await db.from('drafts').insert({
+    season_id:     seasonId,
+    league_id:     currentLeague.id,
+    type:          'player',
+    status:        'active',
+    order_mode:    'weighted',
+    timer_seconds: timerSecs,
+    settings:      { ratingMin, ratingMax, rounds },
+    name:          'FA Draft — ' + currentSeason.name,
+  }).select().single();
+
+  if (draftRes.error) { faToast('Error creating draft: ' + draftRes.error.message); return; }
+  activeDraftId = draftRes.data.id;
+
+  // Create draft_slots for all rounds (snake order encoded)
+  const slots = [];
+  let pickNum = 1;
+  for (let round = 1; round <= rounds; round++) {
+    const order = (round % 2 === 1) ? memberOrder : [...memberOrder].reverse();
+    order.forEach(memberId => {
+      slots.push({ draft_id: activeDraftId, pick_number: pickNum++, member_id: memberId, skipped: false });
+    });
+  }
+  const slotsRes = await db.from('draft_slots').insert(slots);
+  if (slotsRes.error) { faToast('Error creating slots: ' + slotsRes.error.message); return; }
+
+  await enterDraftRoom(activeDraftId);
+}
+
+// ── DRAFT ROOM ─────────────────────────────────────────────
+async function enterDraftRoom(draftId) {
+  showScreen('loading');
+  try {
+    const draft = await FADraftRoom.loadDraftFromDB(draftId);
+    FADraftRoom.loadDraft(draft);
+    activeDraftRounds = draft.settings.rounds || 1;
+
+    // Load player pool from Worker
+    const seasonId = new URL(location.href).searchParams.get('season');
+    const teamAbbrs = await getSeasonTeamAbbrs(seasonId);
+    await FADraftRoom.loadPlayerPool(
+      teamAbbrs,
+      draft.settings.ratingMin,
+      draft.settings.ratingMax,
+      DNA_CONFIG.ratings.workerUrl
+    );
+
+    // Populate team filter dropdown
+    const teamSelect = document.getElementById('fa-team-filter');
+    const teamsInPool = [...new Set(FADraftRoom.getAvailablePlayers(null).map(p => p.fromTeam))].sort();
+    teamsInPool.forEach(abbr => {
+      const opt = document.createElement('option');
+      opt.value = abbr; opt.textContent = abbr;
+      teamSelect.appendChild(opt);
+    });
+
+    // Load low-OVR players from each member's drafted team for trade return suggestions
+    const memberTeamRes = await db.from('league_teams')
+      .select('member_id, mlb_teams(abbreviation)')
+      .eq('season_id', seasonId)
+      .not('mlb_team_id', 'is', null)
+      .not('member_id', 'is', null);
+    const memberTeamMap = {};
+    (memberTeamRes.data || []).forEach(r => {
+      if (r.member_id && r.mlb_teams?.abbreviation) {
+        memberTeamMap[r.member_id] = r.mlb_teams.abbreviation;
+      }
+    });
+    await FADraftRoom.loadTradeReturnRosters(memberTeamMap, DNA_CONFIG.ratings.workerUrl);
+
+    FADraftRoom.subscribeRealtime(draftId);
+
+    document.getElementById('fa-nav-title').textContent = escHtml(draft.name || 'FA Draft');
+    updateNavStatus(draft.status);
+
+    // Show commissioner controls
+    if (_isAdmin()) {
+      document.getElementById('fa-controls').style.display = 'flex';
+    }
+
+    showScreen('draft');
+    updateOnClock();
+    renderAvailablePlayers();
+    renderDraftBoard();
+    renderMyPicks();
+
+    if (draft.status === 'active') {
+      const endTime = draft.settings.timerEndAt ? new Date(draft.settings.timerEndAt).getTime() : null;
+      FADraftRoom.startTimer(endTime || undefined);
+      // First client to open the draft (no stored deadline yet) saves + broadcasts so all others sync.
+      if (!endTime && draft.timerSeconds) FADraftRoom.saveAndBroadcastTimer();
+    }
+    if (draft.status === 'completed') {
+      document.getElementById('fa-export-tab').style.display = '';
+      switchTab('export', document.getElementById('fa-export-tab'));
+      renderExportSummary();
+    }
+
+    checkYourTurn();
+  } catch(e) {
+    console.error('enterDraftRoom:', e);
+    faToast('Error loading draft: ' + e.message);
+    showScreen('loading');
+  }
+}
+
+async function getSeasonTeamAbbrs(seasonId) {
+  // FA draft pools from UNDRAFTED teams — all MLB teams minus those assigned in this season
+  const res = await db.from('league_teams')
+    .select('mlb_teams(abbreviation)')
+    .eq('season_id', seasonId)
+    .not('mlb_team_id', 'is', null);
+  const draftedAbbrs = new Set((res.data || []).map(r => r.mlb_teams?.abbreviation).filter(Boolean));
+  // Return all teams from config that were NOT drafted
+  return DNA_CONFIG.mlbTeams
+    .map(t => t.abbr)
+    .filter(abbr => !draftedAbbrs.has(abbr));
+}
+
+// ── ON-CLOCK / TURN ───────────────────────────────────────
+function updateOnClock() {
+  const cur = FADraftRoom.getCurrentPick?.();
+  const nameEl = document.getElementById('fa-on-clock-name');
+
+  if (!cur) {
+    nameEl.textContent = 'Draft Complete';
+    nameEl.className = 'fa-on-clock-name';
+    updateNavStatus('completed');
+    document.getElementById('fa-export-tab').style.display = '';
+    renderExportSummary();
+    return;
+  }
+  nameEl.textContent = cur.memberName;
+  nameEl.className = 'fa-on-clock-name' + (cur.memberId === currentMember?.id ? ' your-turn' : '');
+}
+window.updateOnClock = updateOnClock;
+
+function checkYourTurn() {
+  const cur = FADraftRoom.getCurrentPick?.();
+  if (cur && cur.memberId === currentMember?.id) {
+    faToast("It's your turn to pick!", 3000);
+  }
+}
+window.checkYourTurn = checkYourTurn;
+
+function updateNavStatus(status) {
+  const el = document.getElementById('fa-nav-status');
+  el.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+  el.className = 'fa-nav-status status-' + (status === 'paused' ? 'paused' : status === 'active' ? 'active' : status === 'completed' ? 'complete' : 'setup');
+}
+
+function updatePauseBtn(isPaused) {
+  const btn = document.getElementById('fa-pause-btn');
+  if (btn) btn.textContent = isPaused ? 'Resume' : 'Pause';
+}
+window.updatePauseBtn = updatePauseBtn;
+
+function togglePause() {
+  const btn = document.getElementById('fa-pause-btn');
+  if (btn && btn.textContent === 'Pause') {
+    FADraftRoom.pauseDraft();
+  } else {
+    FADraftRoom.resumeDraft();
+  }
+}
+
+// ── RENDER: AVAILABLE PLAYERS ─────────────────────────────
+function filterPlayers(group, btn) {
+  currentPosFilter  = group;
+  currentPlayerPage = 0;
+  document.querySelectorAll('.fa-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAvailablePlayers();
+}
+
+function playerPageNav(dir) {
+  currentPlayerPage += dir;
+  renderAvailablePlayers();
+}
+window.playerPageNav = playerPageNav;
+window.filterPlayers = filterPlayers;
+
+function onSearchInput(v) { currentSearchText = v.toLowerCase(); currentPlayerPage = 0; renderAvailablePlayers(); }
+function onTeamFilter(v)  { currentTeamFilter = v;  currentPlayerPage = 0; renderAvailablePlayers(); }
+function onThrowFilter(v) { currentThrowFilter = v; currentPlayerPage = 0; renderAvailablePlayers(); }
+function onBatFilter(v)   { currentBatFilter = v;   currentPlayerPage = 0; renderAvailablePlayers(); }
+function clearFilters() {
+  currentSearchText = ''; currentTeamFilter = 'ALL'; currentThrowFilter = 'ALL'; currentBatFilter = 'ALL';
+  currentPlayerPage = 0;
+  document.getElementById('fa-search-input').value = '';
+  document.getElementById('fa-team-filter').value = 'ALL';
+  document.getElementById('fa-throw-filter').value = 'ALL';
+  document.getElementById('fa-bat-filter').value = 'ALL';
+  renderAvailablePlayers();
+}
+window.onSearchInput = onSearchInput; window.onTeamFilter = onTeamFilter;
+window.onThrowFilter = onThrowFilter; window.onBatFilter = onBatFilter;
+window.clearFilters = clearFilters;
+
+function renderAvailablePlayers() {
+  const allPlayers = FADraftRoom.getAvailablePlayers(currentPosFilter)
+    .filter(p => {
+      if (currentSearchText && !p.name.toLowerCase().includes(currentSearchText)) return false;
+      if (currentTeamFilter !== 'ALL' && p.fromTeam !== currentTeamFilter) return false;
+      if (currentThrowFilter !== 'ALL' && p.throws !== currentThrowFilter) return false;
+      if (currentBatFilter !== 'ALL' && p.bats !== currentBatFilter) return false;
+      return true;
+    });
+  const canPick    = FADraftRoom.canPick(currentMember?.id);
+  const el         = document.getElementById('fa-player-list-inner');
+
+  if (!allPlayers.length) {
+    el.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text2);font-size:13px;">No available players in this range.</div>';
+    return;
+  }
+
+  const totalPages = Math.ceil(allPlayers.length / PLAYERS_PER_PAGE);
+  currentPlayerPage = Math.max(0, Math.min(currentPlayerPage, totalPages - 1));
+  const start   = currentPlayerPage * PLAYERS_PER_PAGE;
+  const players = allPlayers.slice(start, start + PLAYERS_PER_PAGE);
+
+  const pagination = totalPages > 1 ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;font-size:12px;color:var(--text2);border-top:1px solid var(--border);">
+      <button type="button" class="btn btn-outline btn-sm" onclick="playerPageNav(-1)" ${currentPlayerPage === 0 ? 'disabled' : ''}>‹ Prev</button>
+      <span>Page ${currentPlayerPage + 1} of ${totalPages} &nbsp;·&nbsp; ${allPlayers.length} players</span>
+      <button type="button" class="btn btn-outline btn-sm" onclick="playerPageNav(1)" ${currentPlayerPage >= totalPages - 1 ? 'disabled' : ''}>Next ›</button>
+    </div>` : '';
+
+  el.innerHTML = players.map((p, idx) => {
+    const globalIdx = start + idx;
+    const tier = p.overall >= 85 ? 'diamond' : p.overall >= 80 ? 'gold' : p.overall >= 75 ? 'silver' : p.overall >= 70 ? 'bronze' : 'common';
+    return `<div class="fa-player-row" id="fpr-${globalIdx}">
+      <div class="fa-player-row-header" onclick="togglePlayerDetail(${globalIdx})">
+        <div class="fa-ovr-badge ${tier}">${p.overall}</div>
+        <div>
+          <div class="fa-player-name">${escHtml(p.name)}</div>
+          <div class="fa-player-meta">${escHtml(p.pos)} · ${escHtml(p.fromTeam)} · ${escHtml(p.series||'Live Series')} · ${escHtml(p.rarity||'')}</div>
+        </div>
+        <button type="button" class="fa-expand-btn">▼ Details</button>
+      </div>
+      <div class="fa-player-detail" id="fpd-${globalIdx}" style="display:none;">
+        ${renderPlayerDetail(p, globalIdx, canPick)}
+      </div>
+    </div>`;
+  }).join('') + pagination;
+}
+window.renderAvailablePlayers = renderAvailablePlayers;
+
+function togglePlayerDetail(idx) {
+  const det = document.getElementById('fpd-' + idx);
+  const btn = document.querySelector('#fpr-' + idx + ' .fa-expand-btn');
+  const open = det.style.display === 'none';
+  det.style.display = open ? '' : 'none';
+  if (btn) btn.textContent = open ? '▲ Hide' : '▼ Details';
+}
+window.togglePlayerDetail = togglePlayerDetail;
+
+function attrColor(val) {
+  if (!val) return '';
+  if (val >= 85) return 'high';
+  if (val >= 70) return 'mid';
+  if (val >= 55) return 'low';
+  return 'vlow';
+}
+
+function attrVal(v) {
+  return (v || v === 0) && v > 0 ? v : '—';
+}
+
+function renderPlayerDetail(p, idx, canPick) {
+  const isPitcher = ['SP','RP','CP'].includes(p.pos);
+  let html = '';
+
+  if (isPitcher) {
+    html += `<div class="fa-attr-section">
+      <div class="fa-attr-label">Pitching</div>
+      <div class="fa-attr-grid">
+        ${[['Velocity', p.velocity],['Control', p.control],['Break', p.break_rating],
+           ['Stamina', p.stamina],['K/BF vs L', p.k_per_bf_l],['K/BF vs R', p.k_per_bf_r],
+           ['H/BF vs L', p.hits_per_bf_l],['H/BF vs R', p.hits_per_bf_r],
+           ['BB/BF', p.bb_per_bf],['HR/BF', p.hr_per_bf],['Clutch', p.pitching_clutch]
+          ].map(([n,v]) => `<div class="fa-attr-row"><span class="fa-attr-name">${n}</span><span class="fa-attr-val ${attrColor(v)}">${attrVal(v)}</span></div>`).join('')}
+      </div>
+    </div>`;
+    if (p.pitch_arsenal && p.pitch_arsenal.length) {
+      html += `<div class="fa-attr-section">
+        <div class="fa-attr-label">Pitch Repertoire</div>
+        ${p.pitch_arsenal.map(pitch => `
+          <div class="fa-pitch-row">
+            <span class="fa-pitch-name">${escHtml(pitch.name)}</span>
+            <div class="fa-pitch-stats">MPH <span>${pitch.speed||'—'}</span> BRK <span>${pitch.break||'—'}</span></div>
+          </div>`).join('')}
+      </div>`;
+    }
+  } else {
+    html += `<div class="fa-attr-section">
+      <div class="fa-attr-label">Hitting</div>
+      <div class="fa-attr-grid">
+        ${[['Contact L', p.contact_left],['Contact R', p.contact_right],
+           ['Power L', p.power_left],['Power R', p.power_right],
+           ['Vision', p.plate_vision],['Discipline', p.plate_discipline],['Clutch', p.clutch]
+          ].map(([n,v]) => `<div class="fa-attr-row"><span class="fa-attr-name">${n}</span><span class="fa-attr-val ${attrColor(v)}">${attrVal(v)}</span></div>`).join('')}
+      </div>
+    </div>
+    <div class="fa-attr-section">
+      <div class="fa-attr-label">Speed & Fielding</div>
+      <div class="fa-attr-grid">
+        ${[['Speed', p.speed],['Stealing', p.stealing],
+           ['Fielding', p.fielding],['Arm Str', p.arm_strength],['Arm Acc', p.arm_accuracy]
+          ].map(([n,v]) => `<div class="fa-attr-row"><span class="fa-attr-name">${n}</span><span class="fa-attr-val ${attrColor(v)}">${attrVal(v)}</span></div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  if (p.quirks && p.quirks.length) {
+    html += `<div class="fa-attr-section">
+      <div class="fa-attr-label">Quirks</div>
+      <div class="fa-quirks">${p.quirks.map(q => `<span class="fa-quirk">${escHtml(q)}</span>`).join('')}</div>
+    </div>`;
+  }
+
+  html += `<button type="button" class="fa-select-btn" ${canPick ? '' : 'disabled'} onclick="pickPlayer(${idx})">Select This Player</button>`;
+  return html;
+}
+
+function pickPlayer(idx) {
+  const players = FADraftRoom.getAvailablePlayers(currentPosFilter)
+    .filter(p => {
+      if (currentSearchText && !p.name.toLowerCase().includes(currentSearchText)) return false;
+      if (currentTeamFilter !== 'ALL' && p.fromTeam !== currentTeamFilter) return false;
+      if (currentThrowFilter !== 'ALL' && p.throws !== currentThrowFilter) return false;
+      if (currentBatFilter !== 'ALL' && p.bats !== currentBatFilter) return false;
+      return true;
+    });
+  if (!players[idx]) return;
+  FADraftRoom.makePick(players[idx]);
+}
+window.pickPlayer = pickPlayer;
+
+// ── RENDER: DRAFT BOARD ───────────────────────────────────
+function renderDraftBoard() {
+  const el = document.getElementById('fa-board-inner');
+  if (!el || !activeDraftId) return;
+  db.from('draft_slots')
+    .select('pick_number, member_id, skipped, league_members(display_name), draft_picks(player_name, player_rating)')
+    .eq('draft_id', activeDraftId)
+    .order('pick_number', { ascending: true })
+    .then(res => {
+      if (res.error || !res.data) return;
+      const slots = res.data;
+      const cur = FADraftRoom.getCurrentPick?.();
+      const totalRounds = activeDraftRounds || 1;
+      const membersPerRound = Math.ceil(slots.length / totalRounds);
+
+      // Group by round
+      const rounds = {};
+      slots.forEach(s => {
+        const round = Math.ceil(s.pick_number / membersPerRound);
+        if (!rounds[round]) rounds[round] = [];
+        const pick = (s.draft_picks && s.draft_picks[0]) ? s.draft_picks[0] : null;
+        rounds[round].push({ ...s, pick });
+      });
+
+      el.innerHTML = Object.keys(rounds).map(r => `
+        <div class="fa-board-round">
+          <div class="fa-board-round-label">Round ${r}</div>
+          ${rounds[r].map(s => {
+            const isCur = cur && cur.pickNumber === s.pick_number;
+            const pick = s.pick;
+            return `<div class="fa-board-pick ${isCur ? 'on-clock' : ''} ${pick ? 'done' : ''}">
+              <div class="fa-board-pick-num">${s.pick_number}</div>
+              <div class="fa-board-pick-member">${escHtml(s.league_members?.display_name || '—')}</div>
+              ${pick ? `<div class="fa-board-pick-result">${escHtml(pick.player_name)} <span style="color:var(--text2);font-size:11px;">${pick.player_rating} OVR</span></div>` : ''}
+            </div>`;
+          }).join('')}
+        </div>`).join('');
+    });
+}
+window.renderDraftBoard = renderDraftBoard;
+
+// ── RENDER: MY PICKS ──────────────────────────────────────
+function renderMyPicks() {
+  const el = document.getElementById('fa-mypicks-inner');
+  if (!activeDraftId || !currentMember) return;
+  db.from('draft_picks')
+    .select('player_name, player_rating, picked_at, mlb_team_id, mlb_teams(abbreviation), pick_number')
+    .eq('draft_id', activeDraftId)
+    .eq('member_id', currentMember.id)
+    .order('pick_number', { ascending: true })
+    .then(res => {
+      const picks = res.data || [];
+      if (!picks.length) {
+        el.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text2);font-size:13px;">No picks yet.</div>';
+        return;
+      }
+      el.innerHTML = picks.map(p => {
+        const tier = p.player_rating >= 85 ? 'diamond' : p.player_rating >= 80 ? 'gold' : p.player_rating >= 75 ? 'silver' : p.player_rating >= 70 ? 'bronze' : 'common';
+        return `<div class="fa-player-row" style="margin-bottom:6px;">
+          <div class="fa-player-row-header" style="cursor:default;">
+            <div class="fa-ovr-badge ${tier}">${p.player_rating}</div>
+            <div>
+              <div class="fa-player-name">${escHtml(p.player_name)}</div>
+              <div class="fa-player-meta">From: ${escHtml(p.mlb_teams?.abbreviation||'—')} · ${p.picked_at ? new Date(p.picked_at).toLocaleString() : ''}</div>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    });
+}
+window.renderMyPicks = renderMyPicks;
+
+// ── RENDER: EXPORT SUMMARY ────────────────────────────────
+function renderExportSummary() {
+  const rows = FADraftRoom.getExportData();
+  const el = document.getElementById('fa-export-summary');
+  if (!rows.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div style="margin-top:1.5rem;">
+    <div style="font-family:'Barlow Condensed';font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--text2);margin-bottom:0.75rem;">${rows.length} Picks</div>
+    ${rows.map(r => `<div style="background:var(--surface2);border-radius:8px;padding:10px 14px;margin-bottom:6px;font-size:13px;">
+      <strong>${escHtml(r.playerName)}</strong>
+      <span style="color:var(--text2);margin:0 6px;">·</span>${r.playerOvr} OVR · ${escHtml(r.playerPos)}
+      <span style="color:var(--text2);margin:0 6px;">·</span>From: ${escHtml(r.originalTeam)}
+      <span style="color:var(--text2);margin:0 6px;">→</span>${escHtml(r.draftedBy)}
+    </div>`).join('')}
+  </div>`;
+}
+
+function showRecap() {
+  document.getElementById('fa-export-tab').style.display = '';
+  switchTab('export', document.getElementById('fa-export-tab'));
+  renderExportSummary();
+  updateOnClock();
+}
+window.showRecap = showRecap;
+
+// ── TAB SWITCHING ─────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.fa-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.fa-tab-content').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'board') renderDraftBoard();
+  if (name === 'mypicks') renderMyPicks();
+}
+window.switchTab = switchTab;
+
+// ── SCREENS ───────────────────────────────────────────────
+function showScreen(name) {
+  ['auth','loading','setup','draft'].forEach(s => {
+    const el = document.getElementById('screen-' + s);
+    if (el) el.classList.toggle('show', s === name);
+  });
+}
+
+// ── BOOT ─────────────────────────────────────────────────
+boot();
+</script>
+</body>
+</html>

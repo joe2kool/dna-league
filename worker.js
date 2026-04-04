@@ -5,6 +5,7 @@
 // Routes:
 //   GET /teams                          — Live Series team OVR ratings
 //   GET /roster?team=LAD                — Top 5 Live Series players per team
+//   GET /fa-roster?team=LAD&min=70&max=84 — All Live Series players per team within OVR range
 //   GET /history?username=X&platform=Y  — Player's Diamond Dynasty game history
 //   GET /gamelog?id=X                   — Full box score for a specific game
 //
@@ -75,6 +76,106 @@ export default {
           }));
 
         return json({ team: teamAbbr, players, source: 'mlb26-listings' });
+
+      } catch(e) {
+        return json({ error: e.message }, 500);
+      }
+    }
+
+    // ── GET /fa-roster?team=LAD&min=70&max=84 ─────────────────
+    // Returns all Live Series players for a team within OVR range,
+    // with full attribute fields for use in the FA draft room.
+    // Two-step: listings.json to filter by OVR, then item.json per player for full attrs.
+    if (path === '/fa-roster') {
+      const teamAbbr = (url.searchParams.get('team') || '').toUpperCase();
+      const min      = parseInt(url.searchParams.get('min') || '0', 10);
+      const max      = parseInt(url.searchParams.get('max') || '99', 10);
+      if (!teamAbbr) return json({ error: 'team parameter required' }, 400);
+      if (isNaN(min) || isNaN(max)) return json({ error: 'min and max must be integers' }, 400);
+
+      const apiTeam = TEAM_MAP[teamAbbr] || teamAbbr;
+
+      try {
+        // Step 1: Fetch up to 3 pages of listings to get UUIDs + OVR for filtering
+        const pages = [1, 2, 3];
+        const listingResults = await Promise.all(pages.map(p =>
+          fetch(
+            `${MLB_API}/listings.json?type=mlb_card&series_id=${LIVE_SERIES}&team=${apiTeam}&sort=rank&order=desc&page=${p}`,
+            { headers: { 'Accept': 'application/json', 'User-Agent': 'DNA-League-App/1.0' },
+              cf: { cacheTtl: 3600, cacheEverything: true } }
+          ).then(r => r.ok ? r.json() : { listings: [] }).catch(() => ({ listings: [] }))
+        ));
+
+        const allListings = listingResults.flatMap(r => r.listings || []);
+
+        // Filter to OVR range; cap at 20 to stay well within CF subrequest limits
+        const inRange = allListings
+          .filter(l => l.item && l.item.uuid && l.item.ovr >= min && l.item.ovr <= max && l.item.name)
+          .slice(0, 20);
+
+        // Step 2: Fetch full item data (attrs, quirks, pitches) for each player in range
+        const itemResults = await Promise.all(inRange.map(l =>
+          fetch(
+            `${MLB_API}/item.json?uuid=${l.item.uuid}`,
+            { headers: { 'Accept': 'application/json', 'User-Agent': 'DNA-League-App/1.0' },
+              cf: { cacheTtl: 3600, cacheEverything: true } }
+          ).then(r => r.ok ? r.json() : null).catch(() => null)
+        ));
+
+        const players = itemResults
+          .filter(i => i && i.name)
+          .map(i => {
+            const isPitcher = ['SP','RP','CP'].includes(i.display_position);
+            const base = {
+              name:     i.name,
+              pos:      i.display_position || '—',
+              overall:  i.ovr,
+              series:   i.series || 'Live Series',
+              rarity:   i.rarity || '',
+              bats:     i.bat_hand || '',
+              throws:   i.throw_hand || '',
+              quirks:   (Array.isArray(i.quirks) ? i.quirks : []).map(q => q.name || q).filter(Boolean),
+            };
+            if (isPitcher) {
+              return {
+                ...base,
+                stamina:         i.stamina        || 0,
+                pitching_clutch: i.pitching_clutch || 0,
+                hits_per_bf_l:   i.hits_per_bf_left  || 0,
+                hits_per_bf_r:   i.hits_per_bf_right || 0,
+                k_per_bf_l:      i.k_per_bf_left     || 0,
+                k_per_bf_r:      i.k_per_bf_right    || 0,
+                bb_per_bf:       i.bb_per_bf       || 0,
+                hr_per_bf:       i.hr_per_bf       || 0,
+                velocity:        i.pitch_velocity  || 0,
+                control:         i.pitch_control   || 0,
+                break_rating:    i.pitch_movement  || 0,
+                pitch_arsenal: (Array.isArray(i.pitches) ? i.pitches : []).map(p => ({
+                  name:  p.name     || '',
+                  speed: p.speed    || 0,
+                  break: p.movement || 0,
+                })).filter(p => p.name),
+              };
+            } else {
+              return {
+                ...base,
+                contact_left:     i.contact_left        || 0,
+                contact_right:    i.contact_right       || 0,
+                power_left:       i.power_left          || 0,
+                power_right:      i.power_right         || 0,
+                plate_vision:     i.plate_vision        || 0,
+                plate_discipline: i.plate_discipline    || 0,
+                clutch:           i.batting_clutch      || 0,
+                speed:            i.speed               || 0,
+                stealing:         i.base_stealing       || 0,
+                fielding:         i.fielding_ability    || 0,
+                arm_strength:     i.arm_strength        || 0,
+                arm_accuracy:     i.arm_accuracy        || 0,
+              };
+            }
+          });
+
+        return json({ team: teamAbbr, min, max, players, source: 'mlb26-item' });
 
       } catch(e) {
         return json({ error: e.message }, 500);
@@ -168,7 +269,7 @@ export default {
       }
     }
 
-    return json({ error: 'Unknown endpoint. Use /roster?team=LAD, /teams, /history?username=X&platform=Y, or /gamelog?id=X' }, 404);
+    return json({ error: 'Unknown endpoint. Use /roster?team=LAD, /fa-roster?team=LAD&min=70&max=84, /teams, /history?username=X&platform=Y, or /gamelog?id=X' }, 404);
   }
 };
 
