@@ -37,6 +37,8 @@ const FADraftRoom = (() => {
   let _countdownEndTime = 0;
   let _countdownTimer   = null;
   let _countdownExpired = false;
+  let _onlineMembers = new Set();
+  let _chatMessages  = [];
 
   // ── HTML ESCAPE ───────────────────────────────────────────
   function _esc(s) {
@@ -249,6 +251,7 @@ const FADraftRoom = (() => {
   function startCountdown(endTime) {
     if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
     _isCountdown = true;
+    _addChatMessage({ system: true, text: '🕐 FA Draft starting in 2:00 — get ready!' });
     _countdownEndTime = endTime;
     if (typeof renderCountdown === 'function') renderCountdown(_countdownEndTime);
     const tick = () => {
@@ -493,6 +496,8 @@ const FADraftRoom = (() => {
     if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
     _isCountdown = false;
     _isComplete = true;
+    _onlineMembers = new Set();
+    _chatMessages  = [];
     _draft.status = 'completed';
     _draft.completedAt = new Date().toISOString();
     await _saveStatusToDB('completed', _draft.completedAt);
@@ -784,7 +789,36 @@ ${teamSections}
       .on('broadcast', { event: 'fa_draft_event' }, ({ payload }) => {
         _handleRemoteEvent(payload);
       })
-      .subscribe();
+      .on('presence', { event: 'sync' }, () => {
+        const state = _realtimeChannel.presenceState();
+        _onlineMembers = new Set(
+          Object.values(state).flatMap(presences => presences.map(p => p.memberId))
+        );
+        if (typeof renderSidebar === 'function') renderSidebar();
+      })
+      .on('presence', { event: 'join' }, ({ newPresences }) => {
+        newPresences.forEach(p => {
+          _onlineMembers.add(p.memberId);
+          _addChatMessage({ system: true, text: `● ${p.memberName} joined` });
+        });
+        if (typeof renderSidebar === 'function') renderSidebar();
+      })
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        leftPresences.forEach(p => {
+          _onlineMembers.delete(p.memberId);
+          _addChatMessage({ system: true, text: `● ${p.memberName} disconnected` });
+        });
+        if (typeof renderSidebar === 'function') renderSidebar();
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED' && _member) {
+          await _realtimeChannel.track({
+            memberId:   _member.id,
+            memberName: _member.name || _member.display_name,
+            color:      _member.color || _member.avatar_color || '#6a9ec7',
+          });
+        }
+      });
   }
 
   function unsubscribeRealtime() {
@@ -813,6 +847,7 @@ ${teamSections}
         if (typeof checkYourTurn === 'function') checkYourTurn();
         if (typeof renderDraftBoard === 'function') renderDraftBoard();
         if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
+        _addChatMessage({ system: true, text: `⚾ ${slot.memberName} picked ${payload.playerName} (${payload.playerRating} OVR)` });
       }
     } else if (payload.type === 'timed_out') {
       const slot = _draft.slots.find(s => s.pickNumber === payload.pickNumber);
@@ -912,11 +947,41 @@ ${teamSections}
         if (typeof hideCountdown === 'function') hideCountdown();
       }
       _advancePick();
+    } else if (payload.type === 'chat_message') {
+      if (payload.memberId !== _member?.id) {
+        _addChatMessage({
+          memberId:    payload.memberId,
+          memberName:  payload.memberName,
+          memberColor: payload.memberColor,
+          text:        payload.text,
+        });
+      }
     } else if (payload.type === 'complete') {
       _isComplete = true; _draft.status = 'completed'; stopTimer();
       if (typeof updateOnClock === 'function') updateOnClock();
       if (typeof showRecap === 'function') showRecap();
     }
+  }
+
+  // ── CHAT ──────────────────────────────────────────────────
+  function _addChatMessage(msg) {
+    _chatMessages.push(msg);
+    if (_chatMessages.length > 50) _chatMessages.shift();
+    if (typeof renderChatMessages === 'function') renderChatMessages(_chatMessages);
+  }
+
+  function sendChatMessage(text) {
+    if (!text || !text.trim()) return;
+    if (text.length > 200) text = text.slice(0, 200);
+    const msg = {
+      memberId:    _member?.id,
+      memberName:  _member?.display_name || _member?.name || 'Unknown',
+      memberColor: _member?.avatar_color || _member?.color || '#6a9ec7',
+      text:        text.trim(),
+      ts:          Date.now(),
+    };
+    _addChatMessage(msg);
+    _broadcast({ type: 'chat_message', ...msg });
   }
 
   // ── PUBLIC API ────────────────────────────────────────────
@@ -936,5 +1001,9 @@ ${teamSections}
     getNextPick: _getNextPick,
     downloadCSV, openPrintChecklist, getExportData,
     subscribeRealtime, unsubscribeRealtime,
+    sendChatMessage,
+    getOnlineMembers: () => _onlineMembers,
+    getChatMessages:  () => _chatMessages,
+    getDraft:         () => _draft,
   };
 })();
