@@ -26,7 +26,7 @@ const DraftRoom = (() => {
   let _isCountdown      = false;
   let _countdownEndTime = 0;
   let _countdownTimer   = null;
-  let _countdownExpired = false; // dedup: prevents multiple clients from double-firing expiry
+  let _countdownExpired = false; // dedup: prevents re-entrant double-firing on this client
 
   // ── INIT ──────────────────────────────────────────────────
   function init(db, member, mlbTeamsLookup) {
@@ -144,6 +144,7 @@ const DraftRoom = (() => {
 
   // ── COUNTDOWN (pre-draft 2-minute wait) ───────────────────
   function startCountdown(endTime) {
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
     _isCountdown = true;
     _countdownEndTime = endTime;
     if (typeof renderCountdown === 'function') renderCountdown(_countdownEndTime);
@@ -160,13 +161,13 @@ const DraftRoom = (() => {
     _countdownTimer = setInterval(tick, 1000);
   }
 
-  function _onCountdownExpired() {
-    if (_countdownExpired) return; // dedup guard
+  async function _onCountdownExpired() {
+    if (_countdownExpired) return; // dedup guard — prevents re-entrant double-firing on this client
     _countdownExpired = true;
     _isCountdown = false;
     if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
     _draft.status = 'active';
-    _saveStatusToDB('active');
+    await _saveStatusToDB('active');
     // Do NOT call _advancePick() here — all clients (including this one) react to the broadcast
     _broadcast({ type: 'countdown_skip' });
   }
@@ -555,6 +556,10 @@ const DraftRoom = (() => {
     // dna_live_draft localStorage key abandoned — draft state lives in Supabase
     _draft = null;
     stopTimer();
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _isCountdown      = false;
+    _countdownEndTime = 0;
+    _countdownExpired = false;
   }
 
   // ── SUPABASE REALTIME ─────────────────────────────────────
