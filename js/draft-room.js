@@ -624,8 +624,8 @@ const DraftRoom = (() => {
         if (status === 'SUBSCRIBED' && _member) {
           await _realtimeChannel.track({
             memberId:   _member.id,
-            memberName: _member.name,
-            color:      _member.color,
+            memberName: _member.name || _member.display_name || 'Unknown',
+            color:      _member.color || _member.avatar_color || '#6a9ec7',
           });
         }
       });
