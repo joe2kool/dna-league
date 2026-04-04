@@ -274,6 +274,7 @@ const FADraftRoom = (() => {
     await _saveStatusToDB('active');
     if (typeof hideCountdown === 'function') hideCountdown();
     _broadcast({ type: 'countdown_skip' });
+    _advancePick(); // originating client acts directly; remote clients act via handler
   }
 
   function skipCountdown() {
@@ -489,6 +490,8 @@ const FADraftRoom = (() => {
 
   async function _completeDraft() {
     stopTimer();
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _isCountdown = false;
     _isComplete = true;
     _draft.status = 'completed';
     _draft.completedAt = new Date().toISOString();
@@ -902,10 +905,12 @@ ${teamSections}
       startTimer(payload.endTime || undefined);
       if (typeof updatePauseBtn === 'function') updatePauseBtn(false);
     } else if (payload.type === 'countdown_skip') {
-      _isCountdown = false;
-      if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
-      _draft.status = 'active';
-      if (typeof hideCountdown === 'function') hideCountdown();
+      if (_isCountdown) {
+        _isCountdown = false;
+        if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+        _draft.status = 'active';
+        if (typeof hideCountdown === 'function') hideCountdown();
+      }
       _advancePick();
     } else if (payload.type === 'complete') {
       _isComplete = true; _draft.status = 'completed'; stopTimer();

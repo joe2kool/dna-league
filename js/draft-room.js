@@ -171,8 +171,8 @@ const DraftRoom = (() => {
     _draft.status = 'active';
     await _saveStatusToDB('active');
     if (typeof hideCountdown === 'function') hideCountdown();
-    // Do NOT call _advancePick() here — all clients (including this one) react to the broadcast
     _broadcast({ type: 'countdown_skip' });
+    _advancePick(); // originating client acts directly; remote clients act via handler
   }
 
   function skipCountdown() {
@@ -655,10 +655,12 @@ const DraftRoom = (() => {
         DraftBoard.render(_draft);
         break;
       case 'countdown_skip':
-        _isCountdown = false;
-        if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
-        _draft.status = 'active';
-        if (typeof hideCountdown === 'function') hideCountdown();
+        if (_isCountdown) {
+          _isCountdown = false;
+          if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+          _draft.status = 'active';
+          if (typeof hideCountdown === 'function') hideCountdown();
+        }
         _advancePick();
         break;
       case 'complete':
