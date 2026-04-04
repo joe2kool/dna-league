@@ -194,9 +194,9 @@
         <div class="sidebar-chat">
           <div class="chat-messages" id="chat-messages"></div>
           <div class="chat-input-row">
-            <input class="chat-input" id="chat-input" placeholder="Message..."
+            <input type="text" class="chat-input" id="chat-input" placeholder="Message..."
               maxlength="200" onkeydown="if(event.key==='Enter')sendChat()">
-            <button class="chat-send" onclick="sendChat()">→</button>
+            <button type="button" class="chat-send" onclick="sendChat()">→</button>
           </div>
         </div>
       </div>
@@ -272,9 +272,9 @@
       <div style="display:flex;flex-direction:column;height:400px;">
         <div class="chat-messages" id="chat-messages-mobile" style="flex:1;overflow-y:auto;padding:4px 0;"></div>
         <div class="chat-input-row">
-          <input class="chat-input" id="chat-input-mobile" placeholder="Message..."
+          <input type="text" class="chat-input" id="chat-input-mobile" placeholder="Message..."
             maxlength="200" onkeydown="if(event.key==='Enter')sendChat()">
-          <button class="chat-send" onclick="sendChat()">→</button>
+          <button type="button" class="chat-send" onclick="sendChat()">→</button>
         </div>
       </div>
     </div>
