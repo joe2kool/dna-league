@@ -53,14 +53,19 @@
         <div class="setup-card-title">Draft Settings</div>
       </div>
       <div class="setup-card-body">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;">
           <div class="form-group">
             <label>Season</label>
             <select id="setup-season"></select>
           </div>
           <div class="form-group">
-            <label>Timer per pick (seconds)</label>
+            <label>Timer per pick (s)</label>
             <input type="number" id="setup-timer" value="90" min="30" max="300" step="15">
+          </div>
+          <div class="form-group">
+            <label>Offline timer (s)</label>
+            <input type="number" id="setup-offline-timer" value="30" min="10" max="120" step="5">
+            <span style="font-size:11px;color:var(--text2);">For members not in the room</span>
           </div>
         </div>
         <div class="form-group">
@@ -118,8 +123,37 @@
   <div id="screen-draft" style="display:none;flex:1;display:none;">
     <div class="draft-body" style="position:relative;">
 
+      <!-- SIDEBAR: Online Presence + Chat -->
+      <div class="draft-sidebar" id="draft-sidebar">
+        <div class="sidebar-section-header">
+          <span>👥 Online</span>
+          <span id="sidebar-online-count" style="color:var(--green);font-size:9px;"></span>
+        </div>
+        <div class="sidebar-online" id="sidebar-online-list"></div>
+        <div class="sidebar-section-header" style="margin-top:auto;">💬 Chat</div>
+        <div class="sidebar-chat">
+          <div class="chat-messages" id="chat-messages"></div>
+          <div class="chat-input-row">
+            <input type="text" class="chat-input" id="chat-input" placeholder="Message..."
+              maxlength="200" onkeydown="if(event.key==='Enter')sendChat()">
+            <button type="button" class="chat-send" onclick="sendChat()">→</button>
+          </div>
+        </div>
+      </div>
+
       <!-- LEFT: Pick Board -->
       <div class="draft-left">
+
+        <!-- Countdown Banner (shown before draft starts) -->
+        <div id="dr-countdown-wrap">
+          <div class="dr-countdown-label">Draft Starts In</div>
+          <div class="dr-countdown-val" id="dr-countdown-val">2:00</div>
+          <div class="dr-countdown-sub">Teams are visible — picks are locked until the draft begins</div>
+          <button type="button" class="btn btn-gold btn-sm" id="dr-start-now-btn"
+            onclick="DraftRoom.skipCountdown()" style="display:none;">
+            ⚡ Start Now
+          </button>
+        </div>
 
         <!-- Timer + On Clock -->
         <div class="dr-timer-wrap" id="dr-timer-wrap">
@@ -145,8 +179,9 @@
 
         <!-- Mobile tab bar (hidden on desktop) -->
         <div class="dr-mobile-tabs">
-          <button type="button" class="dr-mobile-tab active" onclick="switchMobileTab('teams', this)">⚡ Available Teams</button>
-          <button type="button" class="dr-mobile-tab" onclick="switchMobileTab('board', this)">📋 Draft Order</button>
+          <button type="button" class="dr-mobile-tab active" onclick="switchMobileTab('teams', this)">⚡ Teams</button>
+          <button type="button" class="dr-mobile-tab" onclick="switchMobileTab('board', this)">📋 Order</button>
+          <button type="button" class="dr-mobile-tab" onclick="switchMobileTab('chat', this)">💬 Chat</button>
         </div>
 
         <!-- Board section (toggled on mobile via tabs) -->
@@ -177,11 +212,21 @@
             </button>
             <button type="button" class="btn btn-outline btn-sm"
               onclick="endDraftEarly()">
-              ⏹ End Draft
+              ⏹ Close Draft
             </button>
           </div>
 
         </div><!-- /dr-board-section -->
+
+        <!-- Mobile Chat Panel (hidden on desktop, toggled on mobile) -->
+        <div id="dr-mobile-chat" style="display:none;flex-direction:column;flex:1;">
+          <div class="chat-messages" id="chat-messages-mobile"></div>
+          <div class="chat-input-row">
+            <input type="text" class="chat-input" id="chat-input-mobile" placeholder="Message..."
+              maxlength="200" onkeydown="if(event.key==='Enter')sendChat()">
+            <button type="button" class="chat-send" onclick="sendChat()">→</button>
+          </div>
+        </div>
       </div>
 
       <!-- RIGHT: Available Teams -->
@@ -279,7 +324,7 @@ async function boot() {
   const activeDraftRes = await db.from('drafts')
     .select('id, name, status')
     .eq('league_id', DNA_CONFIG.league.id)
-    .in('status', ['active', 'paused'])
+    .in('status', ['active', 'paused', 'countdown'])
     .order('created_at', { ascending: false })
     .limit(1);
 
@@ -440,6 +485,7 @@ async function launchDraft() {
   }
 
   const timerSeconds = parseInt(document.getElementById('setup-timer').value) || 90;
+  const offlineTimerSeconds = parseInt(document.getElementById('setup-offline-timer').value) || 30;
   const seasonId     = document.getElementById('setup-season').value || null;
   const name         = document.getElementById('setup-name').value || 'Team Draft';
 
@@ -447,18 +493,19 @@ async function launchDraft() {
   await db.from('drafts')
     .update({ status: 'completed' })
     .eq('league_id', DNA_CONFIG.league.id)
-    .in('status', ['active', 'paused']);
+    .in('status', ['active', 'paused', 'countdown']);
 
   // Insert new draft row
   const draftRes = await db.from('drafts').insert({
     league_id:     DNA_CONFIG.league.id,
     season_id:     seasonId,
     type:          'team',
-    status:        'active',
+    status:        'countdown',
     order_mode:    'random',
     name,
     timer_seconds: timerSeconds,
     paused:        false,
+    settings:      { countdownEndAt: new Date(Date.now() + 120000).toISOString(), offlineTimerSeconds },
   }).select().single();
 
   if (draftRes.error) {
@@ -488,7 +535,8 @@ async function launchDraft() {
     name,
     seasonId,
     seasonName,
-    status:       'active',
+    status:       'countdown',
+    countdownEndAt: new Date(Date.now() + 120000).toISOString(),
     timerSeconds,
     slots: slotsRes.data.map(s => ({
       _dbId:      s.id,
@@ -531,14 +579,20 @@ function enterDraftRoom(draft) {
   DraftUI.renderAvailableTeams(draft.availableTeams, draft.teamRatings || _teamRatings);
   updateOnClock();
 
-  // Start timer if active — pass stored endTime so late joiners sync to remaining time
+  // Start timer if active; start countdown if in pre-draft phase
   if (draft.status === 'active') {
     const endTime = draft.timerEndAt ? new Date(draft.timerEndAt).getTime() : null;
     DraftRoom.startTimer(endTime || undefined);
-    // First client to open the draft (no stored deadline yet) saves + broadcasts so all others sync.
-    // Subsequent loads use the stored deadline and skip the broadcast.
     if (!endTime && draft.timerSeconds) DraftRoom.saveAndBroadcastTimer();
     checkYourTurn();
+  } else if (draft.status === 'countdown') {
+    const endTime = draft.countdownEndAt ? new Date(draft.countdownEndAt).getTime() : (Date.now() + 120000);
+    if (Date.now() >= endTime) {
+      // Countdown already expired — wait for countdown_skip broadcast to arrive
+      renderCountdown(Date.now());
+    } else {
+      DraftRoom.startCountdown(endTime);
+    }
   }
 
   // Listen for Supabase realtime updates to refresh on-clock display
@@ -558,6 +612,7 @@ function updateOnClock() {
   document.getElementById('dr-picks-progress').textContent = done + ' / ' + total + ' picks made';
 
   updateOnClockAvailable();
+  renderSidebar();
 }
 
 function updateOnClockAvailable() {
@@ -620,10 +675,13 @@ function switchMobileTab(tab, btn) {
   document.querySelectorAll('.dr-mobile-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   const body = document.querySelector('.draft-body');
-  if (tab === 'board') {
-    body.classList.add('show-board');
-  } else {
+  body.classList.toggle('show-board', tab === 'board');
+  document.getElementById('dr-mobile-chat').style.display = tab === 'chat' ? 'flex' : 'none';
+  if (tab === 'chat') {
     body.classList.remove('show-board');
+    document.querySelector('.draft-right').style.display = 'none';
+  } else {
+    document.querySelector('.draft-right').style.display = '';
   }
 }
 
@@ -669,6 +727,93 @@ async function endDraftEarly() {
   DraftUI.showRecap(DraftRoom.getDraft());
   document.getElementById('dr-recap').style.display = '';
   document.getElementById('screen-draft').style.display = 'none';
+}
+
+// ── COUNTDOWN UI ──────────────────────────────────────────
+function renderCountdown(endTime) {
+  document.getElementById('dr-countdown-wrap').classList.add('visible');
+  document.getElementById('dr-timer-wrap').style.display = 'none';
+  document.getElementById('dr-teams-grid').classList.add('teams-locked');
+  if (DnaAuth.isAdmin(_member)) {
+    document.getElementById('dr-start-now-btn').style.display = '';
+  }
+  const remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+  updateCountdownDisplay(remaining);
+}
+
+function updateCountdownDisplay(seconds) {
+  const el = document.getElementById('dr-countdown-val');
+  if (!el) return;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  el.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function hideCountdown() {
+  document.getElementById('dr-countdown-wrap').classList.remove('visible');
+  document.getElementById('dr-timer-wrap').style.display = '';
+  document.getElementById('dr-teams-grid').classList.remove('teams-locked');
+}
+
+// ── SIDEBAR ───────────────────────────────────────────────
+function renderSidebar() {
+  const draft = DraftRoom.getDraft();
+  if (!draft) return;
+  const online = DraftRoom.getOnlineMembers();
+
+  // Online count
+  const total = draft.slots.length;
+  const onlineCount = draft.slots.filter(s => online.has(s.memberId)).length;
+  const countEl = document.getElementById('sidebar-online-count');
+  if (countEl) countEl.textContent = `${onlineCount}/${total}`;
+
+  // Online list
+  const listEl = document.getElementById('sidebar-online-list');
+  if (listEl) {
+    listEl.innerHTML = draft.slots
+      .filter((s, i, arr) => arr.findIndex(x => x.memberId === s.memberId) === i) // dedupe
+      .map(s => {
+        const isOnline = online.has(s.memberId);
+        return `<div class="sidebar-online-item">
+          <div class="online-dot${isOnline ? '' : ' offline'}"></div>
+          <span style="color:${isOnline ? 'var(--text)' : 'var(--text3)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(s.memberName)}</span>
+        </div>`;
+      }).join('');
+  }
+}
+
+function renderChatMessages(messages) {
+  const containers = ['chat-messages', 'chat-messages-mobile'];
+  containers.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = messages.map(m => {
+      if (m.system) return `<div class="chat-msg-system">${escHtml(m.text)}</div>`;
+      const safeColor = /^#[0-9a-fA-F]{3,8}$/.test(m.memberColor) ? m.memberColor : 'var(--text2)';
+      return `<div class="chat-msg">
+        <div class="chat-msg-sender" style="color:${safeColor}">${escHtml(m.memberName)}</div>
+        <div class="chat-msg-text">${escHtml(m.text)}</div>
+      </div>`;
+    }).join('');
+    el.scrollTop = el.scrollHeight;
+  });
+}
+
+function sendChat() {
+  const mobileChat = document.getElementById('dr-mobile-chat');
+  const isMobileActive = mobileChat && mobileChat.style.display === 'flex';
+  const input = isMobileActive
+    ? document.getElementById('chat-input-mobile')
+    : document.getElementById('chat-input');
+  const text = input?.value?.trim();
+  if (!text) return;
+  DraftRoom.sendChatMessage(text);
+  if (document.getElementById('chat-input')) document.getElementById('chat-input').value = '';
+  if (document.getElementById('chat-input-mobile')) document.getElementById('chat-input-mobile').value = '';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ── START ──────────────────────────────────────────────────
