@@ -33,6 +33,10 @@ const FADraftRoom = (() => {
   let _inSkipWindow  = false;
   const SKIP_WINDOW_SECS = 15;
   let _timedOutForPick = null; // dedup: prevents all clients from double-processing same timeout
+  let _isCountdown      = false;
+  let _countdownEndTime = 0;
+  let _countdownTimer   = null;
+  let _countdownExpired = false;
 
   // ── HTML ESCAPE ───────────────────────────────────────────
   function _esc(s) {
@@ -110,7 +114,8 @@ const FADraftRoom = (() => {
         ratingMin:  settings.ratingMin  ?? 70,
         ratingMax:  settings.ratingMax  ?? 79,
         rounds:     settings.rounds     ?? 1,
-        timerEndAt: settings.timerEndAt ?? null,
+        timerEndAt:      settings.timerEndAt      ?? null,
+        countdownEndAt:  settings.countdownEndAt  ?? null,
       },
       slots,
     };
@@ -140,6 +145,8 @@ const FADraftRoom = (() => {
     _timerSeconds = _timerTotal;
     _isPaused     = draft.status === 'paused';
     _isComplete   = ['completed'].includes(draft.status);
+    _isCountdown  = draft.status === 'countdown';
+    _countdownExpired = false;
   }
 
   // ── PLAYER POOL ───────────────────────────────────────────
@@ -236,6 +243,44 @@ const FADraftRoom = (() => {
     stopTimer();
     _timerSeconds = _timerTotal;
     _renderTimer();
+  }
+
+  // ── COUNTDOWN ─────────────────────────────────────────────
+  function startCountdown(endTime) {
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _isCountdown = true;
+    _countdownEndTime = endTime;
+    if (typeof renderCountdown === 'function') renderCountdown(_countdownEndTime);
+    const tick = () => {
+      const remaining = Math.max(0, Math.round((_countdownEndTime - Date.now()) / 1000));
+      if (typeof updateCountdownDisplay === 'function') updateCountdownDisplay(remaining);
+      if (remaining <= 0) {
+        clearInterval(_countdownTimer);
+        _countdownTimer = null;
+        _onCountdownExpired();
+      }
+    };
+    tick();
+    _countdownTimer = setInterval(tick, 1000);
+  }
+
+  async function _onCountdownExpired() {
+    if (_isComplete) return;
+    if (_countdownExpired) return;
+    _countdownExpired = true;
+    _isCountdown = false;
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _draft.status = 'active';
+    await _saveStatusToDB('active');
+    if (typeof hideCountdown === 'function') hideCountdown();
+    _broadcast({ type: 'countdown_skip' });
+  }
+
+  function skipCountdown() {
+    if (!_isAdminMember()) return;
+    if (!_isCountdown) return;
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _onCountdownExpired();
   }
 
   function _renderTimer() {
@@ -856,6 +901,12 @@ ${teamSections}
       _isPaused = false; _draft.status = 'active';
       startTimer(payload.endTime || undefined);
       if (typeof updatePauseBtn === 'function') updatePauseBtn(false);
+    } else if (payload.type === 'countdown_skip') {
+      _isCountdown = false;
+      if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+      _draft.status = 'active';
+      if (typeof hideCountdown === 'function') hideCountdown();
+      _advancePick();
     } else if (payload.type === 'complete') {
       _isComplete = true; _draft.status = 'completed'; stopTimer();
       if (typeof updateOnClock === 'function') updateOnClock();
@@ -868,6 +919,7 @@ ${teamSections}
     init, setTeamsLookup, loadDraftFromDB, loadDraft,
     loadPlayerPool, loadTradeReturnRosters, getAvailablePlayers,
     startTimer, stopTimer, resetTimer,
+    startCountdown, skipCountdown,
     saveAndBroadcastTimer: () => {
       if (!_timerTotal || !_timerEndTime) return;
       _broadcast({ type: 'timer_start', endTime: _timerEndTime });
