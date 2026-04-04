@@ -38,6 +38,8 @@ const FADraftRoom = (() => {
   let _countdownTimer   = null;
   let _countdownExpired = false;
   let _onlineMembers = new Set();
+  let _offlineTimerSecs    = 30;
+  let _currentTimerDuration = 120;
   let _chatMessages  = [];
 
   // ── HTML ESCAPE ───────────────────────────────────────────
@@ -116,8 +118,9 @@ const FADraftRoom = (() => {
         ratingMin:  settings.ratingMin  ?? 70,
         ratingMax:  settings.ratingMax  ?? 79,
         rounds:     settings.rounds     ?? 1,
-        timerEndAt:      settings.timerEndAt      ?? null,
-        countdownEndAt:  settings.countdownEndAt  ?? null,
+        timerEndAt:           settings.timerEndAt           ?? null,
+        countdownEndAt:       settings.countdownEndAt       ?? null,
+        offlineTimerSeconds:  settings.offlineTimerSeconds  ?? 30,
       },
       slots,
     };
@@ -148,6 +151,8 @@ const FADraftRoom = (() => {
     _isPaused     = draft.status === 'paused';
     _isComplete   = ['completed'].includes(draft.status);
     _isCountdown  = draft.status === 'countdown';
+    _offlineTimerSecs = draft.settings?.offlineTimerSeconds || 30;
+    _currentTimerDuration = _timerTotal;
     _countdownExpired = false;
   }
 
@@ -220,10 +225,13 @@ const FADraftRoom = (() => {
   // ── TIMER ─────────────────────────────────────────────────
   // Start countdown. Pass an absolute endTime (ms) to sync to a remote clock;
   // omit to start a fresh countdown from _timerTotal.
-  function startTimer(endTime) {
-    if (!_timerTotal || _isPaused || _isComplete) return;
+  function startTimer(endTime, duration) {
+    if (!_timerTotal && !duration) return;
+    if (_isPaused || _isComplete) return;
     stopTimer();
-    _timerEndTime = endTime || (Date.now() + _timerTotal * 1000);
+    const dur = duration || _timerTotal;
+    _currentTimerDuration = dur;
+    _timerEndTime = endTime || (Date.now() + dur * 1000);
     _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
     _renderTimer();
     _timer = setInterval(() => {
@@ -294,7 +302,7 @@ const FADraftRoom = (() => {
     const mins = Math.floor(_timerSeconds / 60);
     const secs = _timerSeconds % 60;
     el.textContent = `${mins}:${secs.toString().padStart(2,'0')}`;
-    const pct = _timerSeconds / _timerTotal;
+    const pct = _currentTimerDuration > 0 ? _timerSeconds / _currentTimerDuration : 1;
     el.className = 'fa-timer ' + (pct > 0.5 ? 'ok' : pct > 0.25 ? 'warning' : 'urgent');
   }
 
@@ -477,12 +485,15 @@ const FADraftRoom = (() => {
 
   function _advancePick() {
     resetTimer();
-    startTimer();
+    const cur = _getCurrentPick();
+    const isOffline = cur && !_onlineMembers.has(cur.memberId);
+    const duration  = (isOffline && _offlineTimerSecs) ? _offlineTimerSecs : undefined;
+    startTimer(undefined, duration);
     // Broadcast absolute deadline + persist so ALL clients (including late joiners)
     // show the same countdown. This fires only on the local pick-maker because
     // remote handlers do NOT call _advancePick().
-    if (_timerTotal) {
-      _broadcast({ type: 'timer_start', endTime: _timerEndTime });
+    if (_timerTotal || duration) {
+      _broadcast({ type: 'timer_start', endTime: _timerEndTime, duration: _currentTimerDuration });
       _saveTimerEndToDB();
     }
     if (typeof updateOnClock === 'function') updateOnClock();
@@ -496,6 +507,8 @@ const FADraftRoom = (() => {
     if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
     _isCountdown = false;
     _isComplete = true;
+    _currentTimerDuration = 120;
+    _offlineTimerSecs     = 30;
     _onlineMembers = new Set();
     _chatMessages  = [];
     _draft.status = 'completed';
@@ -865,8 +878,9 @@ ${teamSections}
       }
     } else if (payload.type === 'timer_start') {
       // Sync countdown to the broadcaster's absolute end time.
-      if (payload.endTime && _timerTotal && !_isPaused && !_isComplete) {
+      if (payload.endTime && (_timerTotal || payload.duration) && !_isPaused && !_isComplete) {
         stopTimer();
+        _currentTimerDuration = payload.duration || _timerTotal;
         _timerEndTime = payload.endTime;
         _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
         _renderTimer();
