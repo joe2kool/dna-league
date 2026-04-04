@@ -2102,7 +2102,10 @@ function renderSeasonCard(s) {
   if (!roster.length) {
     rosterContent = '<div style="font-size:13px;color:var(--text2);padding:4px 0;">No players rostered yet.</div>';
     if (canManageSchedule()) {
-      rosterContent += '<button type="button" class="btn btn-outline btn-sm" style="margin-top:10px;" onclick="openRosterEditor(\'' + s.id + '\')">+ Add Players</button>';
+      rosterContent += '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">' +
+        '<button type="button" class="btn btn-outline btn-sm" onclick="openRosterEditor(\'' + s.id + '\')">+ Add Players</button>' +
+        '<button type="button" class="btn btn-outline btn-sm" style="color:var(--gold);border-color:rgba(201,168,76,0.3);" onclick="importPlayersFromDraft(\'' + s.id + '\')">&#x26A1; Import from Draft</button>' +
+        '</div>';
     }
   } else {
     rosterContent = '<div class="roster-grid">' + roster.map(function(r) {
@@ -2119,8 +2122,9 @@ function renderSeasonCard(s) {
         '</div>';
     }).join('') + '</div>';
     if (canManageSchedule() && s.status === 'upcoming') {
-      rosterContent += '<div style="margin-top:10px;display:flex;gap:8px;">' +
+      rosterContent += '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">' +
         '<button type="button" class="btn btn-outline btn-sm" onclick="openRosterEditor(\'' + s.id + '\')">Edit Roster</button>' +
+        '<button type="button" class="btn btn-outline btn-sm" style="color:var(--gold);border-color:rgba(201,168,76,0.3);" onclick="importPlayersFromDraft(\'' + s.id + '\')">&#x26A1; Import from Draft</button>' +
         '</div>';
     }
   }
@@ -2174,6 +2178,11 @@ function renderSeasonCard(s) {
       (hasDraftData
         ? '<button type="button" class="btn btn-outline btn-sm" style="color:var(--gold);border-color:rgba(201,168,76,0.3);" onclick="autoLoadDraftTeams(\'' + s.id + '\')">&#x26A1; Auto-load from Draft</button>'
         : '') +
+      '</div>';
+  }
+  if (Object.keys(teams).length > 0) {
+    teamsContent += '<div style="margin-top:8px;">' +
+      '<button type="button" class="btn btn-outline btn-sm" style="color:var(--blue);border-color:rgba(106,158,199,0.4);" onclick="openFADraft(\'' + s.id + '\')">&#x1F3CB; FA Draft</button>' +
       '</div>';
   }
 
@@ -2563,7 +2572,55 @@ function updateTeamAssignmentLive(seasonId) {
   });
 }
 
+function openFADraft(seasonId) {
+  window.open('fa-draft.html?season=' + seasonId, '_blank');
+}
+
 // Auto-load team assignments from players' live draft history for this season
+// Import roster members from the season's team draft slots.
+// Finds all unique member_ids in draft_slots for this season's team draft
+// and adds any not yet on the roster.
+async function importPlayersFromDraft(seasonId) {
+  var s = seasonState.seasons.find(function(x){ return x.id === seasonId; });
+  if (!s) return;
+
+  // Find the team draft for this season
+  var draftRes = await db.from('drafts')
+    .select('id')
+    .eq('season_id', seasonId)
+    .eq('type', 'team')
+    .maybeSingle();
+
+  if (!draftRes.data) { toast('No team draft found for this season'); return; }
+
+  var slotsRes = await db.from('draft_slots')
+    .select('member_id')
+    .eq('draft_id', draftRes.data.id)
+    .not('member_id', 'is', null);
+
+  if (slotsRes.error) { toast('Error reading draft slots'); console.error(slotsRes.error.message); return; }
+
+  // Unique member IDs from draft
+  var draftMemberIds = [...new Set((slotsRes.data || []).map(function(r){ return r.member_id; }))];
+  if (!draftMemberIds.length) { toast('No members found in draft'); return; }
+
+  // Filter to those not already on the roster
+  var existingIds = (s.roster || []).map(function(r){ return r.memberId; });
+  var toAdd = draftMemberIds.filter(function(id){ return !existingIds.includes(id); });
+  if (!toAdd.length) { toast('All draft members are already on the roster'); return; }
+
+  var inserts = toAdd.map(function(memberId){
+    return { season_id: seasonId, member_id: memberId };
+  });
+
+  var res = await db.from('league_teams').insert(inserts);
+  if (res.error) { toast('Error adding players to roster'); console.error(res.error.message); return; }
+
+  toAdd.forEach(function(memberId){ s.roster.push({ memberId: memberId }); });
+  renderSeasonsList();
+  toast(toAdd.length + ' player' + (toAdd.length !== 1 ? 's' : '') + ' imported from draft');
+}
+
 async function autoLoadDraftTeams(seasonId) {
   var s = seasonState.seasons.find(function(x){ return x.id === seasonId; });
   if (!s || !s.roster) return;
