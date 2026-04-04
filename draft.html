@@ -783,8 +783,9 @@ function renderChatMessages(messages) {
     if (!el) return;
     el.innerHTML = messages.map(m => {
       if (m.system) return `<div class="chat-msg-system">${escHtml(m.text)}</div>`;
+      const safeColor = /^#[0-9a-fA-F]{3,8}$/.test(m.memberColor) ? m.memberColor : 'var(--text2)';
       return `<div class="chat-msg">
-        <div class="chat-msg-sender" style="color:${m.memberColor || 'var(--text2)'}">${escHtml(m.memberName)}</div>
+        <div class="chat-msg-sender" style="color:${safeColor}">${escHtml(m.memberName)}</div>
         <div class="chat-msg-text">${escHtml(m.text)}</div>
       </div>`;
     }).join('');
@@ -793,7 +794,11 @@ function renderChatMessages(messages) {
 }
 
 function sendChat() {
-  const input = document.getElementById('chat-input') || document.getElementById('chat-input-mobile');
+  const mobileChat = document.getElementById('dr-mobile-chat');
+  const isMobileActive = mobileChat && mobileChat.style.display === 'flex';
+  const input = isMobileActive
+    ? document.getElementById('chat-input-mobile')
+    : document.getElementById('chat-input');
   const text = input?.value?.trim();
   if (!text) return;
   DraftRoom.sendChatMessage(text);
