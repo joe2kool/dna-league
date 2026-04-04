@@ -351,7 +351,7 @@ const DraftRoom = (() => {
     // Broadcast absolute deadline + persist so ALL clients show the same countdown.
     // Safe here because remote pick/skip handlers do NOT call _advancePick().
     if (_timerTotal || duration) {
-      _broadcast({ type: 'timer_start', endTime: _timerEndTime });
+      _broadcast({ type: 'timer_start', endTime: _timerEndTime, duration: _currentTimerDuration });
       _saveTimerEndToDB();
     }
     if (typeof updateOnClock === 'function') updateOnClock();
@@ -572,9 +572,11 @@ const DraftRoom = (() => {
     _draft = null;
     stopTimer();
     if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
-    _isCountdown      = false;
-    _countdownEndTime = 0;
-    _countdownExpired = false;
+    _isCountdown          = false;
+    _countdownEndTime     = 0;
+    _countdownExpired     = false;
+    _currentTimerDuration = 90;
+    _offlineTimerSecs     = 30;
     _onlineMembers = new Set();
     _chatMessages  = [];
   }
@@ -661,6 +663,7 @@ const DraftRoom = (() => {
         if (payload.endTime && !_isPaused && !_isComplete) {
           stopTimer();
           _timerEndTime = payload.endTime;
+          _currentTimerDuration = payload.duration || _timerTotal;
           _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
           _renderTimer();
           if (_timerSeconds > 0) {
@@ -676,7 +679,7 @@ const DraftRoom = (() => {
         }
         break;
       case 'resume':
-        _isPaused = false; startTimer(payload.endTime || undefined);
+        _isPaused = false; startTimer(payload.endTime || undefined, payload.duration || _timerTotal);
         DraftUI.updatePauseBtn(false);
         DraftUI.toast('Draft resumed');
         break;
