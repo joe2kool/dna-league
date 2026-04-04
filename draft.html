@@ -118,6 +118,24 @@
   <div id="screen-draft" style="display:none;flex:1;display:none;">
     <div class="draft-body" style="position:relative;">
 
+      <!-- SIDEBAR: Online Presence + Chat -->
+      <div class="draft-sidebar" id="draft-sidebar">
+        <div class="sidebar-section-header">
+          <span>👥 Online</span>
+          <span id="sidebar-online-count" style="color:var(--green);font-size:9px;"></span>
+        </div>
+        <div class="sidebar-online" id="sidebar-online-list"></div>
+        <div class="sidebar-section-header" style="margin-top:auto;">💬 Chat</div>
+        <div class="sidebar-chat">
+          <div class="chat-messages" id="chat-messages"></div>
+          <div class="chat-input-row">
+            <input class="chat-input" id="chat-input" placeholder="Message..."
+              maxlength="200" onkeydown="if(event.key==='Enter')sendChat()">
+            <button class="chat-send" onclick="sendChat()">→</button>
+          </div>
+        </div>
+      </div>
+
       <!-- LEFT: Pick Board -->
       <div class="draft-left">
 
@@ -156,8 +174,9 @@
 
         <!-- Mobile tab bar (hidden on desktop) -->
         <div class="dr-mobile-tabs">
-          <button type="button" class="dr-mobile-tab active" onclick="switchMobileTab('teams', this)">⚡ Available Teams</button>
-          <button type="button" class="dr-mobile-tab" onclick="switchMobileTab('board', this)">📋 Draft Order</button>
+          <button type="button" class="dr-mobile-tab active" onclick="switchMobileTab('teams', this)">⚡ Teams</button>
+          <button type="button" class="dr-mobile-tab" onclick="switchMobileTab('board', this)">📋 Order</button>
+          <button type="button" class="dr-mobile-tab" onclick="switchMobileTab('chat', this)">💬 Chat</button>
         </div>
 
         <!-- Board section (toggled on mobile via tabs) -->
@@ -193,6 +212,16 @@
           </div>
 
         </div><!-- /dr-board-section -->
+
+        <!-- Mobile Chat Panel (hidden on desktop, toggled on mobile) -->
+        <div id="dr-mobile-chat" style="display:none;flex-direction:column;flex:1;">
+          <div class="chat-messages" id="chat-messages-mobile"></div>
+          <div class="chat-input-row">
+            <input class="chat-input" id="chat-input-mobile" placeholder="Message..."
+              maxlength="200" onkeydown="if(event.key==='Enter')sendChat()">
+            <button class="chat-send" onclick="sendChat()">→</button>
+          </div>
+        </div>
       </div>
 
       <!-- RIGHT: Available Teams -->
@@ -577,6 +606,7 @@ function updateOnClock() {
   document.getElementById('dr-picks-progress').textContent = done + ' / ' + total + ' picks made';
 
   updateOnClockAvailable();
+  renderSidebar();
 }
 
 function updateOnClockAvailable() {
@@ -639,10 +669,13 @@ function switchMobileTab(tab, btn) {
   document.querySelectorAll('.dr-mobile-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   const body = document.querySelector('.draft-body');
-  if (tab === 'board') {
-    body.classList.add('show-board');
-  } else {
+  body.classList.toggle('show-board', tab === 'board');
+  document.getElementById('dr-mobile-chat').style.display = tab === 'chat' ? 'flex' : 'none';
+  if (tab === 'chat') {
     body.classList.remove('show-board');
+    document.querySelector('.draft-right').style.display = 'none';
+  } else {
+    document.querySelector('.draft-right').style.display = '';
   }
 }
 
@@ -714,6 +747,62 @@ function hideCountdown() {
   document.getElementById('dr-countdown-wrap').classList.remove('visible');
   document.getElementById('dr-timer-wrap').style.display = '';
   document.getElementById('dr-teams-grid').classList.remove('teams-locked');
+}
+
+// ── SIDEBAR ───────────────────────────────────────────────
+function renderSidebar() {
+  const draft = DraftRoom.getDraft();
+  if (!draft) return;
+  const online = DraftRoom.getOnlineMembers();
+
+  // Online count
+  const total = draft.slots.length;
+  const onlineCount = draft.slots.filter(s => online.has(s.memberId)).length;
+  const countEl = document.getElementById('sidebar-online-count');
+  if (countEl) countEl.textContent = `${onlineCount}/${total}`;
+
+  // Online list
+  const listEl = document.getElementById('sidebar-online-list');
+  if (listEl) {
+    listEl.innerHTML = draft.slots
+      .filter((s, i, arr) => arr.findIndex(x => x.memberId === s.memberId) === i) // dedupe
+      .map(s => {
+        const isOnline = online.has(s.memberId);
+        return `<div class="sidebar-online-item">
+          <div class="online-dot${isOnline ? '' : ' offline'}"></div>
+          <span style="color:${isOnline ? 'var(--text)' : 'var(--text3)'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(s.memberName)}</span>
+        </div>`;
+      }).join('');
+  }
+}
+
+function renderChatMessages(messages) {
+  const containers = ['chat-messages', 'chat-messages-mobile'];
+  containers.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = messages.map(m => {
+      if (m.system) return `<div class="chat-msg-system">${escHtml(m.text)}</div>`;
+      return `<div class="chat-msg">
+        <div class="chat-msg-sender" style="color:${m.memberColor || 'var(--text2)'}">${escHtml(m.memberName)}</div>
+        <div class="chat-msg-text">${escHtml(m.text)}</div>
+      </div>`;
+    }).join('');
+    el.scrollTop = el.scrollHeight;
+  });
+}
+
+function sendChat() {
+  const input = document.getElementById('chat-input') || document.getElementById('chat-input-mobile');
+  const text = input?.value?.trim();
+  if (!text) return;
+  DraftRoom.sendChatMessage(text);
+  if (document.getElementById('chat-input')) document.getElementById('chat-input').value = '';
+  if (document.getElementById('chat-input-mobile')) document.getElementById('chat-input-mobile').value = '';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ── START ──────────────────────────────────────────────────
