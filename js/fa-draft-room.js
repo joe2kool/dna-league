@@ -343,10 +343,11 @@ const FADraftRoom = (() => {
     _timerEndTime = Date.now() + SKIP_WINDOW_SECS * 1000;
     faToast(`⏱ ${slot.memberName} has ${SKIP_WINDOW_SECS}s to re-pick`);
     // Include endTime so remote clients show the same countdown.
-    _broadcast({ type: 'skip_window_start', pickNumber: slot.pickNumber, endTime: _timerEndTime });
+    _broadcast({ type: 'skip_window_start', pickNumber: slot.pickNumber, endTime: _timerEndTime, duration: SKIP_WINDOW_SECS });
     if (typeof updateOnClock === 'function') updateOnClock();
     if (typeof checkYourTurn === 'function') checkYourTurn();
     if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
+    _currentTimerDuration = SKIP_WINDOW_SECS;
     _timerSeconds = SKIP_WINDOW_SECS;
     _renderTimer();
     _timer = setInterval(() => {
@@ -904,6 +905,7 @@ ${teamSections}
         // Sync the 15s countdown to the broadcaster's clock.
         if (payload.endTime) {
           stopTimer();
+          _currentTimerDuration = payload.duration || SKIP_WINDOW_SECS;
           _timerEndTime = payload.endTime;
           _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
           _renderTimer();
