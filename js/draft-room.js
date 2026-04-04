@@ -168,6 +168,7 @@ const DraftRoom = (() => {
     if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
     _draft.status = 'active';
     await _saveStatusToDB('active');
+    if (typeof hideCountdown === 'function') hideCountdown();
     // Do NOT call _advancePick() here — all clients (including this one) react to the broadcast
     _broadcast({ type: 'countdown_skip' });
   }

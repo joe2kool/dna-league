@@ -121,6 +121,17 @@
       <!-- LEFT: Pick Board -->
       <div class="draft-left">
 
+        <!-- Countdown Banner (shown before draft starts) -->
+        <div id="dr-countdown-wrap">
+          <div class="dr-countdown-label">Draft Starts In</div>
+          <div class="dr-countdown-val" id="dr-countdown-val">2:00</div>
+          <div class="dr-countdown-sub">Teams are visible — picks are locked until the draft begins</div>
+          <button type="button" class="btn btn-gold btn-sm" id="dr-start-now-btn"
+            onclick="DraftRoom.skipCountdown()" style="display:none;">
+            ⚡ Start Now
+          </button>
+        </div>
+
         <!-- Timer + On Clock -->
         <div class="dr-timer-wrap" id="dr-timer-wrap">
           <div class="dr-timer-ring-wrap">
@@ -454,11 +465,12 @@ async function launchDraft() {
     league_id:     DNA_CONFIG.league.id,
     season_id:     seasonId,
     type:          'team',
-    status:        'active',
+    status:        'countdown',
     order_mode:    'random',
     name,
     timer_seconds: timerSeconds,
     paused:        false,
+    settings:      { countdownEndAt: new Date(Date.now() + 120000).toISOString() },
   }).select().single();
 
   if (draftRes.error) {
@@ -488,7 +500,8 @@ async function launchDraft() {
     name,
     seasonId,
     seasonName,
-    status:       'active',
+    status:       'countdown',
+    countdownEndAt: new Date(Date.now() + 120000).toISOString(),
     timerSeconds,
     slots: slotsRes.data.map(s => ({
       _dbId:      s.id,
@@ -531,14 +544,20 @@ function enterDraftRoom(draft) {
   DraftUI.renderAvailableTeams(draft.availableTeams, draft.teamRatings || _teamRatings);
   updateOnClock();
 
-  // Start timer if active — pass stored endTime so late joiners sync to remaining time
+  // Start timer if active; start countdown if in pre-draft phase
   if (draft.status === 'active') {
     const endTime = draft.timerEndAt ? new Date(draft.timerEndAt).getTime() : null;
     DraftRoom.startTimer(endTime || undefined);
-    // First client to open the draft (no stored deadline yet) saves + broadcasts so all others sync.
-    // Subsequent loads use the stored deadline and skip the broadcast.
     if (!endTime && draft.timerSeconds) DraftRoom.saveAndBroadcastTimer();
     checkYourTurn();
+  } else if (draft.status === 'countdown') {
+    const endTime = draft.countdownEndAt ? new Date(draft.countdownEndAt).getTime() : (Date.now() + 120000);
+    if (Date.now() >= endTime) {
+      // Countdown already expired — wait for countdown_skip broadcast to arrive
+      renderCountdown(Date.now());
+    } else {
+      DraftRoom.startCountdown(endTime);
+    }
   }
 
   // Listen for Supabase realtime updates to refresh on-clock display
@@ -669,6 +688,32 @@ async function endDraftEarly() {
   DraftUI.showRecap(DraftRoom.getDraft());
   document.getElementById('dr-recap').style.display = '';
   document.getElementById('screen-draft').style.display = 'none';
+}
+
+// ── COUNTDOWN UI ──────────────────────────────────────────
+function renderCountdown(endTime) {
+  document.getElementById('dr-countdown-wrap').classList.add('visible');
+  document.getElementById('dr-timer-wrap').style.display = 'none';
+  document.getElementById('dr-teams-grid').classList.add('teams-locked');
+  if (DnaAuth.canManage(_member)) {
+    document.getElementById('dr-start-now-btn').style.display = '';
+  }
+  const remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+  updateCountdownDisplay(remaining);
+}
+
+function updateCountdownDisplay(seconds) {
+  const el = document.getElementById('dr-countdown-val');
+  if (!el) return;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  el.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function hideCountdown() {
+  document.getElementById('dr-countdown-wrap').classList.remove('visible');
+  document.getElementById('dr-timer-wrap').style.display = '';
+  document.getElementById('dr-teams-grid').classList.remove('teams-locked');
 }
 
 // ── START ──────────────────────────────────────────────────
