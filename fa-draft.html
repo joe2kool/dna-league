@@ -149,6 +149,19 @@
   <!-- DRAFT ROOM -->
   <div id="screen-draft">
 
+    <!-- Countdown Bar (shown before draft starts) -->
+    <div class="fa-countdown-bar" id="fa-countdown-bar">
+      <div>
+        <div class="fa-countdown-label">Draft Starts In</div>
+        <div class="fa-countdown-val" id="fa-countdown-val">2:00</div>
+      </div>
+      <div class="fa-countdown-sub">Browse players now — selection is locked until the draft begins</div>
+      <button type="button" class="btn btn-gold btn-sm" id="fa-start-now-btn"
+        onclick="FADraftRoom.skipCountdown()" style="display:none;">
+        ⚡ Start Now
+      </button>
+    </div>
+
     <!-- On-Clock Header -->
     <div class="fa-on-clock" id="fa-on-clock-bar">
       <div>
@@ -432,10 +445,10 @@ async function launchFADraft() {
     season_id:     seasonId,
     league_id:     currentLeague.id,
     type:          'player',
-    status:        'active',
+    status:        'countdown',
     order_mode:    'weighted',
     timer_seconds: timerSecs,
-    settings:      { ratingMin, ratingMax, rounds },
+    settings:      { ratingMin, ratingMax, rounds, countdownEndAt: new Date(Date.now() + 120000).toISOString() },
     name:          'FA Draft — ' + currentSeason.name,
   }).select().single();
 
@@ -519,6 +532,13 @@ async function enterDraftRoom(draftId) {
       FADraftRoom.startTimer(endTime || undefined);
       // First client to open the draft (no stored deadline yet) saves + broadcasts so all others sync.
       if (!endTime && draft.timerSeconds) FADraftRoom.saveAndBroadcastTimer();
+    } else if (draft.status === 'countdown') {
+      const endTime = draft.settings.countdownEndAt ? new Date(draft.settings.countdownEndAt).getTime() : (Date.now() + 120000);
+      if (Date.now() >= endTime) {
+        renderCountdown(Date.now()); // countdown expired; wait for countdown_skip broadcast
+      } else {
+        FADraftRoom.startCountdown(endTime);
+      }
     }
     if (draft.status === 'completed') {
       document.getElementById('fa-export-tab').style.display = '';
@@ -881,6 +901,33 @@ function showScreen(name) {
     if (el) el.classList.toggle('show', s === name);
   });
 }
+
+// ── COUNTDOWN UI ──────────────────────────────────────────────
+function renderCountdown(endTime) {
+  document.getElementById('fa-countdown-bar').classList.add('visible');
+  document.getElementById('fa-on-clock-bar').style.display = 'none';
+  document.getElementById('tab-players').classList.add('fa-players-locked');
+  if (_isAdmin()) document.getElementById('fa-start-now-btn').style.display = '';
+  const remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+  updateCountdownDisplay(remaining);
+}
+window.renderCountdown = renderCountdown;
+
+function updateCountdownDisplay(seconds) {
+  const el = document.getElementById('fa-countdown-val');
+  if (!el) return;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  el.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+}
+window.updateCountdownDisplay = updateCountdownDisplay;
+
+function hideCountdown() {
+  document.getElementById('fa-countdown-bar').classList.remove('visible');
+  document.getElementById('fa-on-clock-bar').style.display = '';
+  document.getElementById('tab-players').classList.remove('fa-players-locked');
+}
+window.hideCountdown = hideCountdown;
 
 // ── BOOT ─────────────────────────────────────────────────
 boot();

@@ -128,6 +128,33 @@ body { background:var(--bg); color:var(--text); font-family:'Barlow',sans-serif;
 #fa-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--surface3); border:1px solid var(--border); border-radius:8px; padding:10px 20px; font-size:14px; z-index:999; pointer-events:none; opacity:0; transition:opacity 0.2s; white-space:nowrap; }
 #fa-toast.show { opacity:1; }
 
+/* ── COUNTDOWN ────────────────────────────────────────── */
+.fa-countdown-bar {
+  display: none;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.fa-countdown-bar.visible { display: flex; }
+.fa-countdown-label {
+  font-family: 'Barlow Condensed'; font-size: 11px;
+  letter-spacing: 3px; text-transform: uppercase; color: var(--gold);
+}
+.fa-countdown-val {
+  font-family: 'Bebas Neue'; font-size: 32px;
+  color: var(--gold); letter-spacing: 3px;
+}
+.fa-countdown-sub {
+  font-size: 12px; color: var(--text2); flex: 1;
+}
+
+/* ── PLAYERS LOCKED ───────────────────────────────────── */
+.fa-players-locked .fa-player-card { pointer-events: none; opacity: 0.4; }
+.fa-players-locked .fa-select-btn  { pointer-events: none; opacity: 0.4; }
+
 /* ── RESPONSIVE ─────────────────────────────────────────── */
 @media (max-width:480px) {
   .fa-setup { padding:1rem; }
