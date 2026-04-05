@@ -772,8 +772,8 @@ const DraftRoom = (() => {
     if (text.length > 200) text = text.slice(0, 200);
     const msg = {
       memberId:    _member?.id,
-      memberName:  _member?.name || 'Unknown',
-      memberColor: _member?.color || '#6a9ec7',
+      memberName:  _member?.name || _member?.display_name || 'Unknown',
+      memberColor: _member?.color || _member?.avatar_color || '#6a9ec7',
       text:        text.trim(),
       ts:          Date.now(),
     };
