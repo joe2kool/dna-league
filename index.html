@@ -873,7 +873,7 @@
       <div class="form-row">
         <div class="form-group">
           <label>Game Title</label>
-          <input type="text" id="sm-game" placeholder="MLB The Show 25">
+          <input type="text" id="sm-game" placeholder="MLB The Show 26">
         </div>
         <div class="form-group">
           <label>Status</label>
@@ -1856,7 +1856,7 @@ async function loadSeasonState() {
   if (!currentLeague) return;
 
   var res = await db.from('seasons')
-    .select('*, league_teams(member_id, draft_pick_number, mlb_teams(name, abbreviation))')
+    .select('*, league_teams(member_id, status, draft_pick_number, mlb_teams(name, abbreviation))')
     .eq('league_id', currentLeague.id)
     .order('season_number', { ascending: true });
 
@@ -1869,7 +1869,7 @@ async function loadSeasonState() {
     var roster = [];
     var teamAssignments = {};
     (s.league_teams || []).forEach(function(lt) {
-      roster.push({ memberId: lt.member_id });
+      roster.push({ memberId: lt.member_id, status: lt.status || 'pending' });
       if (lt.mlb_teams) {
         teamAssignments[lt.member_id] = lt.mlb_teams.name;
       }
@@ -2278,7 +2278,7 @@ function openSeasonModal(id) {
   document.getElementById('season-modal-title').textContent = id ? 'Edit Season' : 'Create Season';
   document.getElementById('sm-name').value   = s ? s.name : 'Season ' + (seasonState.seasons.length + 1);
   document.getElementById('sm-number').value = s ? s.number : seasonState.seasons.length + 1;
-  document.getElementById('sm-game').value   = s ? (s.game||'') : 'MLB The Show 25';
+  document.getElementById('sm-game').value   = s ? (s.game||'') : 'MLB The Show 26';
   document.getElementById('sm-status').value = s ? s.status : 'upcoming';
   document.getElementById('sm-start').value  = s ? (s.startDate||'') : '';
   document.getElementById('sm-end').value    = s ? (s.endDate||'') : '';
