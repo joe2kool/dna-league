@@ -2533,6 +2533,35 @@ async function confirmParticipation(seasonId) {
   toast('Participation confirmed!');
 }
 
+async function selfJoinSeason(seasonId) {
+  if (!currentMember) return;
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s) return;
+  var res = await db.from('league_teams')
+    .insert({ season_id: seasonId, member_id: currentMember.id, status: 'confirmed' });
+  if (res.error) { toast('Error joining season'); console.error(res.error.message); return; }
+  s.roster.push({ memberId: currentMember.id, status: 'confirmed' });
+  renderSeasonsList();
+  if (typeof renderHomeSeasonCallout === 'function') renderHomeSeasonCallout();
+  toast('You\'ve joined ' + escHtml(s.name) + '!');
+}
+
+async function selfLeaveSeason(seasonId) {
+  if (!currentMember) return;
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s) return;
+  if (!confirm('Leave ' + s.name + '? You can rejoin later if the season is still upcoming.')) return;
+  var res = await db.from('league_teams')
+    .delete()
+    .eq('season_id', seasonId)
+    .eq('member_id', currentMember.id);
+  if (res.error) { toast('Error leaving season'); console.error(res.error.message); return; }
+  s.roster = s.roster.filter(function(r){ return r.memberId !== currentMember.id; });
+  renderSeasonsList();
+  if (typeof renderHomeSeasonCallout === 'function') renderHomeSeasonCallout();
+  toast('Left ' + escHtml(s.name));
+}
+
 // ── TEAM ASSIGNMENTS ─────────────────────────────
 // Called when a single team dropdown changes.
 // Saves ONLY that one assignment, then refreshes available options
