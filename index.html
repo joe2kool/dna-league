@@ -2516,14 +2516,20 @@ async function removeFromRoster(seasonId, memberId) {
 }
 
 // Allow a member to confirm their own participation
-function confirmParticipation(seasonId) {
+async function confirmParticipation(seasonId) {
   if (!currentMember) return;
   var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
   if (!s || !s.roster) return;
   var entry = s.roster.find(function(r){return r.memberId===currentMember.id;});
   if (!entry) return;
+  var res = await db.from('league_teams')
+    .update({ status: 'confirmed' })
+    .eq('season_id', seasonId)
+    .eq('member_id', currentMember.id);
+  if (res.error) { toast('Error confirming participation'); console.error(res.error.message); return; }
   entry.status = 'confirmed';
   renderSeasonsList();
+  if (typeof renderHomeSeasonCallout === 'function') renderHomeSeasonCallout();
   toast('Participation confirmed!');
 }
 
