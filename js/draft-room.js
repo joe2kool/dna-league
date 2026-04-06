@@ -23,6 +23,16 @@ const DraftRoom = (() => {
   let _isComplete   = false;
   let _timedOutForPick = null; // dedup: prevents all clients from double-processing same timeout
 
+  let _isCountdown      = false;
+  let _countdownEndTime = 0;
+  let _countdownTimer   = null;
+  let _countdownExpired = false; // dedup: prevents re-entrant double-firing on this client
+
+  let _onlineMembers = new Set(); // Set of memberIds currently in Presence
+  let _offlineTimerSecs    = 30;  // shortened timer for offline members (configurable)
+  let _currentTimerDuration = 90; // duration used for ring fill calc on current pick
+  let _chatMessages  = [];        // local ephemeral array, capped at 50
+
   // ── INIT ──────────────────────────────────────────────────
   function init(db, member, mlbTeamsLookup) {
     _db             = db;
@@ -47,6 +57,9 @@ const DraftRoom = (() => {
     _timerSeconds = _timerTotal;
     _isPaused     = draft.status === 'paused';
     _isComplete   = draft.status === 'completed';
+    _isCountdown  = draft.status === 'countdown';
+    _offlineTimerSecs = draft.settings?.offlineTimerSeconds || 30;
+    _countdownExpired = false;
   }
 
   async function loadDraftFromDB(draftId) {
@@ -94,9 +107,10 @@ const DraftRoom = (() => {
       name:         d.name,
       seasonId:     d.season_id,
       status:       d.status,
-      timerSeconds: d.timer_seconds || DNA_CONFIG.draft.defaultTimerSeconds,
-      timerEndAt:   d.settings?.timerEndAt || null,
-      settings:     d.settings || {},
+      timerSeconds:   d.timer_seconds || DNA_CONFIG.draft.defaultTimerSeconds,
+      timerEndAt:     d.settings?.timerEndAt || null,
+      countdownEndAt: d.settings?.countdownEndAt || null,
+      settings:       d.settings || {},
       slots,
       availableTeams,
       teamRatings:  {}, // populated in boot() after DnaRatings.getTeamRatings()
@@ -108,10 +122,12 @@ const DraftRoom = (() => {
   // ── TIMER ─────────────────────────────────────────────────
   // Pass an absolute endTime (ms) to sync to a remote clock;
   // omit to start a fresh countdown from _timerTotal.
-  function startTimer(endTime) {
+  function startTimer(endTime, duration) {
     stopTimer();
     if (_isPaused || _isComplete) return;
-    _timerEndTime = endTime || (Date.now() + _timerTotal * 1000);
+    const dur = duration || _timerTotal;
+    _currentTimerDuration = dur;
+    _timerEndTime = endTime || (Date.now() + dur * 1000);
     _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
     _renderTimer();
     _timer = setInterval(() => {
@@ -135,6 +151,46 @@ const DraftRoom = (() => {
     _renderTimer();
   }
 
+  // ── COUNTDOWN (pre-draft 2-minute wait) ───────────────────
+  function startCountdown(endTime) {
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _isCountdown = true;
+    _addChatMessage({ system: true, text: '🕐 Draft starting in 2:00 — get ready!' });
+    _countdownEndTime = endTime;
+    if (typeof renderCountdown === 'function') renderCountdown(_countdownEndTime);
+    const tick = () => {
+      const remaining = Math.max(0, Math.round((_countdownEndTime - Date.now()) / 1000));
+      if (typeof updateCountdownDisplay === 'function') updateCountdownDisplay(remaining);
+      if (remaining <= 0) {
+        clearInterval(_countdownTimer);
+        _countdownTimer = null;
+        _onCountdownExpired();
+      }
+    };
+    tick();
+    _countdownTimer = setInterval(tick, 1000);
+  }
+
+  async function _onCountdownExpired() {
+    if (_isComplete) return; // draft already ended — discard stale countdown
+    if (_countdownExpired) return; // dedup guard — prevents re-entrant double-firing on this client
+    _countdownExpired = true;
+    _isCountdown = false;
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _draft.status = 'active';
+    await _saveStatusToDB('active');
+    if (typeof hideCountdown === 'function') hideCountdown();
+    _broadcast({ type: 'countdown_skip' });
+    _advancePick(); // originating client acts directly; remote clients act via handler
+  }
+
+  function skipCountdown() {
+    if (!DnaAuth.isAdmin(_member)) return;
+    if (!_isCountdown) return;
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _onCountdownExpired();
+  }
+
   function _renderTimer() {
     const el = document.getElementById('dr-timer-val');
     const ring = document.getElementById('dr-timer-ring');
@@ -143,7 +199,7 @@ const DraftRoom = (() => {
     const secs = _timerSeconds % 60;
     el.textContent = `${mins}:${secs.toString().padStart(2,'0')}`;
     // Color shifts: green → gold → red
-    const pct = _timerSeconds / _timerTotal;
+    const pct = _currentTimerDuration > 0 ? _timerSeconds / _currentTimerDuration : 1;
     el.style.color = pct > 0.5 ? 'var(--green)' : pct > 0.25 ? 'var(--gold)' : 'var(--red)';
     // SVG ring progress
     if (ring) {
@@ -163,6 +219,17 @@ const DraftRoom = (() => {
     if (_timedOutForPick === cur.pickNumber) return; // prevent double-processing on multi-client expiry
     _timedOutForPick = cur.pickNumber;
 
+    if (_draft.status === 'skipped_picks') {
+      // Second timeout in skip window — auto-assign best available team
+      const best = [..._draft.availableTeams]
+        .sort((a, b) => ((_draft.teamRatings?.[b]?.overall || 0) - (_draft.teamRatings?.[a]?.overall || 0)))[0];
+      if (best) {
+        DraftUI.toast(`⏰ Auto-assigning ${best} to ${cur.memberName}`, 3000);
+        await _autoAssign(cur, best);
+      }
+      return;
+    }
+
     DraftUI.toast(`⏰ Time expired for ${cur.memberName} — skipping!`, 3000);
     cur.skipped = true;
     await _saveSkipToDB(cur);
@@ -177,6 +244,24 @@ const DraftRoom = (() => {
       _advancePick();
     }
     DraftBoard.render(_draft);
+  }
+
+  async function _autoAssign(cur, teamAbbr) {
+    cur.pickedTeam = teamAbbr;
+    cur.pickedAt   = new Date().toISOString();
+    cur.skipped    = false;
+    _draft.availableTeams = _draft.availableTeams.filter(t => t !== teamAbbr);
+    await _savePickToSeason(cur.memberId, teamAbbr);
+    _broadcast({ type: 'pick', pickNumber: cur.pickNumber, memberId: cur.memberId, teamAbbr });
+    await _savePickToDB(cur, teamAbbr);
+    const stillSkipped = _draft.slots.filter(s => s.skipped && !s.pickedTeam);
+    if (stillSkipped.length === 0) {
+      _completeDraft();
+    } else {
+      _advancePick();
+      DraftBoard.render(_draft);
+      DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
+    }
   }
 
   // ── PICK LOGIC ────────────────────────────────────────────
@@ -288,11 +373,14 @@ const DraftRoom = (() => {
 
   function _advancePick() {
     resetTimer();
-    startTimer();
+    const cur = _getCurrentPick();
+    const isOffline = cur && !_onlineMembers.has(cur.memberId);
+    const duration  = (isOffline && _offlineTimerSecs) ? _offlineTimerSecs : undefined;
+    startTimer(undefined, duration);
     // Broadcast absolute deadline + persist so ALL clients show the same countdown.
     // Safe here because remote pick/skip handlers do NOT call _advancePick().
-    if (_timerTotal) {
-      _broadcast({ type: 'timer_start', endTime: _timerEndTime });
+    if (_timerTotal || duration) {
+      _broadcast({ type: 'timer_start', endTime: _timerEndTime, duration: _currentTimerDuration });
       _saveTimerEndToDB();
     }
     if (typeof updateOnClock === 'function') updateOnClock();
@@ -358,7 +446,7 @@ const DraftRoom = (() => {
     _timerEndTime = Date.now() + _timerSeconds * 1000;
     startTimer(_timerEndTime);
     await _saveStatusToDB('active');
-    _broadcast({ type: 'resume', endTime: _timerEndTime });
+    _broadcast({ type: 'resume', endTime: _timerEndTime, duration: _currentTimerDuration });
     _saveTimerEndToDB();
     DraftUI.updatePauseBtn(false);
     DraftUI.toast('Draft resumed');
@@ -366,6 +454,8 @@ const DraftRoom = (() => {
 
   async function _completeDraft() {
     stopTimer();
+    _currentTimerDuration = 90;
+    _offlineTimerSecs     = 30;
     _isComplete = true;
     _draft.status = 'completed';
     _draft.completedAt = new Date().toISOString();
@@ -512,6 +602,14 @@ const DraftRoom = (() => {
     // dna_live_draft localStorage key abandoned — draft state lives in Supabase
     _draft = null;
     stopTimer();
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _isCountdown          = false;
+    _countdownEndTime     = 0;
+    _countdownExpired     = false;
+    _currentTimerDuration = 90;
+    _offlineTimerSecs     = 30;
+    _onlineMembers = new Set();
+    _chatMessages  = [];
   }
 
   // ── SUPABASE REALTIME ─────────────────────────────────────
@@ -530,7 +628,36 @@ const DraftRoom = (() => {
       .on('broadcast', { event: 'draft_event' }, ({ payload }) => {
         _handleRemoteEvent(payload);
       })
-      .subscribe();
+      .on('presence', { event: 'sync' }, () => {
+        const state = _realtimeChannel.presenceState();
+        _onlineMembers = new Set(
+          Object.values(state).flatMap(presences => presences.map(p => p.memberId))
+        );
+        if (typeof renderSidebar === 'function') renderSidebar();
+      })
+      .on('presence', { event: 'join' }, ({ newPresences }) => {
+        newPresences.forEach(p => {
+          _onlineMembers.add(p.memberId);
+          _addChatMessage({ system: true, text: `● ${p.memberName} joined` });
+        });
+        if (typeof renderSidebar === 'function') renderSidebar();
+      })
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        leftPresences.forEach(p => {
+          _onlineMembers.delete(p.memberId);
+          _addChatMessage({ system: true, text: `● ${p.memberName} disconnected` });
+        });
+        if (typeof renderSidebar === 'function') renderSidebar();
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED' && _member) {
+          await _realtimeChannel.track({
+            memberId:   _member.id,
+            memberName: _member.name || _member.display_name || 'Unknown',
+            color:      _member.color || _member.avatar_color || '#6a9ec7',
+          });
+        }
+      });
   }
 
   function unsubscribeRealtime() {
@@ -552,6 +679,7 @@ const DraftRoom = (() => {
           _savePickToSeason(payload.memberId, payload.teamAbbr);
           DraftBoard.render(_draft);
           DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
+          _addChatMessage({ system: true, text: `⚾ ${slot.memberName} picked ${payload.teamAbbr}` });
           // Do NOT call _advancePick() — the pick-maker broadcasts timer_start; wait for it.
           if (typeof updateOnClock === 'function') updateOnClock();
           if (typeof checkYourTurn === 'function') checkYourTurn();
@@ -566,6 +694,7 @@ const DraftRoom = (() => {
         if (payload.endTime && !_isPaused && !_isComplete) {
           stopTimer();
           _timerEndTime = payload.endTime;
+          _currentTimerDuration = payload.duration || _timerTotal;
           _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
           _renderTimer();
           if (_timerSeconds > 0) {
@@ -581,7 +710,7 @@ const DraftRoom = (() => {
         }
         break;
       case 'resume':
-        _isPaused = false; startTimer(payload.endTime || undefined);
+        _isPaused = false; startTimer(payload.endTime || undefined, payload.duration || _timerTotal);
         DraftUI.updatePauseBtn(false);
         DraftUI.toast('Draft resumed');
         break;
@@ -603,6 +732,26 @@ const DraftRoom = (() => {
         DraftUI.toast(`${payload.memberName || 'A player'} was skipped`);
         DraftBoard.render(_draft);
         break;
+      case 'chat_message':
+        // Don't add if it's from this member (already added in sendChatMessage)
+        if (payload.memberId !== _member?.id) {
+          _addChatMessage({
+            memberId:    payload.memberId,
+            memberName:  payload.memberName,
+            memberColor: payload.memberColor,
+            text:        payload.text,
+          });
+        }
+        break;
+      case 'countdown_skip':
+        if (_isCountdown) {
+          _isCountdown = false;
+          if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+          _draft.status = 'active';
+          if (typeof hideCountdown === 'function') hideCountdown();
+        }
+        _advancePick();
+        break;
       case 'complete':
         stopTimer();
         _isComplete = true;
@@ -611,10 +760,32 @@ const DraftRoom = (() => {
     }
   }
 
+  // ── CHAT ──────────────────────────────────────────────────
+  function _addChatMessage(msg) {
+    _chatMessages.push(msg);
+    if (_chatMessages.length > 50) _chatMessages.shift();
+    if (typeof renderChatMessages === 'function') renderChatMessages(_chatMessages);
+  }
+
+  function sendChatMessage(text) {
+    if (!text || !text.trim()) return;
+    if (text.length > 200) text = text.slice(0, 200);
+    const msg = {
+      memberId:    _member?.id,
+      memberName:  _member?.name || _member?.display_name || 'Unknown',
+      memberColor: _member?.color || _member?.avatar_color || '#6a9ec7',
+      text:        text.trim(),
+      ts:          Date.now(),
+    };
+    _addChatMessage(msg); // show immediately to sender
+    _broadcast({ type: 'chat_message', ...msg });
+  }
+
   // ── PUBLIC API ────────────────────────────────────────────
   return {
     init, loadDraft, loadSavedDraft, loadDraftFromDB, clearDraft,
     startTimer, stopTimer, resetTimer,
+    startCountdown, skipCountdown,
     canPick, makePick, undoLastPick, overridePick,
     pauseDraft, resumeDraft,
     advancePick:     _advancePick,
@@ -634,5 +805,8 @@ const DraftRoom = (() => {
     getDraft: () => _draft,
     isPaused: () => _isPaused,
     isComplete: () => _isComplete,
+    sendChatMessage,
+    getOnlineMembers: () => _onlineMembers,
+    getChatMessages:  () => _chatMessages,
   };
 })();
