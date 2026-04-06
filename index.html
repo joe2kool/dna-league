@@ -610,6 +610,8 @@
       <div class="stat-tile"><div class="stat-tile-val">32</div><div class="stat-tile-lbl">Max Draft Slots</div><div class="stat-tile-sub">fully customizable</div></div>
       <div class="stat-tile"><div class="stat-tile-val">2</div><div class="stat-tile-lbl">Draft Modes</div><div class="stat-tile-sub">true random &amp; weighted</div></div>
     </div>
+    <!-- Season confirmation callout -->
+    <div id="home-season-callout" style="display:none;margin-bottom:1.5rem;"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
       <div class="card">
         <div class="card-header"><div class="card-title">Recent Activity</div></div>
@@ -1796,6 +1798,7 @@ function updateDashboard() {
   document.getElementById('dash-players').textContent = state.players.length;
   document.getElementById('dash-drafts').textContent = state.draftsGenerated;
   renderHomeScheduleWidget();
+  renderHomeSeasonCallout();
   var actEl = document.getElementById('activity-list');
   if (!state.activityLog.length) {
     actEl.innerHTML = '<div class="empty-state" style="min-height:120px;"><div class="empty-icon">&#x1F4CB;</div><div class="empty-text">No activity yet</div></div>';
@@ -1804,6 +1807,43 @@ function updateDashboard() {
   actEl.innerHTML = state.activityLog.slice(0,6).map(function(a) {
     return '<div class="activity-item"><div class="activity-dot"></div><div><div class="activity-text">' + escHtml(a.text) + '</div><div class="activity-time">' + a.time + '</div></div></div>';
   }).join('');
+}
+
+function renderHomeSeasonCallout() {
+  var el = document.getElementById('home-season-callout');
+  if (!el) return;
+  if (!currentMember || !seasonState.seasons.length) { el.style.display = 'none'; return; }
+
+  var callouts = [];
+  seasonState.seasons.forEach(function(s) {
+    if (s.status !== 'upcoming') return;
+    var entry = (s.roster || []).find(function(r){ return r.memberId === currentMember.id; });
+    if (!entry) {
+      callouts.push(
+        '<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;">' +
+          '<div>' +
+            '<div style="font-family:\'Barlow Condensed\';font-size:15px;font-weight:600;">' + escHtml(s.name) + ' is coming up</div>' +
+            '<div style="font-size:12px;color:var(--text2);margin-top:2px;">Want to play? Join the roster.</div>' +
+          '</div>' +
+          '<button type="button" class="btn btn-outline btn-sm" style="white-space:nowrap;color:var(--green);border-color:rgba(46,204,113,0.35);" onclick="selfJoinSeason(\'' + s.id + '\')">+ Join Roster</button>' +
+        '</div>'
+      );
+    } else if (entry.status === 'pending') {
+      callouts.push(
+        '<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-color:rgba(201,168,76,0.25);">' +
+          '<div>' +
+            '<div style="font-family:\'Barlow Condensed\';font-size:15px;font-weight:600;">You\'ve been added to ' + escHtml(s.name) + '</div>' +
+            '<div style="font-size:12px;color:var(--text2);margin-top:2px;">Confirm your spot to let the commissioner know you\'re in.</div>' +
+          '</div>' +
+          '<button type="button" class="btn btn-outline btn-sm" style="white-space:nowrap;color:var(--green);border-color:rgba(46,204,113,0.35);" onclick="confirmParticipation(\'' + s.id + '\')">Confirm my spot</button>' +
+        '</div>'
+      );
+    }
+  });
+
+  if (!callouts.length) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px;">' + callouts.join('') + '</div>';
 }
 
 function logActivity(text) {
