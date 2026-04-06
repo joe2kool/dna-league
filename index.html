@@ -2159,9 +2159,9 @@ function renderSeasonCard(s) {
       var memberAction = '';
       if (isMe && s.status === 'upcoming') {
         if (r.status === 'pending') {
-          memberAction = '<button type="button" class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;color:var(--green);border-color:rgba(46,204,113,0.4);" onclick="event.stopPropagation();confirmParticipation(\'' + s.id + '\')">Confirm</button>';
+          memberAction = '<button type="button" class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;color:var(--green);border-color:rgba(46,204,113,0.4);" onclick="event.stopPropagation();confirmParticipation(\'' + escAttr(s.id) + '\')">Confirm</button>';
         } else if (!hasTeam) {
-          memberAction = '<button type="button" class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:11px;color:var(--text2);" onclick="event.stopPropagation();selfLeaveSeason(\'' + s.id + '\')">Leave</button>';
+          memberAction = '<button type="button" class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:11px;color:var(--text2);" onclick="event.stopPropagation();selfLeaveSeason(\'' + escAttr(s.id) + '\')">Leave</button>';
         }
       }
       return '<div class="' + itemClass + '">' +
@@ -2177,9 +2177,9 @@ function renderSeasonCard(s) {
         '<button type="button" class="btn btn-outline btn-sm" style="color:var(--gold);border-color:rgba(201,168,76,0.3);" onclick="importPlayersFromDraft(\'' + s.id + '\')">&#x26A1; Import from Draft</button>' +
         '</div>';
     }
-    if (currentMember && s.status === 'upcoming' && !roster.find(function(r){return r.memberId===currentMember.id;})) {
+    if (currentMember && !canManageSchedule() && s.status === 'upcoming' && !roster.find(function(r){return r.memberId===currentMember.id;})) {
       rosterContent += '<div style="margin-top:10px;">' +
-        '<button type="button" class="btn btn-outline btn-sm" style="color:var(--green);border-color:rgba(46,204,113,0.35);" onclick="selfJoinSeason(\'' + s.id + '\')">+ Join this season</button>' +
+        '<button type="button" class="btn btn-outline btn-sm" style="color:var(--green);border-color:rgba(46,204,113,0.35);" onclick="selfJoinSeason(\'' + escAttr(s.id) + '\')">+ Join this season</button>' +
         '</div>';
     }
   }
