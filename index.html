@@ -2486,7 +2486,7 @@ async function confirmRosterPicker() {
   var res = await db.from('league_teams').insert(inserts);
   if (res.error) { toast('Error adding to roster'); console.error(res.error.message); return; }
 
-  toAdd.forEach(function(memberId) { s.roster.push({ memberId: memberId }); });
+  toAdd.forEach(function(memberId) { s.roster.push({ memberId: memberId, status: 'pending' }); });
   closeRosterPickerModal();
   renderSeasonsList();
   toast(toAdd.length + ' player(s) added to roster');
@@ -2616,7 +2616,7 @@ async function importPlayersFromDraft(seasonId) {
   var res = await db.from('league_teams').insert(inserts);
   if (res.error) { toast('Error adding players to roster'); console.error(res.error.message); return; }
 
-  toAdd.forEach(function(memberId){ s.roster.push({ memberId: memberId }); });
+  toAdd.forEach(function(memberId){ s.roster.push({ memberId: memberId, status: 'pending' }); });
   renderSeasonsList();
   toast(toAdd.length + ' player' + (toAdd.length !== 1 ? 's' : '') + ' imported from draft');
 }
