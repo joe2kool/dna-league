@@ -33,6 +33,14 @@ const FADraftRoom = (() => {
   let _inSkipWindow  = false;
   const SKIP_WINDOW_SECS = 15;
   let _timedOutForPick = null; // dedup: prevents all clients from double-processing same timeout
+  let _isCountdown      = false;
+  let _countdownEndTime = 0;
+  let _countdownTimer   = null;
+  let _countdownExpired = false;
+  let _onlineMembers = new Set();
+  let _offlineTimerSecs    = 30;
+  let _currentTimerDuration = 120;
+  let _chatMessages  = [];
 
   // ── HTML ESCAPE ───────────────────────────────────────────
   function _esc(s) {
@@ -110,7 +118,9 @@ const FADraftRoom = (() => {
         ratingMin:  settings.ratingMin  ?? 70,
         ratingMax:  settings.ratingMax  ?? 79,
         rounds:     settings.rounds     ?? 1,
-        timerEndAt: settings.timerEndAt ?? null,
+        timerEndAt:           settings.timerEndAt           ?? null,
+        countdownEndAt:       settings.countdownEndAt       ?? null,
+        offlineTimerSeconds:  settings.offlineTimerSeconds  ?? 30,
       },
       slots,
     };
@@ -140,6 +150,10 @@ const FADraftRoom = (() => {
     _timerSeconds = _timerTotal;
     _isPaused     = draft.status === 'paused';
     _isComplete   = ['completed'].includes(draft.status);
+    _isCountdown  = draft.status === 'countdown';
+    _offlineTimerSecs = draft.settings?.offlineTimerSeconds || 30;
+    _currentTimerDuration = _timerTotal;
+    _countdownExpired = false;
   }
 
   // ── PLAYER POOL ───────────────────────────────────────────
@@ -211,10 +225,13 @@ const FADraftRoom = (() => {
   // ── TIMER ─────────────────────────────────────────────────
   // Start countdown. Pass an absolute endTime (ms) to sync to a remote clock;
   // omit to start a fresh countdown from _timerTotal.
-  function startTimer(endTime) {
-    if (!_timerTotal || _isPaused || _isComplete) return;
+  function startTimer(endTime, duration) {
+    if (!_timerTotal && !duration) return;
+    if (_isPaused || _isComplete) return;
     stopTimer();
-    _timerEndTime = endTime || (Date.now() + _timerTotal * 1000);
+    const dur = duration || _timerTotal;
+    _currentTimerDuration = dur;
+    _timerEndTime = endTime || (Date.now() + dur * 1000);
     _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
     _renderTimer();
     _timer = setInterval(() => {
@@ -238,6 +255,46 @@ const FADraftRoom = (() => {
     _renderTimer();
   }
 
+  // ── COUNTDOWN ─────────────────────────────────────────────
+  function startCountdown(endTime) {
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _isCountdown = true;
+    _addChatMessage({ system: true, text: '🕐 FA Draft starting in 2:00 — get ready!' });
+    _countdownEndTime = endTime;
+    if (typeof renderCountdown === 'function') renderCountdown(_countdownEndTime);
+    const tick = () => {
+      const remaining = Math.max(0, Math.round((_countdownEndTime - Date.now()) / 1000));
+      if (typeof updateCountdownDisplay === 'function') updateCountdownDisplay(remaining);
+      if (remaining <= 0) {
+        clearInterval(_countdownTimer);
+        _countdownTimer = null;
+        _onCountdownExpired();
+      }
+    };
+    tick();
+    _countdownTimer = setInterval(tick, 1000);
+  }
+
+  async function _onCountdownExpired() {
+    if (_isComplete) return;
+    if (_countdownExpired) return;
+    _countdownExpired = true;
+    _isCountdown = false;
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _draft.status = 'active';
+    await _saveStatusToDB('active');
+    if (typeof hideCountdown === 'function') hideCountdown();
+    _broadcast({ type: 'countdown_skip' });
+    _advancePick(); // originating client acts directly; remote clients act via handler
+  }
+
+  function skipCountdown() {
+    if (!_isAdminMember()) return;
+    if (!_isCountdown) return;
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _onCountdownExpired();
+  }
+
   function _renderTimer() {
     const el = document.getElementById('fa-timer-val');
     if (!el) return;
@@ -245,7 +302,7 @@ const FADraftRoom = (() => {
     const mins = Math.floor(_timerSeconds / 60);
     const secs = _timerSeconds % 60;
     el.textContent = `${mins}:${secs.toString().padStart(2,'0')}`;
-    const pct = _timerSeconds / _timerTotal;
+    const pct = _currentTimerDuration > 0 ? _timerSeconds / _currentTimerDuration : 1;
     el.className = 'fa-timer ' + (pct > 0.5 ? 'ok' : pct > 0.25 ? 'warning' : 'urgent');
   }
 
@@ -286,10 +343,11 @@ const FADraftRoom = (() => {
     _timerEndTime = Date.now() + SKIP_WINDOW_SECS * 1000;
     faToast(`⏱ ${slot.memberName} has ${SKIP_WINDOW_SECS}s to re-pick`);
     // Include endTime so remote clients show the same countdown.
-    _broadcast({ type: 'skip_window_start', pickNumber: slot.pickNumber, endTime: _timerEndTime });
+    _broadcast({ type: 'skip_window_start', pickNumber: slot.pickNumber, endTime: _timerEndTime, duration: SKIP_WINDOW_SECS });
     if (typeof updateOnClock === 'function') updateOnClock();
     if (typeof checkYourTurn === 'function') checkYourTurn();
     if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
+    _currentTimerDuration = SKIP_WINDOW_SECS;
     _timerSeconds = SKIP_WINDOW_SECS;
     _renderTimer();
     _timer = setInterval(() => {
@@ -428,12 +486,15 @@ const FADraftRoom = (() => {
 
   function _advancePick() {
     resetTimer();
-    startTimer();
+    const cur = _getCurrentPick();
+    const isOffline = cur && !_onlineMembers.has(cur.memberId);
+    const duration  = (isOffline && _offlineTimerSecs) ? _offlineTimerSecs : undefined;
+    startTimer(undefined, duration);
     // Broadcast absolute deadline + persist so ALL clients (including late joiners)
     // show the same countdown. This fires only on the local pick-maker because
     // remote handlers do NOT call _advancePick().
-    if (_timerTotal) {
-      _broadcast({ type: 'timer_start', endTime: _timerEndTime });
+    if (_timerTotal || duration) {
+      _broadcast({ type: 'timer_start', endTime: _timerEndTime, duration: _currentTimerDuration });
       _saveTimerEndToDB();
     }
     if (typeof updateOnClock === 'function') updateOnClock();
@@ -444,7 +505,13 @@ const FADraftRoom = (() => {
 
   async function _completeDraft() {
     stopTimer();
+    if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+    _isCountdown = false;
     _isComplete = true;
+    _currentTimerDuration = 120;
+    _offlineTimerSecs     = 30;
+    _onlineMembers = new Set();
+    _chatMessages  = [];
     _draft.status = 'completed';
     _draft.completedAt = new Date().toISOString();
     await _saveStatusToDB('completed', _draft.completedAt);
@@ -736,7 +803,36 @@ ${teamSections}
       .on('broadcast', { event: 'fa_draft_event' }, ({ payload }) => {
         _handleRemoteEvent(payload);
       })
-      .subscribe();
+      .on('presence', { event: 'sync' }, () => {
+        const state = _realtimeChannel.presenceState();
+        _onlineMembers = new Set(
+          Object.values(state).flatMap(presences => presences.map(p => p.memberId))
+        );
+        if (typeof renderSidebar === 'function') renderSidebar();
+      })
+      .on('presence', { event: 'join' }, ({ newPresences }) => {
+        newPresences.forEach(p => {
+          _onlineMembers.add(p.memberId);
+          _addChatMessage({ system: true, text: `● ${p.memberName} joined` });
+        });
+        if (typeof renderSidebar === 'function') renderSidebar();
+      })
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        leftPresences.forEach(p => {
+          _onlineMembers.delete(p.memberId);
+          _addChatMessage({ system: true, text: `● ${p.memberName} disconnected` });
+        });
+        if (typeof renderSidebar === 'function') renderSidebar();
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED' && _member) {
+          await _realtimeChannel.track({
+            memberId:   _member.id,
+            memberName: _member.name || _member.display_name,
+            color:      _member.color || _member.avatar_color || '#6a9ec7',
+          });
+        }
+      });
   }
 
   function unsubscribeRealtime() {
@@ -765,6 +861,7 @@ ${teamSections}
         if (typeof checkYourTurn === 'function') checkYourTurn();
         if (typeof renderDraftBoard === 'function') renderDraftBoard();
         if (typeof renderAvailablePlayers === 'function') renderAvailablePlayers();
+        _addChatMessage({ system: true, text: `⚾ ${slot.memberName} picked ${payload.playerName} (${payload.playerRating} OVR)` });
       }
     } else if (payload.type === 'timed_out') {
       const slot = _draft.slots.find(s => s.pickNumber === payload.pickNumber);
@@ -782,8 +879,9 @@ ${teamSections}
       }
     } else if (payload.type === 'timer_start') {
       // Sync countdown to the broadcaster's absolute end time.
-      if (payload.endTime && _timerTotal && !_isPaused && !_isComplete) {
+      if (payload.endTime && (_timerTotal || payload.duration) && !_isPaused && !_isComplete) {
         stopTimer();
+        _currentTimerDuration = payload.duration || _timerTotal;
         _timerEndTime = payload.endTime;
         _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
         _renderTimer();
@@ -807,6 +905,7 @@ ${teamSections}
         // Sync the 15s countdown to the broadcaster's clock.
         if (payload.endTime) {
           stopTimer();
+          _currentTimerDuration = payload.duration || SKIP_WINDOW_SECS;
           _timerEndTime = payload.endTime;
           _timerSeconds = Math.max(0, Math.round((_timerEndTime - Date.now()) / 1000));
           _renderTimer();
@@ -856,6 +955,23 @@ ${teamSections}
       _isPaused = false; _draft.status = 'active';
       startTimer(payload.endTime || undefined);
       if (typeof updatePauseBtn === 'function') updatePauseBtn(false);
+    } else if (payload.type === 'countdown_skip') {
+      if (_isCountdown) {
+        _isCountdown = false;
+        if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+        _draft.status = 'active';
+        if (typeof hideCountdown === 'function') hideCountdown();
+      }
+      _advancePick();
+    } else if (payload.type === 'chat_message') {
+      if (payload.memberId !== _member?.id) {
+        _addChatMessage({
+          memberId:    payload.memberId,
+          memberName:  payload.memberName,
+          memberColor: payload.memberColor,
+          text:        payload.text,
+        });
+      }
     } else if (payload.type === 'complete') {
       _isComplete = true; _draft.status = 'completed'; stopTimer();
       if (typeof updateOnClock === 'function') updateOnClock();
@@ -863,11 +979,33 @@ ${teamSections}
     }
   }
 
+  // ── CHAT ──────────────────────────────────────────────────
+  function _addChatMessage(msg) {
+    _chatMessages.push(msg);
+    if (_chatMessages.length > 50) _chatMessages.shift();
+    if (typeof renderChatMessages === 'function') renderChatMessages(_chatMessages);
+  }
+
+  function sendChatMessage(text) {
+    if (!text || !text.trim()) return;
+    if (text.length > 200) text = text.slice(0, 200);
+    const msg = {
+      memberId:    _member?.id,
+      memberName:  _member?.display_name || _member?.name || 'Unknown',
+      memberColor: _member?.avatar_color || _member?.color || '#6a9ec7',
+      text:        text.trim(),
+      ts:          Date.now(),
+    };
+    _addChatMessage(msg);
+    _broadcast({ type: 'chat_message', ...msg });
+  }
+
   // ── PUBLIC API ────────────────────────────────────────────
   return {
     init, setTeamsLookup, loadDraftFromDB, loadDraft,
     loadPlayerPool, loadTradeReturnRosters, getAvailablePlayers,
     startTimer, stopTimer, resetTimer,
+    startCountdown, skipCountdown,
     saveAndBroadcastTimer: () => {
       if (!_timerTotal || !_timerEndTime) return;
       _broadcast({ type: 'timer_start', endTime: _timerEndTime });
@@ -879,5 +1017,9 @@ ${teamSections}
     getNextPick: _getNextPick,
     downloadCSV, openPrintChecklist, getExportData,
     subscribeRealtime, unsubscribeRealtime,
+    sendChatMessage,
+    getOnlineMembers: () => _onlineMembers,
+    getChatMessages:  () => _chatMessages,
+    getDraft:         () => _draft,
   };
 })();
