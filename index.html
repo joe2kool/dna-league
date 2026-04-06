@@ -1825,7 +1825,7 @@ function renderHomeSeasonCallout() {
             '<div style="font-family:\'Barlow Condensed\';font-size:15px;font-weight:600;">' + escHtml(s.name) + ' is coming up</div>' +
             '<div style="font-size:12px;color:var(--text2);margin-top:2px;">Want to play? Join the roster.</div>' +
           '</div>' +
-          '<button type="button" class="btn btn-outline btn-sm" style="white-space:nowrap;color:var(--green);border-color:rgba(46,204,113,0.35);" onclick="selfJoinSeason(\'' + s.id + '\')">+ Join Roster</button>' +
+          '<button type="button" class="btn btn-outline btn-sm" style="white-space:nowrap;color:var(--green);border-color:rgba(46,204,113,0.35);" onclick="selfJoinSeason(\'' + escAttr(s.id) + '\')">+ Join Roster</button>' +
         '</div>'
       );
     } else if (entry.status === 'pending') {
@@ -1835,7 +1835,7 @@ function renderHomeSeasonCallout() {
             '<div style="font-family:\'Barlow Condensed\';font-size:15px;font-weight:600;">You\'ve been added to ' + escHtml(s.name) + '</div>' +
             '<div style="font-size:12px;color:var(--text2);margin-top:2px;">Confirm your spot to let the commissioner know you\'re in.</div>' +
           '</div>' +
-          '<button type="button" class="btn btn-outline btn-sm" style="white-space:nowrap;color:var(--green);border-color:rgba(46,204,113,0.35);" onclick="confirmParticipation(\'' + s.id + '\')">Confirm my spot</button>' +
+          '<button type="button" class="btn btn-outline btn-sm" style="white-space:nowrap;color:var(--green);border-color:rgba(46,204,113,0.35);" onclick="confirmParticipation(\'' + escAttr(s.id) + '\')">Confirm my spot</button>' +
         '</div>'
       );
     }
