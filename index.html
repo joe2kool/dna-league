@@ -2115,7 +2115,7 @@ function renderSeasonCard(s) {
       var dotClass = r.status === 'confirmed' ? 'dot-confirmed' : r.status === 'pending' ? 'dot-pending' : 'dot-invited';
       var itemClass = r.status === 'confirmed' ? 'roster-item confirmed' : r.status === 'pending' ? 'roster-item pending' : 'roster-item';
       var isMe = currentMember && r.memberId === currentMember.id;
-      var hasTeam = !!s.teamAssignments[r.memberId];
+      var hasTeam = !!(s.teamAssignments && s.teamAssignments[r.memberId]);
       var memberAction = '';
       if (isMe && s.status === 'upcoming') {
         if (r.status === 'pending') {
@@ -2565,7 +2565,7 @@ async function selfLeaveSeason(seasonId) {
   if (!currentMember) return;
   var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
   if (!s) return;
-  if (!confirm('Leave ' + s.name + '? You can rejoin later if the season is still upcoming.')) return;
+  if (!confirm('Leave ' + escHtml(s.name) + '? You can rejoin later if the season is still upcoming.')) return;
   var res = await db.from('league_teams')
     .delete()
     .eq('season_id', seasonId)
