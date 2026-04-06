@@ -610,6 +610,8 @@
       <div class="stat-tile"><div class="stat-tile-val">32</div><div class="stat-tile-lbl">Max Draft Slots</div><div class="stat-tile-sub">fully customizable</div></div>
       <div class="stat-tile"><div class="stat-tile-val">2</div><div class="stat-tile-lbl">Draft Modes</div><div class="stat-tile-sub">true random &amp; weighted</div></div>
     </div>
+    <!-- Season confirmation callout -->
+    <div id="home-season-callout" style="display:none;margin-bottom:1.5rem;"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
       <div class="card">
         <div class="card-header"><div class="card-title">Recent Activity</div></div>
@@ -873,7 +875,7 @@
       <div class="form-row">
         <div class="form-group">
           <label>Game Title</label>
-          <input type="text" id="sm-game" placeholder="MLB The Show 25">
+          <input type="text" id="sm-game" placeholder="MLB The Show 26">
         </div>
         <div class="form-group">
           <label>Status</label>
@@ -1796,6 +1798,7 @@ function updateDashboard() {
   document.getElementById('dash-players').textContent = state.players.length;
   document.getElementById('dash-drafts').textContent = state.draftsGenerated;
   renderHomeScheduleWidget();
+  renderHomeSeasonCallout();
   var actEl = document.getElementById('activity-list');
   if (!state.activityLog.length) {
     actEl.innerHTML = '<div class="empty-state" style="min-height:120px;"><div class="empty-icon">&#x1F4CB;</div><div class="empty-text">No activity yet</div></div>';
@@ -1804,6 +1807,43 @@ function updateDashboard() {
   actEl.innerHTML = state.activityLog.slice(0,6).map(function(a) {
     return '<div class="activity-item"><div class="activity-dot"></div><div><div class="activity-text">' + escHtml(a.text) + '</div><div class="activity-time">' + a.time + '</div></div></div>';
   }).join('');
+}
+
+function renderHomeSeasonCallout() {
+  var el = document.getElementById('home-season-callout');
+  if (!el) return;
+  if (!currentMember || !seasonState.seasons.length) { el.style.display = 'none'; return; }
+
+  var callouts = [];
+  seasonState.seasons.forEach(function(s) {
+    if (s.status !== 'upcoming') return;
+    var entry = (s.roster || []).find(function(r){ return r.memberId === currentMember.id; });
+    if (!entry) {
+      callouts.push(
+        '<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;">' +
+          '<div>' +
+            '<div style="font-family:\'Barlow Condensed\';font-size:15px;font-weight:600;">' + escHtml(s.name) + ' is coming up</div>' +
+            '<div style="font-size:12px;color:var(--text2);margin-top:2px;">Want to play? Join the roster.</div>' +
+          '</div>' +
+          '<button type="button" class="btn btn-outline btn-sm" style="white-space:nowrap;color:var(--green);border-color:rgba(46,204,113,0.35);" onclick="selfJoinSeason(\'' + escAttr(s.id) + '\')">+ Join Roster</button>' +
+        '</div>'
+      );
+    } else if (entry.status === 'pending') {
+      callouts.push(
+        '<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-color:rgba(201,168,76,0.25);">' +
+          '<div>' +
+            '<div style="font-family:\'Barlow Condensed\';font-size:15px;font-weight:600;">You\'ve been added to ' + escHtml(s.name) + '</div>' +
+            '<div style="font-size:12px;color:var(--text2);margin-top:2px;">Confirm your spot to let the commissioner know you\'re in.</div>' +
+          '</div>' +
+          '<button type="button" class="btn btn-outline btn-sm" style="white-space:nowrap;color:var(--green);border-color:rgba(46,204,113,0.35);" onclick="confirmParticipation(\'' + escAttr(s.id) + '\')">Confirm my spot</button>' +
+        '</div>'
+      );
+    }
+  });
+
+  if (!callouts.length) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = '<div style="display:flex;flex-direction:column;gap:10px;">' + callouts.join('') + '</div>';
 }
 
 function logActivity(text) {
@@ -1856,7 +1896,7 @@ async function loadSeasonState() {
   if (!currentLeague) return;
 
   var res = await db.from('seasons')
-    .select('*, league_teams(member_id, draft_pick_number, mlb_teams(name, abbreviation))')
+    .select('*, league_teams(member_id, status, draft_pick_number, mlb_teams(name, abbreviation))')
     .eq('league_id', currentLeague.id)
     .order('season_number', { ascending: true });
 
@@ -1869,7 +1909,7 @@ async function loadSeasonState() {
     var roster = [];
     var teamAssignments = {};
     (s.league_teams || []).forEach(function(lt) {
-      roster.push({ memberId: lt.member_id });
+      roster.push({ memberId: lt.member_id, status: lt.status || 'pending' });
       if (lt.mlb_teams) {
         teamAssignments[lt.member_id] = lt.mlb_teams.name;
       }
@@ -2114,10 +2154,20 @@ function renderSeasonCard(s) {
       var initials = player.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
       var dotClass = r.status === 'confirmed' ? 'dot-confirmed' : r.status === 'pending' ? 'dot-pending' : 'dot-invited';
       var itemClass = r.status === 'confirmed' ? 'roster-item confirmed' : r.status === 'pending' ? 'roster-item pending' : 'roster-item';
+      var isMe = currentMember && r.memberId === currentMember.id;
+      var hasTeam = !!(s.teamAssignments && s.teamAssignments[r.memberId]);
+      var memberAction = '';
+      if (isMe && s.status === 'upcoming') {
+        if (r.status === 'pending') {
+          memberAction = '<button type="button" class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:11px;color:var(--green);border-color:rgba(46,204,113,0.4);" onclick="event.stopPropagation();confirmParticipation(\'' + escAttr(s.id) + '\')">Confirm</button>';
+        } else if (!hasTeam) {
+          memberAction = '<button type="button" class="btn btn-ghost btn-sm" style="padding:2px 8px;font-size:11px;color:var(--text2);" onclick="event.stopPropagation();selfLeaveSeason(\'' + escAttr(s.id) + '\')">Leave</button>';
+        }
+      }
       return '<div class="' + itemClass + '">' +
         '<div class="avatar-sm" style="background:' + (player.color||'#6a9ec7') + ';font-size:11px;">' + initials + '</div>' +
         '<div class="roster-name">' + escHtml(player.name) + '</div>' +
-        '<div class="roster-status-dot ' + dotClass + '" title="' + r.status + '"></div>' +
+        (memberAction || '<div class="roster-status-dot ' + dotClass + '" title="' + r.status + '"></div>') +
         (canManageSchedule() ? '<button type="button" class="btn btn-ghost" style="padding:2px 6px;font-size:14px;" onclick="event.stopPropagation();removeFromRoster(\'' + s.id + '\',\'' + r.memberId + '\')">&times;</button>' : '') +
         '</div>';
     }).join('') + '</div>';
@@ -2125,6 +2175,11 @@ function renderSeasonCard(s) {
       rosterContent += '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">' +
         '<button type="button" class="btn btn-outline btn-sm" onclick="openRosterEditor(\'' + s.id + '\')">Edit Roster</button>' +
         '<button type="button" class="btn btn-outline btn-sm" style="color:var(--gold);border-color:rgba(201,168,76,0.3);" onclick="importPlayersFromDraft(\'' + s.id + '\')">&#x26A1; Import from Draft</button>' +
+        '</div>';
+    }
+    if (currentMember && !canManageSchedule() && s.status === 'upcoming' && !roster.find(function(r){return r.memberId===currentMember.id;})) {
+      rosterContent += '<div style="margin-top:10px;">' +
+        '<button type="button" class="btn btn-outline btn-sm" style="color:var(--green);border-color:rgba(46,204,113,0.35);" onclick="selfJoinSeason(\'' + escAttr(s.id) + '\')">+ Join this season</button>' +
         '</div>';
     }
   }
@@ -2278,7 +2333,7 @@ function openSeasonModal(id) {
   document.getElementById('season-modal-title').textContent = id ? 'Edit Season' : 'Create Season';
   document.getElementById('sm-name').value   = s ? s.name : 'Season ' + (seasonState.seasons.length + 1);
   document.getElementById('sm-number').value = s ? s.number : seasonState.seasons.length + 1;
-  document.getElementById('sm-game').value   = s ? (s.game||'') : 'MLB The Show 25';
+  document.getElementById('sm-game').value   = s ? (s.game||'') : 'MLB The Show 26';
   document.getElementById('sm-status').value = s ? s.status : 'upcoming';
   document.getElementById('sm-start').value  = s ? (s.startDate||'') : '';
   document.getElementById('sm-end').value    = s ? (s.endDate||'') : '';
@@ -2486,7 +2541,7 @@ async function confirmRosterPicker() {
   var res = await db.from('league_teams').insert(inserts);
   if (res.error) { toast('Error adding to roster'); console.error(res.error.message); return; }
 
-  toAdd.forEach(function(memberId) { s.roster.push({ memberId: memberId }); });
+  toAdd.forEach(function(memberId) { s.roster.push({ memberId: memberId, status: 'pending' }); });
   closeRosterPickerModal();
   renderSeasonsList();
   toast(toAdd.length + ' player(s) added to roster');
@@ -2516,15 +2571,50 @@ async function removeFromRoster(seasonId, memberId) {
 }
 
 // Allow a member to confirm their own participation
-function confirmParticipation(seasonId) {
+async function confirmParticipation(seasonId) {
   if (!currentMember) return;
   var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
   if (!s || !s.roster) return;
   var entry = s.roster.find(function(r){return r.memberId===currentMember.id;});
   if (!entry) return;
+  var res = await db.from('league_teams')
+    .update({ status: 'confirmed' })
+    .eq('season_id', seasonId)
+    .eq('member_id', currentMember.id);
+  if (res.error) { toast('Error confirming participation'); console.error(res.error.message); return; }
   entry.status = 'confirmed';
   renderSeasonsList();
+  if (typeof renderHomeSeasonCallout === 'function') renderHomeSeasonCallout();
   toast('Participation confirmed!');
+}
+
+async function selfJoinSeason(seasonId) {
+  if (!currentMember) return;
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s) return;
+  var res = await db.from('league_teams')
+    .insert({ season_id: seasonId, member_id: currentMember.id, status: 'confirmed' });
+  if (res.error) { toast('Error joining season'); console.error(res.error.message); return; }
+  s.roster.push({ memberId: currentMember.id, status: 'confirmed' });
+  renderSeasonsList();
+  if (typeof renderHomeSeasonCallout === 'function') renderHomeSeasonCallout();
+  toast('You\'ve joined ' + escHtml(s.name) + '!');
+}
+
+async function selfLeaveSeason(seasonId) {
+  if (!currentMember) return;
+  var s = seasonState.seasons.find(function(x){return x.id===seasonId;});
+  if (!s) return;
+  if (!confirm('Leave ' + escHtml(s.name) + '? You can rejoin later if the season is still upcoming.')) return;
+  var res = await db.from('league_teams')
+    .delete()
+    .eq('season_id', seasonId)
+    .eq('member_id', currentMember.id);
+  if (res.error) { toast('Error leaving season'); console.error(res.error.message); return; }
+  s.roster = s.roster.filter(function(r){ return r.memberId !== currentMember.id; });
+  renderSeasonsList();
+  if (typeof renderHomeSeasonCallout === 'function') renderHomeSeasonCallout();
+  toast('Left ' + escHtml(s.name));
 }
 
 // ── TEAM ASSIGNMENTS ─────────────────────────────
@@ -2616,7 +2706,7 @@ async function importPlayersFromDraft(seasonId) {
   var res = await db.from('league_teams').insert(inserts);
   if (res.error) { toast('Error adding players to roster'); console.error(res.error.message); return; }
 
-  toAdd.forEach(function(memberId){ s.roster.push({ memberId: memberId }); });
+  toAdd.forEach(function(memberId){ s.roster.push({ memberId: memberId, status: 'pending' }); });
   renderSeasonsList();
   toast(toAdd.length + ' player' + (toAdd.length !== 1 ? 's' : '') + ' imported from draft');
 }
