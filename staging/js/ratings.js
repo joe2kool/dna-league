@@ -9,9 +9,11 @@ const DnaRatings = (() => {
 
   // ── CACHE ─────────────────────────────────────────────────
   const _cache = {
-    teams:   null,       // { abbr: { overall, topPlayers } }
-    players: {},         // { teamAbbr: [...players] }
-    fetchedAt: null,
+    teams:               null,    // { abbr: { overall, topPlayers } }
+    players:             {},      // { teamAbbr: [...players] }
+    fetchedAt:           null,
+    breakdowns:          {},      // { teamAbbr: breakdown | null }
+    breakdownFetchedAt:  {},      // { teamAbbr: timestamp }
   };
 
   const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
@@ -366,11 +368,40 @@ const DnaRatings = (() => {
     return roster;
   }
 
+  async function getTeamBreakdown(teamAbbr) {
+    const cached    = _cache.breakdowns[teamAbbr];
+    const fetchedAt = _cache.breakdownFetchedAt[teamAbbr];
+    if (cached !== undefined && fetchedAt && (Date.now() - fetchedAt) < CACHE_TTL_MS) {
+      return cached;
+    }
+    const adapter = adapters[DNA_CONFIG.ratings.game] || adapters.mlbtheshow;
+    if (!adapter.workerUrl) return null;
+    try {
+      const res = await fetch(
+        `${adapter.workerUrl}/team-breakdown?team=${encodeURIComponent(teamAbbr)}`,
+        { signal: AbortSignal.timeout(12000) }
+      );
+      if (!res.ok) throw new Error(`Worker returned ${res.status}`);
+      const data = await res.json();
+      const breakdown = data.breakdown || null;
+      _cache.breakdowns[teamAbbr]         = breakdown;
+      _cache.breakdownFetchedAt[teamAbbr] = Date.now();
+      return breakdown;
+    } catch(e) {
+      console.warn(`Worker /team-breakdown failed for ${teamAbbr}:`, e.message);
+      _cache.breakdowns[teamAbbr]         = null;
+      _cache.breakdownFetchedAt[teamAbbr] = Date.now();
+      return null;
+    }
+  }
+
   function clearCache() {
     _cache.teams = null;
     _cache.players = {};
     _cache.fetchedAt = null;
+    _cache.breakdowns = {};
+    _cache.breakdownFetchedAt = {};
   }
 
-  return { getTeamRatings, getTeamRoster, clearCache };
+  return { getTeamRatings, getTeamRoster, getTeamBreakdown, clearCache };
 })();
