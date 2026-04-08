@@ -233,11 +233,13 @@ const DraftUI = (() => {
       </div>`;
   }
 
+  // NOTE: call loadTeamBreakdowns() after every renderAvailableTeams() call —
+  // re-renders reset the tcb-* placeholders and need to be re-populated.
   function loadTeamBreakdowns(teamAbbrs) {
     teamAbbrs.forEach(abbr => {
       DnaRatings.getTeamBreakdown(abbr).then(breakdown => {
         updateTeamCardBreakdown(abbr, breakdown);
-      });
+      }).catch(() => {});
     });
   }
 
