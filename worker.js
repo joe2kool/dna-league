@@ -316,6 +316,7 @@ export default {
                          || hitters.find(p => !selectedUuids.has(p.uuid));
         if (ninthHitter) selectedHitters.push(ninthHitter);
 
+        // Budget: 2 listing pages + up to 21 item fetches = 23 max subrequests (CF limit: 50)
         const targets = [...topSPs, ...topRPs, ...selectedHitters];
 
         // Step 3: Fetch item API for each selected player
