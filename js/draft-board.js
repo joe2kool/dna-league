@@ -101,6 +101,9 @@ const DraftUI = (() => {
           <div class="team-card-name">${escHtml(info.name)}</div>
           <div class="team-card-ovr" style="color:${ovrColor}">${ovr}</div>
           <div class="team-card-league">${info.league || ''} ${info.division || ''}</div>
+          <div class="team-card-breakdown" id="tcb-${abbr}">
+            <span class="team-card-breakdown-loading">loading...</span>
+          </div>
           <button type="button" class="team-card-btn" onclick="event.stopPropagation();DraftUI.showTeamDetail('${abbr}')">
             Top 5 ▸
           </button>
@@ -208,9 +211,40 @@ const DraftUI = (() => {
       </div>`;
   }
 
+  function updateTeamCardBreakdown(abbr, breakdown) {
+    const el = document.getElementById('tcb-' + abbr);
+    if (!el) return;
+    function fmt(val) { return val != null ? val : '—'; }
+    el.innerHTML = `
+      <div class="tcb-group">
+        <span class="tcb-label">Pitching</span>
+        <span class="tcb-badge tcb-green">SP ${fmt(breakdown?.sp)}</span>
+        <span class="tcb-badge tcb-green">RP ${fmt(breakdown?.rp)}</span>
+      </div>
+      <div class="tcb-group">
+        <span class="tcb-label">Hitting</span>
+        <span class="tcb-badge tcb-gold">PWR ${fmt(breakdown?.power)}</span>
+        <span class="tcb-badge tcb-gold">CON ${fmt(breakdown?.contact)}</span>
+      </div>
+      <div class="tcb-group">
+        <span class="tcb-label">Athletic</span>
+        <span class="tcb-badge tcb-blue">SPD ${fmt(breakdown?.speed)}</span>
+        <span class="tcb-badge tcb-blue">DEF ${fmt(breakdown?.defense)}</span>
+      </div>`;
+  }
+
+  function loadTeamBreakdowns(teamAbbrs) {
+    teamAbbrs.forEach(abbr => {
+      DnaRatings.getTeamBreakdown(abbr).then(breakdown => {
+        updateTeamCardBreakdown(abbr, breakdown);
+      });
+    });
+  }
+
   return {
     toast, renderAvailableTeams, showTeamDetail,
     updatePauseBtn, showYourTurnBanner, hideYourTurnBanner, showRecap,
+    loadTeamBreakdowns, updateTeamCardBreakdown,
   };
 })();
 
