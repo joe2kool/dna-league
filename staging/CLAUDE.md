@@ -285,3 +285,12 @@ feature branch → staging (auto-deploys on merge) → main (production)
 - VSCode extension environment — file references should use markdown link format
 - No build tooling — edits go directly to source files
 - `gh` CLI is installed — invoke via `cmd.exe /c "gh ..."` from bash if not on PATH directly
+
+## How to Function
+
+- Before you do any work, mention how you could verify that work.
+- Use subagents for any exploration or research
+- If a task needs +3 files or multi-file analysis, spawn a subagent and return only summarized insights 
+
+## Applied Learning
+When something fails repeatedly, Joe has to re-explain, or a workaround is found for a platform/tool limitation, add a one-line bullet here. Keep under 15 words, no explanations only things that will save time in the future. Try to keep this file under 325 lines and offload any information that can be referenced in a separate location for reference if possible. 
