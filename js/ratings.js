@@ -389,6 +389,8 @@ const DnaRatings = (() => {
       return breakdown;
     } catch(e) {
       console.warn(`Worker /team-breakdown failed for ${teamAbbr}:`, e.message);
+      _cache.breakdowns[teamAbbr]         = null;
+      _cache.breakdownFetchedAt[teamAbbr] = Date.now();
       return null;
     }
   }
@@ -397,6 +399,8 @@ const DnaRatings = (() => {
     _cache.teams = null;
     _cache.players = {};
     _cache.fetchedAt = null;
+    _cache.breakdowns = {};
+    _cache.breakdownFetchedAt = {};
   }
 
   return { getTeamRatings, getTeamRoster, getTeamBreakdown, clearCache };
