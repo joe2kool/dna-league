@@ -265,6 +265,48 @@ input, select { font-family: inherit; }
   text-transform: uppercase; cursor: pointer; transition: all 0.15s;
 }
 .team-card-btn:hover { background: rgba(168,189,212,0.15); }
+/* ── TEAM CARD BREAKDOWN BADGES ────────────────────────── */
+.team-card-breakdown {
+  margin-top: 6px;
+  border-top: 1px solid rgba(168,189,212,0.1);
+  padding-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.team-card-breakdown-loading {
+  font-size: 9px;
+  color: var(--text2);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+.tcb-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+.tcb-label {
+  font-size: 8px;
+  color: var(--text2);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  width: 42px;
+  flex-shrink: 0;
+}
+.tcb-badge {
+  font-size: 9px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+.tcb-green { background: rgba(46,204,113,0.12);  color: #6ee7b7; }
+.tcb-gold  { background: rgba(201,168,76,0.12);  color: #fde68a; }
+.tcb-blue  { background: rgba(147,197,253,0.12); color: #bfdbfe; }
 .dr-teams-empty  { padding: 2rem; text-align: center; color: var(--text2); font-size: 13px; grid-column: 1/-1; }
 
 /* ── TEAM DETAIL PANEL ─────────────────────────────────── */
