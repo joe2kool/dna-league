@@ -261,6 +261,7 @@ const DraftRoom = (() => {
       _advancePick();
       DraftBoard.render(_draft);
       DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
+      DraftUI.loadTeamBreakdowns(_draft.availableTeams);
     }
   }
 
@@ -360,6 +361,7 @@ const DraftRoom = (() => {
       } else {
         DraftBoard.render(_draft);
         DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
+        DraftUI.loadTeamBreakdowns(_draft.availableTeams);
         updateOnClock();
         return;
       }
@@ -369,6 +371,7 @@ const DraftRoom = (() => {
 
     DraftBoard.render(_draft);
     DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
+    DraftUI.loadTeamBreakdowns(_draft.availableTeams);
   }
 
   function _advancePick() {
@@ -405,6 +408,7 @@ const DraftRoom = (() => {
     await _deletePickFromDB(lastPicked);
     DraftBoard.render(_draft);
     DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
+    DraftUI.loadTeamBreakdowns(_draft.availableTeams);
     resetTimer();
     startTimer();
     DraftUI.toast('Pick undone');
@@ -425,6 +429,7 @@ const DraftRoom = (() => {
     await _savePickToDB(slot, teamAbbr);
     DraftBoard.render(_draft);
     DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
+    DraftUI.loadTeamBreakdowns(_draft.availableTeams);
     DraftUI.toast('Pick overridden');
   }
 
@@ -679,6 +684,7 @@ const DraftRoom = (() => {
           _savePickToSeason(payload.memberId, payload.teamAbbr);
           DraftBoard.render(_draft);
           DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
+          DraftUI.loadTeamBreakdowns(_draft.availableTeams);
           _addChatMessage({ system: true, text: `⚾ ${slot.memberName} picked ${payload.teamAbbr}` });
           // Do NOT call _advancePick() — the pick-maker broadcasts timer_start; wait for it.
           if (typeof updateOnClock === 'function') updateOnClock();
@@ -722,6 +728,7 @@ const DraftRoom = (() => {
           undoSlot.pickedAt   = null;
           DraftBoard.render(_draft);
           DraftUI.renderAvailableTeams(_draft.availableTeams, _draft.teamRatings);
+          DraftUI.loadTeamBreakdowns(_draft.availableTeams);
           resetTimer();
           startTimer();
         }
