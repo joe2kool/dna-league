@@ -64,7 +64,7 @@ const ScoutingManager = (() => {
       case 'fld':  return (PITCHER_POS.has(p.pos) ? -1 : (p.fielding ?? -1));
       case 'vel':  return (PITCHER_POS.has(p.pos) ? (p.velocity ?? -1) : -1);
       case 'ctl':  return (PITCHER_POS.has(p.pos) ? (p.control  ?? -1) : -1);
-      default:     return 0;
+      default:     console.warn(`ScoutingManager: unknown sort column "${col}"`); return 0;
     }
   }
 
