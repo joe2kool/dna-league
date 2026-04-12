@@ -316,12 +316,11 @@ async function boot() {
   DraftRoom.init(db, _member, mlbTeamsLookup);
 
   // Load team ratings in background (non-blocking)
-  DnaRatings.getTeamRatings().then(ratings => {
+  DnaRatings.getTeamRatingsFull().then(ratings => {
     _teamRatings = ratings;
     const draft = DraftRoom.getDraft();
     if (draft && draft.status === 'active') {
       DraftUI.renderAvailableTeams(draft.availableTeams, _teamRatings);
-      DraftUI.loadTeamBreakdowns(draft.availableTeams);
     }
     renderSetupTeamPool();
   });
@@ -583,7 +582,6 @@ function enterDraftRoom(draft) {
   DraftBoard.render(draft);
   _allAvailable = draft.availableTeams.slice();
   DraftUI.renderAvailableTeams(draft.availableTeams, draft.teamRatings || _teamRatings);
-  DraftUI.loadTeamBreakdowns(draft.availableTeams);
   updateOnClock();
 
   // Start timer if active; start countdown if in pre-draft phase
@@ -675,7 +673,6 @@ function applyTeamFilter(search = '') {
   }
 
   DraftUI.renderAvailableTeams(available, draft.teamRatings || _teamRatings);
-  DraftUI.loadTeamBreakdowns(available);
 }
 
 // ── MOBILE TAB SWITCHER ───────────────────────────────────
