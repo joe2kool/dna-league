@@ -407,13 +407,12 @@ const DnaRatings = (() => {
       const base = await getTeamRatings();
       return Object.fromEntries(
         Object.entries(base).map(([abbr, t]) => [abbr, {
-          overall: t.overall, sp: null, rp: null,
-          power: null, contact: null, speed: null, defense: null,
+          ...t, sp: null, rp: null, power: null, contact: null, speed: null, defense: null,
         }])
       );
     }
     try {
-      const TOTAL_CHUNKS = 15;
+      const TOTAL_CHUNKS = 15; // 30 teams ÷ CHUNK_SIZE(2) — must match worker.js TEAM_MAP + CHUNK_SIZE
       const chunkResults = await Promise.all(
         Array.from({ length: TOTAL_CHUNKS }, (_, i) =>
           fetch(
