@@ -16,6 +16,7 @@ const ScoutingManager = (() => {
   let _expandedIdx  = null;         // index into _filteredPlayers of expanded row
   let _teamRatings  = null;         // from DnaRatings.getTeamRatingsFull()
   let _filteredPlayers = [];        // result of current filter+sort (recalculated on change)
+  let _savedAllState = null;        // saved filter/sort/page state when entering team view
 
   const PAGE_SIZE   = 40;
   const WORKER_URL  = DNA_CONFIG.ratings.workerUrl;
@@ -304,9 +305,14 @@ const ScoutingManager = (() => {
     const r       = ratings[abbr] || {};
     const fmt     = v => (v != null ? v : '—');
 
+    const { col, dir } = _sort;
     const teamPlayers = _players
       .filter(p => p.teamAbbr === abbr)
-      .sort((a, b) => (b.overall || 0) - (a.overall || 0));
+      .sort((a, b) => {
+        const av = _sortVal(a, col), bv = _sortVal(b, col);
+        if (typeof av === 'string') return dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+        return dir === 'asc' ? av - bv : bv - av;
+      });
 
     const bodyRows = teamPlayers.map((p, i) => {
       const isPitcher = PITCHER_POS.has(p.pos);
@@ -363,15 +369,12 @@ const ScoutingManager = (() => {
       <div class="scouting-table-wrap">
         <table class="scouting-table">
           <thead><tr>
-            <th class="scouting-th">Name</th>
-            <th class="scouting-th">Pos</th>
-            <th class="scouting-th">OVR</th>
-            <th class="scouting-th">CON</th>
-            <th class="scouting-th">PWR</th>
-            <th class="scouting-th">SPD</th>
-            <th class="scouting-th scouting-hide-mobile">FLD</th>
-            <th class="scouting-th scouting-hide-mobile">VEL</th>
-            <th class="scouting-th scouting-hide-mobile">CTL</th>
+            ${COLS.filter(c => c.key !== 'team').map(c => {
+              const active = _sort.col === c.key;
+              const arrow  = active ? (_sort.dir === 'desc' ? ' ↓' : ' ↑') : '';
+              const cls    = ['scouting-th', active ? 'scouting-th-active' : '', c.hideMobile ? 'scouting-hide-mobile' : ''].filter(Boolean).join(' ');
+              return `<th class="${cls}" onclick="ScoutingManager.onSort('${c.key}')">${c.label}${arrow}</th>`;
+            }).join('')}
           </tr></thead>
           <tbody>${bodyRows}</tbody>
         </table>
@@ -379,6 +382,7 @@ const ScoutingManager = (() => {
   }
 
   function _enterTeamView(abbr) {
+    _savedAllState = { filters: Object.assign({}, _filters), sort: Object.assign({}, _sort), page: _page };
     _view         = 'team';
     _selectedTeam = abbr;
     _expandedIdx  = null;
@@ -386,6 +390,13 @@ const ScoutingManager = (() => {
   }
 
   function _exitTeamView() {
+    if (_savedAllState) {
+      _filters = _savedAllState.filters;
+      _sort    = _savedAllState.sort;
+      _page    = _savedAllState.page;
+      _savedAllState = null;
+      _recompute();
+    }
     _view         = 'all';
     _selectedTeam = null;
     _expandedIdx  = null;
