@@ -405,53 +405,25 @@ const ScoutingManager = (() => {
 
   // ── Player detail card ───────────────────────────────────────────
   function _renderPlayerDetail(p) {
-    const isPitcher = PITCHER_POS.has(p.pos);
+    const isPitcher  = PITCHER_POS.has(p.pos);
+    const isTwoWay   = isPitcher && p.contact_left != null;  // e.g. Ohtani
     const row = (name, val) => `
       <div class="fa-attr-row">
         <span class="fa-attr-name">${name}</span>
         <span class="fa-attr-val ${_attrColor(val)}">${_attrVal(val)}</span>
       </div>`;
 
-    let html = `<div class="scouting-detail-card">`;
-
-    if (isPitcher) {
-      html += `<div class="fa-attr-section">
-        <div class="fa-attr-label">Pitching</div>
-        <div class="fa-attr-grid">
-          ${row('Velocity',   p.velocity)}
-          ${row('Control',    p.control)}
-          ${row('Break',      p.break_rating)}
-          ${row('Stamina',    p.stamina)}
-          ${row('K/BF vs L',  p.k_per_bf_l)}
-          ${row('K/BF vs R',  p.k_per_bf_r)}
-          ${row('H/BF vs L',  p.hits_per_bf_l)}
-          ${row('H/BF vs R',  p.hits_per_bf_r)}
-          ${row('BB/BF',      p.bb_per_bf)}
-          ${row('HR/BF',      p.hr_per_bf)}
-          ${row('Clutch',     p.pitching_clutch)}
-        </div>
-      </div>`;
-      if (Array.isArray(p.pitch_arsenal) && p.pitch_arsenal.length) {
-        html += `<div class="fa-attr-section">
-          <div class="fa-attr-label">Pitch Repertoire</div>
-          ${p.pitch_arsenal.map(pitch => `
-            <div class="fa-pitch-row">
-              <span class="fa-pitch-name">${_escHtml(pitch.name)}</span>
-              <div class="fa-pitch-stats">MPH <span>${_attrVal(pitch.speed)}</span> BRK <span>${_attrVal(pitch.break)}</span></div>
-            </div>`).join('')}
-        </div>`;
-      }
-    } else {
-      html += `<div class="fa-attr-section">
+    const hittingSection = () => `
+      <div class="fa-attr-section">
         <div class="fa-attr-label">Hitting</div>
         <div class="fa-attr-grid">
-          ${row('Contact L',   p.contact_left)}
-          ${row('Contact R',   p.contact_right)}
-          ${row('Power L',     p.power_left)}
-          ${row('Power R',     p.power_right)}
-          ${row('Vision',      p.plate_vision)}
-          ${row('Discipline',  p.plate_discipline)}
-          ${row('Clutch',      p.clutch)}
+          ${row('Contact L',    p.contact_left)}
+          ${row('Contact R',    p.contact_right)}
+          ${row('Power L',      p.power_left)}
+          ${row('Power R',      p.power_right)}
+          ${row('Vision',       p.plate_vision)}
+          ${row('Discipline',   p.plate_discipline)}
+          ${row('Clutch',       p.clutch)}
         </div>
       </div>
       <div class="fa-attr-section">
@@ -464,11 +436,49 @@ const ScoutingManager = (() => {
           ${row('Arm Acc',  p.arm_accuracy)}
         </div>
       </div>`;
+
+    const pitchingSection = () => `
+      <div class="fa-attr-section">
+        <div class="fa-attr-label">Pitching</div>
+        <div class="fa-attr-grid">
+          ${row('Velocity',  p.velocity)}
+          ${row('Control',   p.control)}
+          ${row('Break',     p.break_rating)}
+          ${row('Stamina',   p.stamina)}
+          ${row('Clutch',    p.pitching_clutch)}
+          ${row('K/9 vs L',  p.k_per_bf_l)}
+          ${row('K/9 vs R',  p.k_per_bf_r)}
+          ${row('H/9 vs L',  p.hits_per_bf_l)}
+          ${row('H/9 vs R',  p.hits_per_bf_r)}
+          ${row('BB/BF',     p.bb_per_bf)}
+          ${row('HR/BF',     p.hr_per_bf)}
+        </div>
+      </div>`;
+
+    let html = `<div class="scouting-detail-card">`;
+
+    if (isPitcher) {
+      html += pitchingSection();
+      if (Array.isArray(p.pitch_arsenal) && p.pitch_arsenal.length) {
+        html += `<div class="fa-attr-section">
+          <div class="fa-attr-label">Pitches</div>
+          ${p.pitch_arsenal.map(pitch => `
+            <div class="fa-pitch-row">
+              <span class="fa-pitch-name">${_escHtml(pitch.name)}</span>
+              <div class="fa-pitch-stats">MPH <span>${_attrVal(pitch.speed)}</span> BRK <span>${_attrVal(pitch.break)}</span></div>
+            </div>`).join('')}
+        </div>`;
+      }
+      if (isTwoWay) {
+        html += hittingSection();
+      }
+    } else {
+      html += hittingSection();
     }
 
     if (Array.isArray(p.quirks) && p.quirks.length) {
       html += `<div class="fa-attr-section">
-        <div class="fa-attr-label">Quirks</div>
+        <div class="fa-attr-label">Perks</div>
         <div class="fa-quirks">${p.quirks.map(q => `<span class="fa-quirk">${_escHtml(q)}</span>`).join('')}</div>
       </div>`;
     }
