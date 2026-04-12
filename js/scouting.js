@@ -273,11 +273,124 @@ const ScoutingManager = (() => {
       </div>`;
   }
 
-  // ── Placeholder team view functions (replaced in Task 5) ─────────
-  function _renderTeamGrid() { return ''; }
-  function _renderTeamView(el) { el.innerHTML = '<p style="padding:20px">Team view coming in next update.</p>'; }
-  function _enterTeamView(abbr) { _view = 'team'; _selectedTeam = abbr; _expandedIdx = null; _render(); }
-  function _exitTeamView() { _view = 'all'; _selectedTeam = null; _render(); }
+  // ── Team grid ────────────────────────────────────────────────────
+  function _renderTeamGrid() {
+    const ratings = _teamRatings || {};
+    const sorted  = DNA_CONFIG.mlbTeams.slice().sort((a, b) => {
+      const ra = ratings[a.abbr]?.overall || 0;
+      const rb = ratings[b.abbr]?.overall || 0;
+      return rb - ra;
+    });
+    const cards = sorted.map(t => {
+      const r   = ratings[t.abbr] || {};
+      const ovr = r.overall || '—';
+      const ovrColor = ovr >= 88 ? 'var(--green)' : ovr >= 82 ? 'var(--gold)' : 'var(--text2)';
+      return `
+        <div class="team-card scouting-team-card" onclick="ScoutingManager.onTeamFilter('${t.abbr}')" title="${_escHtml(t.name)}">
+          <div class="team-card-abbr">${t.abbr}</div>
+          <div class="team-card-name">${_escHtml(t.name)}</div>
+          <div class="team-card-ovr" style="color:${ovrColor}">${ovr}</div>
+          <div class="team-card-league">${t.league || ''} ${t.division || ''}</div>
+        </div>`;
+    }).join('');
+    return `<div class="scouting-team-grid">${cards}</div>`;
+  }
+
+  // ── Team view ─────────────────────────────────────────────────────
+  function _renderTeamView(el) {
+    const abbr    = _selectedTeam;
+    const info    = DNA_CONFIG.mlbTeams.find(t => t.abbr === abbr) || { name: abbr, league: '', division: '' };
+    const ratings = _teamRatings || {};
+    const r       = ratings[abbr] || {};
+    const fmt     = v => (v != null ? v : '—');
+
+    const teamPlayers = _players
+      .filter(p => p.teamAbbr === abbr)
+      .sort((a, b) => (b.overall || 0) - (a.overall || 0));
+
+    const bodyRows = teamPlayers.map((p, i) => {
+      const isPitcher = PITCHER_POS.has(p.pos);
+      const con  = _conVal(p);
+      const pwr  = _pwrVal(p);
+      const isExp = _expandedIdx === i;
+
+      const dataRow = `
+        <tr class="scouting-row${isExp ? ' scouting-row-expanded' : ''}" onclick="ScoutingManager.onTeamRowClick(${i})">
+          <td class="scouting-td scouting-td-name">${_escHtml(p.name)}</td>
+          <td class="scouting-td">${_escHtml(p.pos)}</td>
+          <td class="scouting-td scouting-ovr">${p.overall || '—'}</td>
+          <td class="scouting-td">${fmt(con)}</td>
+          <td class="scouting-td">${fmt(pwr)}</td>
+          <td class="scouting-td">${isPitcher ? '—' : fmt(p.speed ?? null)}</td>
+          <td class="scouting-td scouting-hide-mobile">${isPitcher ? '—' : fmt(p.fielding ?? null)}</td>
+          <td class="scouting-td scouting-hide-mobile">${isPitcher ? fmt(p.velocity ?? null) : '—'}</td>
+          <td class="scouting-td scouting-hide-mobile">${isPitcher ? fmt(p.control ?? null) : '—'}</td>
+        </tr>`;
+
+      const detailRow = isExp ? `
+        <tr class="scouting-detail-row">
+          <td colspan="9" class="scouting-detail-cell">${_renderPlayerDetail(p)}</td>
+        </tr>` : '';
+
+      return dataRow + detailRow;
+    }).join('');
+
+    el.innerHTML = `
+      <div class="scouting-team-header">
+        <button class="scouting-back-btn" onclick="ScoutingManager.exitTeamView()">&#8592; All Players</button>
+        <div>
+          <span class="scouting-team-name">${_escHtml(info.name)}</span>
+          <span class="scouting-team-meta">${info.league} ${info.division}</span>
+        </div>
+      </div>
+      <div class="scouting-team-card-summary">
+        <div class="tcb-group">
+          <span class="tcb-label">Pitching</span>
+          <span class="tcb-badge tcb-green">SP ${fmt(r.sp)}</span>
+          <span class="tcb-badge tcb-green">RP ${fmt(r.rp)}</span>
+        </div>
+        <div class="tcb-group">
+          <span class="tcb-label">Hitting</span>
+          <span class="tcb-badge tcb-gold">PWR ${fmt(r.power)}</span>
+          <span class="tcb-badge tcb-gold">CON ${fmt(r.contact)}</span>
+        </div>
+        <div class="tcb-group">
+          <span class="tcb-label">Athletic</span>
+          <span class="tcb-badge tcb-blue">SPD ${fmt(r.speed)}</span>
+          <span class="tcb-badge tcb-blue">DEF ${fmt(r.defense)}</span>
+        </div>
+      </div>
+      <div class="scouting-table-wrap">
+        <table class="scouting-table">
+          <thead><tr>
+            <th class="scouting-th">Name</th>
+            <th class="scouting-th">Pos</th>
+            <th class="scouting-th">OVR</th>
+            <th class="scouting-th">CON</th>
+            <th class="scouting-th">PWR</th>
+            <th class="scouting-th">SPD</th>
+            <th class="scouting-th scouting-hide-mobile">FLD</th>
+            <th class="scouting-th scouting-hide-mobile">VEL</th>
+            <th class="scouting-th scouting-hide-mobile">CTL</th>
+          </tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function _enterTeamView(abbr) {
+    _view         = 'team';
+    _selectedTeam = abbr;
+    _expandedIdx  = null;
+    _render();
+  }
+
+  function _exitTeamView() {
+    _view         = 'all';
+    _selectedTeam = null;
+    _expandedIdx  = null;
+    _render();
+  }
 
   // ── Player detail card ───────────────────────────────────────────
   function _renderPlayerDetail(p) {
@@ -407,6 +520,11 @@ const ScoutingManager = (() => {
     _render();
   }
 
+  function onTeamRowClick(i) {
+    _expandedIdx = (_expandedIdx === i) ? null : i;
+    _render();
+  }
+
   function retry() {
     _initialized = false;
     init();
@@ -415,7 +533,7 @@ const ScoutingManager = (() => {
   // ── Public API ───────────────────────────────────────────────────
   return {
     init,
-    onSearch, onFilter, onTeamFilter, onSort, onPage, onRowClick,
+    onSearch, onFilter, onTeamFilter, onSort, onPage, onRowClick, onTeamRowClick,
     retry,
     exitTeamView: _exitTeamView,
   };
