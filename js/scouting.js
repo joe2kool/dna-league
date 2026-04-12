@@ -137,11 +137,140 @@ const ScoutingManager = (() => {
     _render();
   }
 
-  // ── Render (stub — replaced in Task 3) ──────────────────────────
+  // ── Render ───────────────────────────────────────────────────────
   function _render() {
     const el = _root();
     if (!el) return;
-    el.innerHTML = `<p style="padding:20px;color:var(--text2)">Loading teams… ${_teamsLoaded} / 30</p>`;
+    if (_view === 'team') {
+      _renderTeamView(el);
+    } else {
+      _renderAllView(el);
+    }
+  }
+
+  function _renderAllView(el) {
+    const totalPages = Math.max(1, Math.ceil(_filteredPlayers.length / PAGE_SIZE));
+    const pageSlice  = _filteredPlayers.slice((_page - 1) * PAGE_SIZE, _page * PAGE_SIZE);
+
+    let body = '';
+    if (_filteredPlayers.length === 0 && _teamsLoaded === 30) {
+      if (_players.length === 0) {
+        body = `<div class="scouting-empty">Could not load player data. Check connection. <button class="scouting-retry-btn" onclick="ScoutingManager.retry()">Retry</button></div>`;
+      } else {
+        body = `<div class="scouting-empty">No players match the current filters.</div>`;
+      }
+    } else {
+      body = _renderTable(pageSlice);
+    }
+
+    el.innerHTML = `
+      ${_renderTeamGrid()}
+      <div class="scouting-all">
+        ${_renderFilters()}
+        ${_teamsLoaded < 30 ? `<div class="scouting-progress">Loading teams\u2026 ${_teamsLoaded} / 30</div>` : ''}
+        ${body}
+        ${_filteredPlayers.length > PAGE_SIZE ? _renderPagination(totalPages) : ''}
+      </div>`;
+  }
+
+  function _renderFilters() {
+    const positions = ['all','SP','RP','CP','C','1B','2B','3B','SS','LF','CF','RF','DH'];
+    const teams     = ['all', ...DNA_CONFIG.mlbTeams.map(t => t.abbr).sort()];
+    const teamVal   = (_view === 'team' && _selectedTeam) ? _selectedTeam : 'all';
+    return `
+      <div class="scouting-filters">
+        <input class="scouting-search" type="text" placeholder="Search player\u2026"
+               value="${_escHtml(_filters.search)}"
+               oninput="ScoutingManager.onSearch(this.value)">
+        <select class="scouting-select" onchange="ScoutingManager.onFilter('pos',this.value)">
+          ${positions.map(p => `<option value="${p}"${_filters.pos===p?' selected':''}>${p==='all'?'All Positions':p}</option>`).join('')}
+        </select>
+        <select class="scouting-select" onchange="ScoutingManager.onTeamFilter(this.value)">
+          ${teams.map(t => `<option value="${t}"${teamVal===t?' selected':''}>${t==='all'?'All Teams':t}</option>`).join('')}
+        </select>
+        <select class="scouting-select" onchange="ScoutingManager.onFilter('bat',this.value)">
+          <option value="all"${_filters.bat==='all'?' selected':''}>All Bats</option>
+          <option value="L"${_filters.bat==='L'?' selected':''}>L</option>
+          <option value="R"${_filters.bat==='R'?' selected':''}>R</option>
+          <option value="S"${_filters.bat==='S'?' selected':''}>S</option>
+        </select>
+        <select class="scouting-select" onchange="ScoutingManager.onFilter('thr',this.value)">
+          <option value="all"${_filters.thr==='all'?' selected':''}>All Throws</option>
+          <option value="L"${_filters.thr==='L'?' selected':''}>L</option>
+          <option value="R"${_filters.thr==='R'?' selected':''}>R</option>
+        </select>
+      </div>`;
+  }
+
+  const COLS = [
+    { key:'name', label:'Name'  },
+    { key:'pos',  label:'Pos'   },
+    { key:'team', label:'Team'  },
+    { key:'ovr',  label:'OVR'   },
+    { key:'con',  label:'CON'   },
+    { key:'pwr',  label:'PWR'   },
+    { key:'spd',  label:'SPD'   },
+    { key:'fld',  label:'FLD',  hideMobile:true },
+    { key:'vel',  label:'VEL',  hideMobile:true },
+    { key:'ctl',  label:'CTL',  hideMobile:true },
+  ];
+
+  function _renderTable(rows) {
+    const thCells = COLS.map(c => {
+      const active = _sort.col === c.key;
+      const arrow  = active ? (_sort.dir === 'desc' ? ' \u2193' : ' \u2191') : '';
+      const cls    = `scouting-th${active?' scouting-th-active':''}${c.hideMobile?' scouting-hide-mobile':''}`;
+      return `<th class="${cls}" onclick="ScoutingManager.onSort('${c.key}')">${c.label}${arrow}</th>`;
+    }).join('');
+
+    const bodyRows = rows.map((p, localIdx) => {
+      const globalIdx = (_page - 1) * PAGE_SIZE + localIdx;
+      const isPitcher = PITCHER_POS.has(p.pos);
+      const con  = _conVal(p);
+      const pwr  = _pwrVal(p);
+      const spd  = isPitcher ? null : (p.speed    ?? null);
+      const fld  = isPitcher ? null : (p.fielding ?? null);
+      const vel  = isPitcher ? (p.velocity ?? null) : null;
+      const ctl  = isPitcher ? (p.control  ?? null) : null;
+      const fmt  = v => (v != null ? v : '\u2014');
+      const isExp = _expandedIdx === globalIdx;
+
+      // _renderPlayerDetail is added in Task 4
+      const detailHtml = isExp && typeof _renderPlayerDetail === 'function'
+        ? `<tr class="scouting-detail-row"><td colspan="${COLS.length}" class="scouting-detail-cell">${_renderPlayerDetail(p)}</td></tr>`
+        : (isExp ? `<tr class="scouting-detail-row"><td colspan="${COLS.length}" class="scouting-detail-cell"><em>Detail card loading\u2026</em></td></tr>` : '');
+
+      return `
+        <tr class="scouting-row${isExp?' scouting-row-expanded':''}" onclick="ScoutingManager.onRowClick(${globalIdx})">
+          <td class="scouting-td scouting-td-name">${_escHtml(p.name)}</td>
+          <td class="scouting-td">${_escHtml(p.pos)}</td>
+          <td class="scouting-td">${_escHtml(p.teamAbbr)}</td>
+          <td class="scouting-td scouting-ovr">${p.overall || '\u2014'}</td>
+          <td class="scouting-td">${fmt(con)}</td>
+          <td class="scouting-td">${fmt(pwr)}</td>
+          <td class="scouting-td">${fmt(spd)}</td>
+          <td class="scouting-td scouting-hide-mobile">${fmt(fld)}</td>
+          <td class="scouting-td scouting-hide-mobile">${fmt(vel)}</td>
+          <td class="scouting-td scouting-hide-mobile">${fmt(ctl)}</td>
+        </tr>${detailHtml}`;
+    }).join('');
+
+    return `
+      <div class="scouting-table-wrap">
+        <table class="scouting-table">
+          <thead><tr>${thCells}</tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function _renderPagination(totalPages) {
+    return `
+      <div class="scouting-pagination">
+        <button class="scouting-page-btn"${_page<=1?' disabled':''} onclick="ScoutingManager.onPage(${_page-1})">&#8592; Prev</button>
+        <span class="scouting-page-info">Page ${_page} of ${totalPages}</span>
+        <button class="scouting-page-btn"${_page>=totalPages?' disabled':''} onclick="ScoutingManager.onPage(${_page+1})">Next &#8594;</button>
+      </div>`;
   }
 
   // ── Placeholder team view functions (replaced in Task 5) ─────────
@@ -150,9 +279,66 @@ const ScoutingManager = (() => {
   function _enterTeamView(abbr) { _view = 'team'; _selectedTeam = abbr; _expandedIdx = null; _render(); }
   function _exitTeamView() { _view = 'all'; _selectedTeam = null; _render(); }
 
+  // ── Event handlers ────────────────────────────────────────────────
+  function onSearch(val) {
+    _filters.search = val;
+    _page = 1;
+    _expandedIdx = null;
+    _recompute();
+    _render();
+  }
+
+  function onFilter(key, val) {
+    _filters[key] = val;
+    _page = 1;
+    _expandedIdx = null;
+    _recompute();
+    _render();
+  }
+
+  function onTeamFilter(val) {
+    if (val === 'all') {
+      _exitTeamView();
+    } else {
+      _enterTeamView(val);
+    }
+  }
+
+  function onSort(col) {
+    if (_sort.col === col) {
+      _sort.dir = _sort.dir === 'desc' ? 'asc' : 'desc';
+    } else {
+      _sort = { col, dir: 'desc' };
+    }
+    _page = 1;
+    _expandedIdx = null;
+    _recompute();
+    _render();
+  }
+
+  function onPage(p) {
+    _page = p;
+    _expandedIdx = null;
+    _render();
+    const el = _root();
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function onRowClick(globalIdx) {
+    _expandedIdx = (_expandedIdx === globalIdx) ? null : globalIdx;
+    _render();
+  }
+
+  function retry() {
+    _initialized = false;
+    init();
+  }
+
   // ── Public API ───────────────────────────────────────────────────
   return {
     init,
+    onSearch, onFilter, onTeamFilter, onSort, onPage, onRowClick,
+    retry,
     exitTeamView: _exitTeamView,
   };
 
