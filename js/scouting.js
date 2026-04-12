@@ -313,7 +313,7 @@ const ScoutingManager = (() => {
           ${p.pitch_arsenal.map(pitch => `
             <div class="fa-pitch-row">
               <span class="fa-pitch-name">${_escHtml(pitch.name)}</span>
-              <div class="fa-pitch-stats">MPH <span>${pitch.speed || '—'}</span> BRK <span>${pitch.break || '—'}</span></div>
+              <div class="fa-pitch-stats">MPH <span>${_attrVal(pitch.speed)}</span> BRK <span>${_attrVal(pitch.break)}</span></div>
             </div>`).join('')}
         </div>`;
       }
