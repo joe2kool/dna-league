@@ -14,6 +14,8 @@ const DnaRatings = (() => {
     fetchedAt:           null,
     breakdowns:          {},      // { teamAbbr: breakdown | null }
     breakdownFetchedAt:  {},      // { teamAbbr: timestamp }
+    full:                null,    // { abbr: { overall, sp, rp, power, contact, speed, defense } }
+    fullFetchedAt:       null,
   };
 
   const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hour
@@ -395,13 +397,80 @@ const DnaRatings = (() => {
     }
   }
 
+  async function getTeamRatingsFull() {
+    if (_cache.full && _cache.fullFetchedAt && (Date.now() - _cache.fullFetchedAt) < CACHE_TTL_MS) {
+      return _cache.full;
+    }
+    const adapter = adapters[DNA_CONFIG.ratings.game] || adapters.mlbtheshow;
+    if (!adapter.workerUrl) {
+      // No Worker configured — fall back to static overalls with null breakdowns
+      const base = await getTeamRatings();
+      return Object.fromEntries(
+        Object.entries(base).map(([abbr, t]) => [abbr, {
+          overall: t.overall, sp: null, rp: null,
+          power: null, contact: null, speed: null, defense: null,
+        }])
+      );
+    }
+    try {
+      const TOTAL_CHUNKS = 15;
+      const chunkResults = await Promise.all(
+        Array.from({ length: TOTAL_CHUNKS }, (_, i) =>
+          fetch(
+            `${adapter.workerUrl}/teams-full?chunk=${i}`,
+            { signal: AbortSignal.timeout(20000) }
+          )
+          .then(r => r.ok ? r.json() : { teams: {} })
+          .catch(() => ({ teams: {} }))
+        )
+      );
+
+      // Merge all chunk results into one flat map
+      const merged = {};
+      for (const result of chunkResults) {
+        for (const [abbr, stats] of Object.entries(result.teams || {})) {
+          merged[abbr] = stats;
+        }
+      }
+
+      // Fill in any missing teams with static overall + null breakdowns
+      const base = _getStaticMLBRatings();
+      for (const abbr of Object.keys(base)) {
+        if (!merged[abbr]) {
+          merged[abbr] = {
+            overall: base[abbr].overall, sp: null, rp: null,
+            power: null, contact: null, speed: null, defense: null,
+          };
+        }
+        // Preserve name/league/division from static base for card rendering
+        merged[abbr].name     = base[abbr].name;
+        merged[abbr].league   = base[abbr].league;
+        merged[abbr].division = base[abbr].division;
+      }
+
+      _cache.full          = merged;
+      _cache.fullFetchedAt = Date.now();
+      return merged;
+    } catch(e) {
+      console.warn('getTeamRatingsFull failed, falling back to getTeamRatings:', e.message);
+      const base = await getTeamRatings();
+      return Object.fromEntries(
+        Object.entries(base).map(([abbr, t]) => [abbr, {
+          ...t, sp: null, rp: null, power: null, contact: null, speed: null, defense: null,
+        }])
+      );
+    }
+  }
+
   function clearCache() {
     _cache.teams = null;
     _cache.players = {};
     _cache.fetchedAt = null;
     _cache.breakdowns = {};
     _cache.breakdownFetchedAt = {};
+    _cache.full = null;
+    _cache.fullFetchedAt = null;
   }
 
-  return { getTeamRatings, getTeamRoster, getTeamBreakdown, clearCache };
+  return { getTeamRatings, getTeamRoster, getTeamBreakdown, getTeamRatingsFull, clearCache };
 })();
