@@ -249,8 +249,8 @@ const DraftUI = (() => {
       </div>`;
   }
 
-  // NOTE: call loadTeamBreakdowns() after every renderAvailableTeams() call —
-  // re-renders reset the tcb-* placeholders and need to be re-populated.
+  // loadTeamBreakdowns: retained for backward compat but no longer called by draft.html/draft-room.js.
+  // Badges are now rendered inline by renderAvailableTeams() using full ratings from getTeamRatingsFull().
   function loadTeamBreakdowns(teamAbbrs) {
     teamAbbrs.forEach(abbr => {
       DnaRatings.getTeamBreakdown(abbr).then(breakdown => {
