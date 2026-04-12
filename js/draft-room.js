@@ -113,7 +113,7 @@ const DraftRoom = (() => {
       settings:       d.settings || {},
       slots,
       availableTeams,
-      teamRatings:  {}, // populated in boot() after DnaRatings.getTeamRatings()
+      teamRatings:  {}, // populated in boot() after DnaRatings.getTeamRatingsFull()
       createdAt:    d.created_at,
       completedAt:  null,
     };
