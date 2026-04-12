@@ -10,6 +10,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
+<script src="js/ratings.js"></script>
+<script src="js/scouting.js"></script>
 <style>
   :root {
     --bg:#0a0d12; --surface:#0f1318; --surface2:#151c24; --surface3:#1c2530;
@@ -551,6 +553,9 @@
     <button type="button" class="drawer-nav-item" id="drawer-tab-profiles" onclick="showPageMobile('profiles',this)">
       <span class="drawer-nav-icon">&#x1F464;</span><span>Members</span>
     </button>
+    <button type="button" class="drawer-nav-item" id="drawer-tab-scouting" onclick="showPageMobile('scouting',this)">
+      <span class="drawer-nav-icon">&#x1F50D;</span><span>Scouting</span>
+    </button>
     <button type="button" class="drawer-nav-item" id="drawer-tab-league" onclick="showPageMobile('league',this)" style="display:none;">
       <span class="drawer-nav-icon">&#x2699;</span><span>League</span>
     </button>
@@ -582,6 +587,7 @@
     <button type="button" class="nav-tab" onclick="showPage('seasons',this)">Seasons</button>
     <button type="button" class="nav-tab" onclick="showPage('schedule',this)">Schedule</button>
     <button type="button" class="nav-tab" onclick="showPage('profiles',this)">Members</button>
+    <button type="button" class="nav-tab" onclick="showPage('scouting',this)">Scouting</button>
     <button type="button" class="nav-tab" id="nav-tab-league" onclick="showPage('league',this)" style="display:none;">League</button>
   </div>
   <div style="margin-left:auto;display:flex;align-items:center;gap:1rem;padding:0 0.5rem;" id="nav-user-area">
@@ -802,6 +808,11 @@
         <div class="empty-text">No seasons yet &mdash; create your first</div>
       </div>
     </div>
+  </div>
+
+  <!-- SCOUTING -->
+  <div id="page-scouting" class="page">
+    <div id="scouting-root"></div>
   </div>
 
   <!-- LEAGUE MANAGEMENT -->
@@ -1158,6 +1169,7 @@ function showPage(id, tabEl) {
   if (id === 'seasons')  initSeasonsPage();
   if (id === 'schedule') initSchedulePage();
   if (id === 'league')   initLeaguePage();
+  if (id === 'scouting') initScoutingPage();
 }
 
 function selectMode(mode) {
@@ -1939,6 +1951,10 @@ var ROLE_OPTIONS = [
   { value: 'helper',          label: 'Helper' },
   { value: 'member',          label: 'Member' },
 ];
+
+function initScoutingPage() {
+  if (typeof ScoutingManager !== 'undefined') ScoutingManager.init();
+}
 
 function initLeaguePage() {
   if (!currentMember || !['admin','commissioner','co_commissioner'].includes(currentMember.role)) {
@@ -3966,6 +3982,7 @@ function showPageMobile(id, drawerTabEl) {
   if (id === 'seasons')  initSeasonsPage();
   if (id === 'schedule') initSchedulePage();
   if (id === 'league')   initLeaguePage();
+  if (id === 'scouting') initScoutingPage();
 }
 
 function updateDrawerUser() {
