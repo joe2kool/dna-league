@@ -1,0 +1,286 @@
+/* ── Scouting Page ─────────────────────────────────────────────── */
+
+/* Team grid */
+.scouting-team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 2px;
+  margin-bottom: 16px;
+}
+
+.team-card {
+  background: var(--surface2);
+  padding: 12px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.team-card:hover { background: rgba(168,189,212,0.08); }
+.team-card-abbr   { font-family: 'Bebas Neue'; font-size: 22px; color: var(--gold); letter-spacing: 1px; line-height: 1; }
+.team-card-name   { font-size: 10px; color: var(--text2); line-height: 1.2; min-height: 28px; }
+.team-card-ovr    { font-family: 'Bebas Neue'; font-size: 24px; line-height: 1; }
+.team-card-league { font-size: 9px; color: var(--text2); letter-spacing: 1px; text-transform: uppercase; }
+
+/* Team card badge groups (used in team view summary) */
+.tcb-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+.tcb-label {
+  font-size: 8px;
+  color: var(--text2);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  width: 42px;
+  flex-shrink: 0;
+}
+.tcb-badge {
+  font-size: 9px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+.tcb-green { background: rgba(46,204,113,0.12);  color: #6ee7b7; }
+.tcb-gold  { background: rgba(201,168,76,0.12);  color: #fde68a; }
+.tcb-blue  { background: rgba(147,197,253,0.12); color: #bfdbfe; }
+
+/* All-players layout */
+.scouting-all {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Filters */
+.scouting-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.scouting-search {
+  flex: 1 1 160px;
+  min-width: 120px;
+  padding: 6px 10px;
+  background: var(--surface2);
+  border: 1px solid rgba(168,189,212,0.15);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.scouting-select {
+  padding: 6px 8px;
+  background: var(--surface2);
+  border: 1px solid rgba(168,189,212,0.15);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.scouting-progress {
+  font-size: 12px;
+  color: var(--text2);
+  padding: 4px 0;
+}
+
+.scouting-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text2);
+  font-size: 14px;
+}
+
+.scouting-retry-btn {
+  margin-left: 10px;
+  padding: 4px 12px;
+  background: var(--gold);
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* Table */
+.scouting-table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 600px;
+}
+
+.scouting-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.scouting-th {
+  padding: 8px 10px;
+  text-align: left;
+  background: var(--surface2);
+  color: var(--text2);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(168,189,212,0.1);
+  position: sticky;
+  top: 0;
+}
+
+.scouting-th:hover { color: var(--text); }
+.scouting-th-active { color: var(--gold); }
+
+.scouting-td {
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(168,189,212,0.06);
+  white-space: nowrap;
+}
+
+.scouting-row {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.scouting-row:nth-child(even) { background: rgba(168,189,212,0.03); }
+.scouting-row:hover { background: rgba(168,189,212,0.06); }
+.scouting-row-expanded { background: rgba(168,189,212,0.08); }
+
+.scouting-td-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scouting-ovr {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 15px;
+  color: var(--gold);
+}
+
+.scouting-detail-row { background: var(--surface2); }
+
+.scouting-detail-cell {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(168,189,212,0.1);
+}
+
+.scouting-detail-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Pagination */
+.scouting-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.scouting-page-btn {
+  padding: 6px 14px;
+  background: var(--surface2);
+  border: 1px solid rgba(168,189,212,0.15);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.scouting-page-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.scouting-page-info {
+  font-size: 13px;
+  color: var(--text2);
+}
+
+/* Team view */
+.scouting-team-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.scouting-back-btn {
+  padding: 6px 12px;
+  background: var(--surface2);
+  border: 1px solid rgba(168,189,212,0.15);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.scouting-team-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  color: var(--text);
+  letter-spacing: 1px;
+}
+
+.scouting-team-meta {
+  font-size: 11px;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.scouting-team-card-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border-radius: 4px;
+}
+
+/* Player detail card (reuses fa-draft attribute layout) */
+.fa-attr-section { margin-bottom: 10px; }
+.fa-attr-label   { font-family: 'Barlow Condensed'; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text2); margin-bottom: 6px; }
+.fa-attr-grid    { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 20px; }
+.fa-attr-row     { display: flex; justify-content: space-between; font-size: 12px; }
+.fa-attr-name    { color: var(--text2); }
+.fa-attr-val     { font-weight: 600; }
+.fa-attr-val.high  { color: var(--green); }
+.fa-attr-val.mid   { color: #f5c542; }
+.fa-attr-val.low   { color: #cd7f32; }
+.fa-attr-val.vlow  { color: var(--red); }
+
+.fa-quirks { display: flex; gap: 6px; flex-wrap: wrap; }
+.fa-quirk  { background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.2); color: var(--green); border-radius: 4px; padding: 2px 8px; font-size: 11px; }
+
+.fa-pitch-row        { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.fa-pitch-row:last-child { border-bottom: none; }
+.fa-pitch-name       { color: var(--text); }
+.fa-pitch-stats      { display: flex; gap: 12px; color: var(--text2); font-size: 11px; }
+.fa-pitch-stats span { color: var(--text); font-weight: 600; }
+
+/* Mobile */
+@media (max-width: 600px) {
+  .scouting-hide-mobile { display: none; }
+  .scouting-filters     { flex-direction: column; align-items: stretch; }
+  .scouting-search      { flex: 1 1 auto; }
+  .fa-attr-grid         { grid-template-columns: 1fr; }
+}
