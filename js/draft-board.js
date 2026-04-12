@@ -89,6 +89,8 @@ const DraftUI = (() => {
       return rb - ra;
     });
 
+    function fmt(val) { return val != null ? val : '—'; }
+
     el.innerHTML = sorted.map(abbr => {
       const info   = DNA_CONFIG.mlbTeams.find(t => t.abbr === abbr) || { name: abbr, abbr };
       const rating = teamRatings?.[abbr] || {};
@@ -102,7 +104,21 @@ const DraftUI = (() => {
           <div class="team-card-ovr" style="color:${ovrColor}">${ovr}</div>
           <div class="team-card-league">${info.league || ''} ${info.division || ''}</div>
           <div class="team-card-breakdown" id="tcb-${abbr}">
-            <span class="team-card-breakdown-loading">loading...</span>
+            <div class="tcb-group">
+              <span class="tcb-label">Pitching</span>
+              <span class="tcb-badge tcb-green">SP ${fmt(rating?.sp)}</span>
+              <span class="tcb-badge tcb-green">RP ${fmt(rating?.rp)}</span>
+            </div>
+            <div class="tcb-group">
+              <span class="tcb-label">Hitting</span>
+              <span class="tcb-badge tcb-gold">PWR ${fmt(rating?.power)}</span>
+              <span class="tcb-badge tcb-gold">CON ${fmt(rating?.contact)}</span>
+            </div>
+            <div class="tcb-group">
+              <span class="tcb-label">Athletic</span>
+              <span class="tcb-badge tcb-blue">SPD ${fmt(rating?.speed)}</span>
+              <span class="tcb-badge tcb-blue">DEF ${fmt(rating?.defense)}</span>
+            </div>
           </div>
           <button type="button" class="team-card-btn" onclick="event.stopPropagation();DraftUI.showTeamDetail('${abbr}')">
             Top 5 ▸
