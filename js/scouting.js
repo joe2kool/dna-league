@@ -281,11 +281,15 @@ const ScoutingManager = (() => {
 
   // ── Event handlers ────────────────────────────────────────────────
   function onSearch(val) {
+    const cursorPos = document.querySelector('.scouting-search')?.selectionStart ?? val.length;
     _filters.search = val;
     _page = 1;
     _expandedIdx = null;
     _recompute();
     _render();
+    // Restore cursor position after full DOM re-render
+    const input = document.querySelector('.scouting-search');
+    if (input) input.setSelectionRange(cursorPos, cursorPos);
   }
 
   function onFilter(key, val) {
