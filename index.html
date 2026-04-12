@@ -539,7 +539,7 @@
     <button type="button" class="drawer-nav-item active" id="drawer-tab-home" onclick="showPageMobile('home',this)">
       <span class="drawer-nav-icon">&#x1F3E0;</span><span>Home</span>
     </button>
-    <button type="button" class="drawer-nav-item" id="drawer-tab-draft" onclick="showPageMobile('draft',this)">
+    <button type="button" class="drawer-nav-item" id="drawer-tab-draft" onclick="showPageMobile('draft',this)" style="display:none;">
       <span class="drawer-nav-icon">&#x26A1;</span><span>Draft Order</span>
     </button>
     <button type="button" class="drawer-nav-item" id="drawer-tab-seasons" onclick="showPageMobile('seasons',this)">
@@ -578,7 +578,7 @@
   </div>
   <div class="nav-tabs" id="nav-tabs-desktop">
     <button type="button" class="nav-tab active" onclick="showPage('home',this)">Home</button>
-    <button type="button" class="nav-tab" onclick="showPage('draft',this)">Draft Order</button>
+    <button type="button" class="nav-tab" id="nav-tab-draft" onclick="showPage('draft',this)" style="display:none;">Draft Order</button>
     <button type="button" class="nav-tab" onclick="showPage('seasons',this)">Seasons</button>
     <button type="button" class="nav-tab" onclick="showPage('schedule',this)">Schedule</button>
     <button type="button" class="nav-tab" onclick="showPage('profiles',this)">Members</button>
@@ -622,7 +622,7 @@
       <div class="card">
         <div class="card-header"><div class="card-title">Quick Actions</div></div>
         <div style="display:flex;flex-direction:column;gap:10px;">
-          <button type="button" class="btn btn-gold" style="justify-content:center;" onclick="showPage('draft',document.querySelectorAll('.nav-tab')[1])">&#x26A1; Generate Draft Order</button>
+          <button type="button" id="home-draft-btn" class="btn btn-gold" style="justify-content:center;display:none;" onclick="showPage('draft',document.getElementById('nav-tab-draft'))">&#x26A1; Generate Draft Order</button>
           <a href="draft.html" class="btn btn-outline" style="justify-content:center;">&#x1F3AF; Launch Live Draft Room</a>
           <button type="button" class="btn btn-outline" style="justify-content:center;" onclick="showPage('profiles',document.querySelectorAll('.nav-tab')[2])">&#x1F464; Manage Members</button>
         </div>
@@ -1286,6 +1286,7 @@ function clearAll() {
 }
 
 function generateDraft() {
+  if (!canManageSchedule()) { toast('Only commissioners can generate a draft order'); return; }
   var names = [];
   for (var i = 0; i < state.slotNames.length; i++) {
     var n = state.slotNames[i].trim();
@@ -4103,6 +4104,12 @@ async function loadLeagueContext() {
       var drawerLeague = document.getElementById('drawer-tab-league');
       if (leagueTab) leagueTab.style.display = '';
       if (drawerLeague) drawerLeague.style.display = '';
+      var draftTab = document.getElementById('nav-tab-draft');
+      var drawerDraft = document.getElementById('drawer-tab-draft');
+      var homeDraftBtn = document.getElementById('home-draft-btn');
+      if (draftTab) draftTab.style.display = '';
+      if (drawerDraft) drawerDraft.style.display = '';
+      if (homeDraftBtn) homeDraftBtn.style.display = '';
     }
   }
   // Load localStorage FIRST so local- players are already in state
