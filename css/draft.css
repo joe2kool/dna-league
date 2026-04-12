@@ -606,7 +606,7 @@ input, select { font-family: inherit; }
   background: var(--chrome1);
   border: 1px solid rgba(168,189,212,0.15);
   border-radius: 4px;
-  color: var(--text1);
+  color: var(--text);
   font-size: 13px;
 }
 
@@ -615,7 +615,7 @@ input, select { font-family: inherit; }
   background: var(--chrome1);
   border: 1px solid rgba(168,189,212,0.15);
   border-radius: 4px;
-  color: var(--text1);
+  color: var(--text);
   font-size: 13px;
 }
 
@@ -645,7 +645,8 @@ input, select { font-family: inherit; }
 
 .scouting-table-wrap {
   overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  max-height: 600px;
 }
 
 .scouting-table {
@@ -670,7 +671,7 @@ input, select { font-family: inherit; }
   top: 0;
 }
 
-.scouting-th:hover { color: var(--text1); }
+.scouting-th:hover { color: var(--text); }
 .scouting-th-active { color: var(--gold); }
 
 .scouting-td {
@@ -684,6 +685,7 @@ input, select { font-family: inherit; }
   transition: background 0.1s;
 }
 
+.scouting-row:nth-child(even) { background: rgba(168,189,212,0.03); }
 .scouting-row:hover { background: rgba(168,189,212,0.06); }
 .scouting-row-expanded { background: rgba(168,189,212,0.08); }
 
@@ -726,7 +728,7 @@ input, select { font-family: inherit; }
   background: var(--chrome1);
   border: 1px solid rgba(168,189,212,0.15);
   border-radius: 4px;
-  color: var(--text1);
+  color: var(--text);
   font-size: 13px;
   cursor: pointer;
 }
@@ -754,7 +756,7 @@ input, select { font-family: inherit; }
   background: var(--chrome1);
   border: 1px solid rgba(168,189,212,0.15);
   border-radius: 4px;
-  color: var(--text1);
+  color: var(--text);
   font-size: 13px;
   cursor: pointer;
   white-space: nowrap;
@@ -763,14 +765,13 @@ input, select { font-family: inherit; }
 .scouting-team-name {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 22px;
-  color: var(--text1);
+  color: var(--text);
   letter-spacing: 1px;
 }
 
 .scouting-team-meta {
   font-size: 11px;
   color: var(--text2);
-  margin-left: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
