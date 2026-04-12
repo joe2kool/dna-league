@@ -284,13 +284,13 @@ const ScoutingManager = (() => {
     });
     const cards = sorted.map(t => {
       const r   = ratings[t.abbr] || {};
-      const ovr = r.overall || '—';
-      const ovrColor = ovr >= 88 ? 'var(--green)' : ovr >= 82 ? 'var(--gold)' : 'var(--text2)';
+      const ovr = r.overall ?? null;
+      const ovrColor = ovr === null ? 'var(--text2)' : ovr >= 88 ? 'var(--green)' : ovr >= 82 ? 'var(--gold)' : 'var(--text2)';
       return `
         <div class="team-card scouting-team-card" onclick="ScoutingManager.onTeamFilter('${t.abbr}')" title="${_escHtml(t.name)}">
           <div class="team-card-abbr">${t.abbr}</div>
           <div class="team-card-name">${_escHtml(t.name)}</div>
-          <div class="team-card-ovr" style="color:${ovrColor}">${ovr}</div>
+          <div class="team-card-ovr" style="color:${ovrColor}">${ovr ?? '—'}</div>
           <div class="team-card-league">${t.league || ''} ${t.division || ''}</div>
         </div>`;
     }).join('');
@@ -335,7 +335,7 @@ const ScoutingManager = (() => {
 
       const detailRow = isExp ? `
         <tr class="scouting-detail-row">
-          <td colspan="9" class="scouting-detail-cell">${_renderPlayerDetail(p)}</td>
+          <td colspan="${COLS.filter(c => c.key !== 'team').length}" class="scouting-detail-cell">${_renderPlayerDetail(p)}</td>
         </tr>` : '';
 
       return dataRow + detailRow;
