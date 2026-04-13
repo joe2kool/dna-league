@@ -2798,6 +2798,25 @@ async function saveTeamAssignment(seasonId, memberId, teamName) {
   renderSeasonsList();
 }
 
+function startTeamOverride(seasonId, memberId) {
+  seasonState.teamAssignEditing = { seasonId: seasonId, memberId: memberId };
+  renderSeasonsList();
+}
+
+function cancelTeamOverride() {
+  seasonState.teamAssignEditing = null;
+  renderSeasonsList();
+}
+
+async function confirmTeamOverride(seasonId, memberId) {
+  var sel = document.getElementById('override-ta-' + seasonId + '-' + memberId);
+  if (!sel) return;
+  var teamName = sel.value; // empty string = clear
+  seasonState.teamAssignEditing = null;
+  await saveTeamAssignment(seasonId, memberId, teamName);
+  // saveTeamAssignment calls renderSeasonsList() internally
+}
+
 function closeTeamAssignModal() {
   document.getElementById('team-assign-modal').classList.remove('open');
 }
