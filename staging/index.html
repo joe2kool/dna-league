@@ -2719,7 +2719,7 @@ function updateTeamAssignmentLive(seasonId) {
 }
 
 async function fetchFaPool(teamAbbrs, min, max) {
-  var workerUrl = DNA_CONFIG.app.workerUrl;
+  var workerUrl = DNA_CONFIG.ratings.workerUrl;
   var results = await Promise.all(teamAbbrs.map(function(abbr) {
     return fetch(workerUrl + '/fa-roster?team=' + encodeURIComponent(abbr) + '&min=' + min + '&max=' + max)
       .then(function(r) { return r.ok ? r.json() : { players: [], team: abbr }; })
@@ -2991,10 +2991,9 @@ async function saveTeamAssignment(seasonId, memberId, teamName) {
   if (teamName && !mlbTeamId) { toast('Unknown team: ' + teamName); return; }
 
   var res = await db.from('league_teams')
-    .upsert(
-      { season_id: seasonId, member_id: memberId, mlb_team_id: mlbTeamId },
-      { onConflict: 'season_id,member_id' }
-    );
+    .update({ mlb_team_id: mlbTeamId })
+    .eq('season_id', seasonId)
+    .eq('member_id', memberId);
 
   if (res.error) { toast('Error saving team assignment'); console.error(res.error.message); return; }
 
