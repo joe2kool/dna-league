@@ -2223,7 +2223,34 @@ function renderSeasonCard(s) {
           return '<option value="' + t + '"' + (assigned === t ? ' selected' : '') + '>' + t + '</option>';
         }).join('');
 
-      return '<div class="team-assignment-row">' +
+      var isEditing = !!(seasonState.teamAssignEditing &&
+        seasonState.teamAssignEditing.seasonId === s.id &&
+        seasonState.teamAssignEditing.memberId === r.memberId);
+
+      var overrideOptions = '<option value="">— No Team —</option>' +
+        MLB_TEAMS.map(function(t) {
+          return '<option value="' + escHtml(t) + '"' + (assigned === t ? ' selected' : '') + '>' + escHtml(t) + '</option>';
+        }).join('');
+
+      var overrideRow = isEditing
+        ? '<div style="width:100%;display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">' +
+            '<select id="override-ta-' + s.id + '-' + r.memberId + '" style="flex:1;min-width:120px;font-size:12px;">' +
+              overrideOptions +
+            '</select>' +
+            '<button type="button" onclick="confirmTeamOverride(\'' + s.id + '\',\'' + r.memberId + '\')" ' +
+              'style="padding:2px 8px;font-size:13px;cursor:pointer;" title="Confirm">&#x2713;</button>' +
+            '<button type="button" onclick="cancelTeamOverride()" ' +
+              'style="padding:2px 8px;font-size:13px;cursor:pointer;" title="Cancel">&#x2717;</button>' +
+          '</div>'
+        : '';
+
+      var pencilBtn = (canManageSchedule() && !isEditing)
+        ? '<button type="button" onclick="startTeamOverride(\'' + s.id + '\',\'' + r.memberId + '\')" ' +
+            'title="Override team assignment" ' +
+            'style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:13px;padding:0 3px;flex-shrink:0;">&#x270F;</button>'
+        : '';
+
+      return '<div class="team-assignment-row" style="flex-wrap:wrap;">' +
         '<div class="ta-player">' +
           '<div class="avatar-sm" style="background:' + (player.color||'#6a9ec7') + ';font-size:11px;">' +
             player.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase() +
@@ -2237,6 +2264,8 @@ function renderSeasonCard(s) {
           '</select>' +
         '</div>' +
         (assigned ? '<span class="tag tag-gold" style="flex-shrink:0;font-size:10px;">' + escHtml(assigned.split(' ').pop()) + '</span>' : '') +
+        pencilBtn +
+        overrideRow +
         '</div>';
     }).join('') : '<div style="font-size:13px;color:var(--text2);">Roster players first before assigning teams.</div>') +
     '</div>';
