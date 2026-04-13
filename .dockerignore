@@ -1,0 +1,34 @@
+# ============================================================
+# THE DNA LEAGUE — .dockerignore
+# Files listed here are never included in the Docker image,
+# even if a COPY . . instruction is used.
+# ============================================================
+
+# Credentials — never in an image
+.env
+.env.*
+
+# Cloudflare Worker — deployed separately, not part of the image
+worker.js
+
+# Docs and planning files — not needed at runtime
+docs/
+*.md
+
+# Git and CI — not needed at runtime
+.git/
+.github/
+.gitignore
+
+# IDE and tooling
+.claude/
+.superpowers/
+.playwright-mcp/
+.vscode/
+
+# Node dependencies — reinstalled inside the image via npm install
+node_modules/
+package-lock.json
+
+# Misc
+*.docx

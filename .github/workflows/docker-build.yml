@@ -1,0 +1,205 @@
+# ============================================================
+# THE DNA LEAGUE — Docker Build & Security Scan
+# Triggers: push to staging or main
+#
+# What this does:
+#   1. Builds a Docker image from Dockerfile
+#   2. Scans it with Trivy for OS/package CVEs (DevSecOps)
+#   3. Pushes the image to GitHub Container Registry (GHCR)
+#
+# Image: ghcr.io/joe2kool/dna-league:<tag>
+# Tags:  branch name + git SHA (e.g. staging-abc1234)
+# ============================================================
+
+name: Docker Build & Scan
+
+on:
+  push:
+    branches: [ main, staging ]
+  pull_request:
+    branches: [ main, staging ]
+
+permissions:
+  contents: read
+  packages: write       # needed to push to GHCR
+  security-events: write  # needed to upload Trivy SARIF results
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: joe2kool/dna-league
+
+jobs:
+
+  # ── JOB 1: BUILD ─────────────────────────────────────────
+  docker-build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      short-sha: ${{ steps.sha.outputs.short }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      # Docker Buildx is the modern builder — supports multi-platform
+      # and cache mounts (important for Red Hat / OCI-compliant builds)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Log in to GitHub Container Registry using the built-in GITHUB_TOKEN
+      # No extra secrets needed — GHCR is part of your GitHub account
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Generate image tags automatically:
+      # - On push to staging: ghcr.io/joe2kool/dna-league:staging-<sha>
+      # - On push to main:    ghcr.io/joe2kool/dna-league:latest + main-<sha>
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch,suffix=-${{ steps.sha.outputs.short }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false          # build only here; push happens after scan passes
+          # Always include a fixed local tag so Trivy has a consistent name to scan.
+          # On PRs, metadata tags may be empty — dna-league:ci is always present.
+          tags: dna-league:ci,${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Save the image to a tar file so Trivy can scan it
+          outputs: type=docker,dest=/tmp/dna-league.tar
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Upload image artifact for scan job
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp/dna-league.tar
+          retention-days: 1
+
+  # ── JOB 2: TRIVY SCAN ────────────────────────────────────
+  # Trivy is the industry-standard container CVE scanner.
+  # Used by Red Hat, GitLab, and most DevSecOps pipelines.
+  # It scans the base OS packages (Alpine Linux) and any
+  # packages installed inside the image for known CVEs.
+  trivy-scan:
+    name: Trivy CVE Scan
+    runs-on: ubuntu-latest
+    needs: docker-build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+          path: /tmp
+
+      - name: Load image into Docker
+        run: docker load --input /tmp/dna-league.tar
+
+      # Run Trivy against the image.
+      # Uses the fixed local tag dna-league:ci — always present on both
+      # push and PR events regardless of what metadata tags were generated.
+      # CRITICAL severity CVEs fail the build.
+      # HIGH severity CVEs are reported but do not fail (yet).
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: dna-league:ci
+          format: table
+          exit-code: '1'          # fail pipeline on CRITICAL CVEs
+          ignore-unfixed: true    # skip CVEs with no available fix
+          severity: CRITICAL,HIGH
+          vuln-type: os,library
+
+      # Also output a SARIF report — this uploads results to GitHub
+      # Security tab so you can see CVEs in the GitHub UI
+      - name: Run Trivy (SARIF output for GitHub Security tab)
+        uses: aquasecurity/trivy-action@master
+        if: always()   # run even if the table scan above failed
+        with:
+          image-ref: dna-league:ci
+          format: sarif
+          output: trivy-results.sarif
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+
+  # ── JOB 3: PUSH ──────────────────────────────────────────
+  # Only push the image to GHCR after the scan passes.
+  # This is the DevSecOps "shift-left" pattern:
+  # security gates BEFORE the artifact reaches the registry.
+  docker-push:
+    name: Push to GHCR
+    runs-on: ubuntu-latest
+    needs: [ docker-build, trivy-scan ]
+    if: github.event_name == 'push'   # don't push on PRs
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch,suffix=-${{ needs.docker-build.outputs.short-sha }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      # Rebuild with push=true now that scan has passed
+      # The layer cache from job 1 means this is near-instant
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image pushed successfully
+        run: |
+          echo "=== Image published to GHCR ==="
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo ""
+          echo "Pull with:"
+          echo "  docker pull ghcr.io/joe2kool/dna-league:latest"
