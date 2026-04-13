@@ -10,6 +10,10 @@
 # because it has a tiny attack surface (~5 MB base image)
 FROM nginx:alpine
 
+# Upgrade all Alpine packages to latest patched versions
+# This fixes any CVEs in the base image that have available fixes
+RUN apk upgrade --no-cache
+
 # Remove the default nginx welcome page
 RUN rm -rf /usr/share/nginx/html/*
 
