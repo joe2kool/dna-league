@@ -2223,7 +2223,34 @@ function renderSeasonCard(s) {
           return '<option value="' + t + '"' + (assigned === t ? ' selected' : '') + '>' + t + '</option>';
         }).join('');
 
-      return '<div class="team-assignment-row">' +
+      var isEditing = !!(seasonState.teamAssignEditing &&
+        seasonState.teamAssignEditing.seasonId === s.id &&
+        seasonState.teamAssignEditing.memberId === r.memberId);
+
+      var overrideOptions = '<option value="">— No Team —</option>' +
+        MLB_TEAMS.map(function(t) {
+          return '<option value="' + escHtml(t) + '"' + (assigned === t ? ' selected' : '') + '>' + escHtml(t) + '</option>';
+        }).join('');
+
+      var overrideRow = isEditing
+        ? '<div style="width:100%;display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">' +
+            '<select id="override-ta-' + s.id + '-' + r.memberId + '" style="flex:1;min-width:120px;font-size:12px;">' +
+              overrideOptions +
+            '</select>' +
+            '<button type="button" onclick="confirmTeamOverride(\'' + s.id + '\',\'' + r.memberId + '\')" ' +
+              'style="padding:2px 8px;font-size:13px;cursor:pointer;" title="Confirm">&#x2713;</button>' +
+            '<button type="button" onclick="cancelTeamOverride()" ' +
+              'style="padding:2px 8px;font-size:13px;cursor:pointer;" title="Cancel">&#x2717;</button>' +
+          '</div>'
+        : '';
+
+      var pencilBtn = (canManageSchedule() && !isEditing)
+        ? '<button type="button" onclick="startTeamOverride(\'' + s.id + '\',\'' + r.memberId + '\')" ' +
+            'title="Override team assignment" ' +
+            'style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:13px;padding:0 3px;flex-shrink:0;">&#x270F;</button>'
+        : '';
+
+      return '<div class="team-assignment-row" style="flex-wrap:wrap;">' +
         '<div class="ta-player">' +
           '<div class="avatar-sm" style="background:' + (player.color||'#6a9ec7') + ';font-size:11px;">' +
             player.name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase() +
@@ -2237,6 +2264,8 @@ function renderSeasonCard(s) {
           '</select>' +
         '</div>' +
         (assigned ? '<span class="tag tag-gold" style="flex-shrink:0;font-size:10px;">' + escHtml(assigned.split(' ').pop()) + '</span>' : '') +
+        pencilBtn +
+        overrideRow +
         '</div>';
     }).join('') : '<div style="font-size:13px;color:var(--text2);">Roster players first before assigning teams.</div>') +
     '</div>';
@@ -2253,9 +2282,18 @@ function renderSeasonCard(s) {
         : '') +
       '</div>';
   }
-  if (Object.keys(teams).length > 0) {
-    teamsContent += '<div style="margin-top:8px;">' +
-      '<button type="button" class="btn btn-outline btn-sm" style="color:var(--blue);border-color:rgba(106,158,199,0.4);" onclick="openFADraft(\'' + s.id + '\')">&#x1F3CB; FA Draft</button>' +
+  if (canManageSchedule() && Object.keys(teams).length > 0) {
+    teamsContent +=
+      '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
+        '<button type="button" class="btn btn-outline btn-sm" style="color:var(--blue);border-color:rgba(106,158,199,0.4);" onclick="openFADraft(\'' + s.id + '\')">&#x1F3CB; FA Draft</button>' +
+        '<button type="button" id="fa-pool-export-btn-' + s.id + '" class="btn btn-outline btn-sm" style="color:var(--green);border-color:rgba(80,200,120,0.4);" onclick="downloadFaPoolCsv(\'' + s.id + '\')">&#x2B07; Export FA Pool CSV</button>' +
+      '</div>' +
+      '<div id="fa-pool-form-' + s.id + '" style="display:none;margin-top:8px;align-items:center;gap:6px;flex-wrap:wrap;">' +
+        '<span style="font-size:12px;color:var(--text2);">OVR range:</span>' +
+        '<input type="number" id="fa-pool-min-' + s.id + '" value="70" min="1" max="99" style="width:52px;padding:2px 4px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);">' +
+        '<span style="font-size:12px;color:var(--text2);">&#x2013;</span>' +
+        '<input type="number" id="fa-pool-max-' + s.id + '" value="84" min="1" max="99" style="width:52px;padding:2px 4px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);">' +
+        '<button type="button" id="fa-pool-dl-btn-' + s.id + '" class="btn btn-sm" onclick="submitFaPoolForm(\'' + s.id + '\')">Download</button>' +
       '</div>';
   }
 
@@ -2680,6 +2718,176 @@ function updateTeamAssignmentLive(seasonId) {
   });
 }
 
+async function fetchFaPool(teamAbbrs, min, max) {
+  var workerUrl = DNA_CONFIG.app.workerUrl;
+  var results = await Promise.all(teamAbbrs.map(function(abbr) {
+    return fetch(workerUrl + '/fa-roster?team=' + encodeURIComponent(abbr) + '&min=' + min + '&max=' + max)
+      .then(function(r) { return r.ok ? r.json() : { players: [], team: abbr }; })
+      .catch(function() { return { players: [], team: abbr }; });
+  }));
+  var all = [];
+  results.forEach(function(r) {
+    (r.players || []).forEach(function(p) {
+      all.push(Object.assign({}, p, { fromTeam: r.team || '' }));
+    });
+  });
+  all.sort(function(a, b) { return b.overall - a.overall; });
+  return all;
+}
+
+function buildFaPoolCsv(players) {
+  var HEADERS = [
+    'Name','OVR','Pos','Team','Bats','Throws',
+    'Contact L','Contact R','Power L','Power R','Plate Vision','Plate Discipline','Clutch',
+    'Speed','Stealing','Fielding','Arm Strength','Arm Accuracy',
+    'Stamina','Pitching Clutch','Velocity','Control','Break',
+    'H/BF L','H/BF R','K/BF L','K/BF R','BB/BF','HR/BF',
+    'Pitch Arsenal','Quirks'
+  ];
+  var PITCHER_POS = ['SP','RP','CP'];
+
+  function csvEsc(v) {
+    if (v == null || v === '') return '';
+    var s = String(v);
+    if (s.indexOf(',') > -1 || s.indexOf('"') > -1 || s.indexOf('\n') > -1) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  }
+
+  var rows = [HEADERS.join(',')];
+  players.forEach(function(p) {
+    var isPitcher = PITCHER_POS.indexOf(p.pos) > -1;
+    var quirks = (p.quirks || []).join('; ');
+    var arsenal = isPitcher
+      ? (p.pitch_arsenal || [])
+          .map(function(a) { return a.name + ':' + a.speed + ':' + a.break; })
+          .join('; ')
+      : '';
+
+    rows.push([
+      csvEsc(p.name),
+      csvEsc(p.overall),
+      csvEsc(p.pos),
+      csvEsc(p.fromTeam),
+      csvEsc(p.bats),
+      csvEsc(p.throws),
+      csvEsc(isPitcher ? '' : p.contact_left),
+      csvEsc(isPitcher ? '' : p.contact_right),
+      csvEsc(isPitcher ? '' : p.power_left),
+      csvEsc(isPitcher ? '' : p.power_right),
+      csvEsc(isPitcher ? '' : p.plate_vision),
+      csvEsc(isPitcher ? '' : p.plate_discipline),
+      csvEsc(isPitcher ? '' : p.clutch),
+      csvEsc(isPitcher ? '' : p.speed),
+      csvEsc(isPitcher ? '' : p.stealing),
+      csvEsc(isPitcher ? '' : p.fielding),
+      csvEsc(isPitcher ? '' : p.arm_strength),
+      csvEsc(isPitcher ? '' : p.arm_accuracy),
+      csvEsc(isPitcher ? p.stamina : ''),
+      csvEsc(isPitcher ? p.pitching_clutch : ''),
+      csvEsc(isPitcher ? p.velocity : ''),
+      csvEsc(isPitcher ? p.control : ''),
+      csvEsc(isPitcher ? p.break_rating : ''),
+      csvEsc(isPitcher ? p.hits_per_bf_l : ''),
+      csvEsc(isPitcher ? p.hits_per_bf_r : ''),
+      csvEsc(isPitcher ? p.k_per_bf_l : ''),
+      csvEsc(isPitcher ? p.k_per_bf_r : ''),
+      csvEsc(isPitcher ? p.bb_per_bf : ''),
+      csvEsc(isPitcher ? p.hr_per_bf : ''),
+      csvEsc(arsenal),
+      csvEsc(quirks),
+    ].join(','));
+  });
+  return rows.join('\n');
+}
+
+async function downloadFaPoolCsv(seasonId) {
+  var s = seasonState.seasons.find(function(x) { return x.id === seasonId; });
+  if (!s) return;
+
+  var teamAbbrs = Object.values(s.teamAssignments)
+    .map(function(fullName) {
+      var t = DNA_CONFIG.mlbTeams.find(function(t) { return t.name === fullName; });
+      return t ? t.abbr : null;
+    })
+    .filter(Boolean);
+
+  if (!teamAbbrs.length) { toast('No teams assigned to this season.'); return; }
+
+  var btn = document.getElementById('fa-pool-export-btn-' + seasonId);
+  if (btn) { btn.textContent = 'Checking\u2026'; btn.disabled = true; }
+
+  try {
+    var draftRes = await db.from('drafts')
+      .select('settings')
+      .eq('season_id', seasonId)
+      .eq('type', 'player')
+      .maybeSingle();
+
+    if (draftRes.data && draftRes.data.settings) {
+      var min = draftRes.data.settings.ratingMin || 70;
+      var max = draftRes.data.settings.ratingMax || 84;
+      if (btn) { btn.textContent = 'Export FA Pool CSV'; btn.disabled = false; }
+      await _runFaPoolDownload(s, teamAbbrs, min, max);
+    } else {
+      if (btn) { btn.textContent = 'Export FA Pool CSV'; btn.disabled = false; }
+      var form = document.getElementById('fa-pool-form-' + seasonId);
+      if (form) form.style.display = 'flex';
+    }
+  } catch(e) {
+    toast('Error: ' + e.message);
+    if (btn) { btn.textContent = 'Export FA Pool CSV'; btn.disabled = false; }
+  }
+}
+
+async function submitFaPoolForm(seasonId) {
+  var s = seasonState.seasons.find(function(x) { return x.id === seasonId; });
+  if (!s) return;
+  var min = parseInt(document.getElementById('fa-pool-min-' + seasonId).value, 10);
+  var max = parseInt(document.getElementById('fa-pool-max-' + seasonId).value, 10);
+  if (isNaN(min) || isNaN(max) || min > max) { toast('Invalid OVR range.'); return; }
+
+  var teamAbbrs = Object.values(s.teamAssignments || {})
+    .map(function(fullName) {
+      var t = DNA_CONFIG.mlbTeams.find(function(t) { return t.name === fullName; });
+      return t ? t.abbr : null;
+    })
+    .filter(Boolean);
+
+  await _runFaPoolDownload(s, teamAbbrs, min, max);
+}
+
+async function _runFaPoolDownload(season, teamAbbrs, min, max) {
+  var btn = document.getElementById('fa-pool-export-btn-' + season.id);
+  var dlBtn = document.getElementById('fa-pool-dl-btn-' + season.id);
+  if (btn)   { btn.textContent = 'Fetching\u2026'; btn.disabled = true; }
+  if (dlBtn) { dlBtn.textContent = 'Fetching\u2026'; dlBtn.disabled = true; }
+
+  try {
+    var players = await fetchFaPool(teamAbbrs, min, max);
+    if (!players.length) { toast('No players found in that OVR range.'); return; }
+
+    var csv  = buildFaPoolCsv(players);
+    var blob = new Blob([csv], { type: 'text/csv' });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'fa-pool-' + season.name.replace(/[^a-zA-Z0-9_-]/g, '_') + '-' + min + '-' + max + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    var form = document.getElementById('fa-pool-form-' + season.id);
+    if (form) form.style.display = 'none';
+  } catch(e) {
+    toast('Error fetching FA pool: ' + e.message);
+  } finally {
+    if (btn)   { btn.textContent = 'Export FA Pool CSV'; btn.disabled = false; }
+    if (dlBtn) { dlBtn.textContent = 'Download'; dlBtn.disabled = false; }
+  }
+}
+
 function openFADraft(seasonId) {
   window.open('fa-draft.html?season=' + seasonId, '_blank');
 }
@@ -2779,18 +2987,42 @@ async function saveTeamAssignment(seasonId, memberId, teamName) {
   var s = seasonState.seasons.find(function(x) { return x.id === seasonId; });
   if (!s) return;
 
-  var mlbTeamId = getMlbTeamId(teamName);
-  if (!mlbTeamId) { toast('Unknown team: ' + teamName); return; }
+  var mlbTeamId = teamName ? getMlbTeamId(teamName) : null;
+  if (teamName && !mlbTeamId) { toast('Unknown team: ' + teamName); return; }
 
   var res = await db.from('league_teams')
-    .update({ mlb_team_id: mlbTeamId })
-    .eq('season_id', seasonId)
-    .eq('member_id', memberId);
+    .upsert(
+      { season_id: seasonId, member_id: memberId, mlb_team_id: mlbTeamId },
+      { onConflict: 'season_id,member_id' }
+    );
 
   if (res.error) { toast('Error saving team assignment'); console.error(res.error.message); return; }
 
-  s.teamAssignments[memberId] = teamName;
+  if (teamName) {
+    s.teamAssignments[memberId] = teamName;
+  } else {
+    delete s.teamAssignments[memberId];
+  }
   renderSeasonsList();
+}
+
+function startTeamOverride(seasonId, memberId) {
+  seasonState.teamAssignEditing = { seasonId: seasonId, memberId: memberId };
+  renderSeasonsList();
+}
+
+function cancelTeamOverride() {
+  seasonState.teamAssignEditing = null;
+  renderSeasonsList();
+}
+
+async function confirmTeamOverride(seasonId, memberId) {
+  var sel = document.getElementById('override-ta-' + seasonId + '-' + memberId);
+  if (!sel) return;
+  var teamName = sel.value; // empty string = clear
+  seasonState.teamAssignEditing = null;
+  await saveTeamAssignment(seasonId, memberId, teamName);
+  // saveTeamAssignment calls renderSeasonsList() internally
 }
 
 function closeTeamAssignModal() {
