@@ -2779,17 +2779,22 @@ async function saveTeamAssignment(seasonId, memberId, teamName) {
   var s = seasonState.seasons.find(function(x) { return x.id === seasonId; });
   if (!s) return;
 
-  var mlbTeamId = getMlbTeamId(teamName);
-  if (!mlbTeamId) { toast('Unknown team: ' + teamName); return; }
+  var mlbTeamId = teamName ? getMlbTeamId(teamName) : null;
+  if (teamName && !mlbTeamId) { toast('Unknown team: ' + teamName); return; }
 
   var res = await db.from('league_teams')
-    .update({ mlb_team_id: mlbTeamId })
-    .eq('season_id', seasonId)
-    .eq('member_id', memberId);
+    .upsert(
+      { season_id: seasonId, member_id: memberId, mlb_team_id: mlbTeamId },
+      { onConflict: 'season_id,member_id' }
+    );
 
   if (res.error) { toast('Error saving team assignment'); console.error(res.error.message); return; }
 
-  s.teamAssignments[memberId] = teamName;
+  if (teamName) {
+    s.teamAssignments[memberId] = teamName;
+  } else {
+    delete s.teamAssignments[memberId];
+  }
   renderSeasonsList();
 }
 
