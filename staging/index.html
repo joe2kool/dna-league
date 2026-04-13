@@ -2806,14 +2806,12 @@ async function downloadFaPoolCsv(seasonId) {
   var s = seasonState.seasons.find(function(x) { return x.id === seasonId; });
   if (!s) return;
 
-  var teamAbbrs = Object.values(s.teamAssignments)
-    .map(function(fullName) {
-      var t = DNA_CONFIG.mlbTeams.find(function(t) { return t.name === fullName; });
-      return t ? t.abbr : null;
-    })
-    .filter(Boolean);
+  var assignedTeams = new Set(Object.values(s.teamAssignments || {}));
+  var teamAbbrs = DNA_CONFIG.mlbTeams
+    .filter(function(t) { return !assignedTeams.has(t.name); })
+    .map(function(t) { return t.abbr; });
 
-  if (!teamAbbrs.length) { toast('No teams assigned to this season.'); return; }
+  if (!teamAbbrs.length) { toast('All teams are claimed — no FA pool available.'); return; }
 
   var btn = document.getElementById('fa-pool-export-btn-' + seasonId);
   if (btn) { btn.textContent = 'Checking\u2026'; btn.disabled = true; }
@@ -2848,12 +2846,10 @@ async function submitFaPoolForm(seasonId) {
   var max = parseInt(document.getElementById('fa-pool-max-' + seasonId).value, 10);
   if (isNaN(min) || isNaN(max) || min > max) { toast('Invalid OVR range.'); return; }
 
-  var teamAbbrs = Object.values(s.teamAssignments || {})
-    .map(function(fullName) {
-      var t = DNA_CONFIG.mlbTeams.find(function(t) { return t.name === fullName; });
-      return t ? t.abbr : null;
-    })
-    .filter(Boolean);
+  var assignedTeams = new Set(Object.values(s.teamAssignments || {}));
+  var teamAbbrs = DNA_CONFIG.mlbTeams
+    .filter(function(t) { return !assignedTeams.has(t.name); })
+    .map(function(t) { return t.abbr; });
 
   await _runFaPoolDownload(s, teamAbbrs, min, max);
 }
