@@ -2283,8 +2283,17 @@ function renderSeasonCard(s) {
       '</div>';
   }
   if (Object.keys(teams).length > 0) {
-    teamsContent += '<div style="margin-top:8px;">' +
-      '<button type="button" class="btn btn-outline btn-sm" style="color:var(--blue);border-color:rgba(106,158,199,0.4);" onclick="openFADraft(\'' + s.id + '\')">&#x1F3CB; FA Draft</button>' +
+    teamsContent +=
+      '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
+        '<button type="button" class="btn btn-outline btn-sm" style="color:var(--blue);border-color:rgba(106,158,199,0.4);" onclick="openFADraft(\'' + s.id + '\')">&#x1F3CB; FA Draft</button>' +
+        '<button type="button" id="fa-pool-export-btn-' + s.id + '" class="btn btn-outline btn-sm" style="color:var(--green);border-color:rgba(80,200,120,0.4);" onclick="downloadFaPoolCsv(\'' + s.id + '\')">&#x2B07; Export FA Pool CSV</button>' +
+      '</div>' +
+      '<div id="fa-pool-form-' + s.id + '" style="display:none;margin-top:8px;align-items:center;gap:6px;flex-wrap:wrap;">' +
+        '<span style="font-size:12px;color:var(--text2);">OVR range:</span>' +
+        '<input type="number" id="fa-pool-min-' + s.id + '" value="70" min="1" max="99" style="width:52px;padding:2px 4px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);">' +
+        '<span style="font-size:12px;color:var(--text2);">&#x2013;</span>' +
+        '<input type="number" id="fa-pool-max-' + s.id + '" value="84" min="1" max="99" style="width:52px;padding:2px 4px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);">' +
+        '<button type="button" id="fa-pool-dl-btn-' + s.id + '" class="btn btn-sm" onclick="submitFaPoolForm(\'' + s.id + '\')">Download</button>' +
       '</div>';
   }
 
@@ -2791,6 +2800,90 @@ function buildFaPoolCsv(players) {
     ].join(','));
   });
   return rows.join('\n');
+}
+
+async function downloadFaPoolCsv(seasonId) {
+  var s = seasonState.seasons.find(function(x) { return x.id === seasonId; });
+  if (!s) return;
+
+  var teamAbbrs = Object.values(s.teamAssignments)
+    .map(function(fullName) {
+      var t = DNA_CONFIG.mlbTeams.find(function(t) { return t.name === fullName; });
+      return t ? t.abbr : null;
+    })
+    .filter(Boolean);
+
+  if (!teamAbbrs.length) { toast('No teams assigned to this season.'); return; }
+
+  var btn = document.getElementById('fa-pool-export-btn-' + seasonId);
+  if (btn) { btn.textContent = 'Checking\u2026'; btn.disabled = true; }
+
+  try {
+    var draftRes = await db.from('drafts')
+      .select('settings')
+      .eq('season_id', seasonId)
+      .eq('type', 'player')
+      .maybeSingle();
+
+    if (draftRes.data && draftRes.data.settings) {
+      var min = draftRes.data.settings.ratingMin || 70;
+      var max = draftRes.data.settings.ratingMax || 84;
+      if (btn) { btn.textContent = 'Export FA Pool CSV'; btn.disabled = false; }
+      await _runFaPoolDownload(s, teamAbbrs, min, max);
+    } else {
+      if (btn) { btn.textContent = 'Export FA Pool CSV'; btn.disabled = false; }
+      var form = document.getElementById('fa-pool-form-' + seasonId);
+      if (form) form.style.display = 'flex';
+    }
+  } catch(e) {
+    toast('Error: ' + e.message);
+    if (btn) { btn.textContent = 'Export FA Pool CSV'; btn.disabled = false; }
+  }
+}
+
+async function submitFaPoolForm(seasonId) {
+  var s = seasonState.seasons.find(function(x) { return x.id === seasonId; });
+  if (!s) return;
+  var min = parseInt(document.getElementById('fa-pool-min-' + seasonId).value, 10);
+  var max = parseInt(document.getElementById('fa-pool-max-' + seasonId).value, 10);
+  if (isNaN(min) || isNaN(max) || min > max) { toast('Invalid OVR range.'); return; }
+
+  var teamAbbrs = Object.values(s.teamAssignments)
+    .map(function(fullName) {
+      var t = DNA_CONFIG.mlbTeams.find(function(t) { return t.name === fullName; });
+      return t ? t.abbr : null;
+    })
+    .filter(Boolean);
+
+  await _runFaPoolDownload(s, teamAbbrs, min, max);
+}
+
+async function _runFaPoolDownload(season, teamAbbrs, min, max) {
+  var btn = document.getElementById('fa-pool-export-btn-' + season.id);
+  var dlBtn = document.getElementById('fa-pool-dl-btn-' + season.id);
+  if (btn)   { btn.textContent = 'Fetching\u2026'; btn.disabled = true; }
+  if (dlBtn) { dlBtn.textContent = 'Fetching\u2026'; dlBtn.disabled = true; }
+
+  try {
+    var players = await fetchFaPool(teamAbbrs, min, max);
+    if (!players.length) { toast('No players found in that OVR range.'); return; }
+
+    var csv  = buildFaPoolCsv(players);
+    var blob = new Blob([csv], { type: 'text/csv' });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'fa-pool-' + season.name.replace(/\s+/g, '_') + '-' + min + '-' + max + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    toast('Error fetching FA pool: ' + e.message);
+  } finally {
+    if (btn)   { btn.textContent = 'Export FA Pool CSV'; btn.disabled = false; }
+    if (dlBtn) { dlBtn.textContent = 'Download'; dlBtn.disabled = false; }
+  }
 }
 
 function openFADraft(seasonId) {
