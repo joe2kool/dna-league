@@ -2709,6 +2709,90 @@ function updateTeamAssignmentLive(seasonId) {
   });
 }
 
+async function fetchFaPool(teamAbbrs, min, max) {
+  var workerUrl = DNA_CONFIG.app.workerUrl;
+  var results = await Promise.all(teamAbbrs.map(function(abbr) {
+    return fetch(workerUrl + '/fa-roster?team=' + encodeURIComponent(abbr) + '&min=' + min + '&max=' + max)
+      .then(function(r) { return r.ok ? r.json() : { players: [], team: abbr }; })
+      .catch(function() { return { players: [], team: abbr }; });
+  }));
+  var all = [];
+  results.forEach(function(r) {
+    (r.players || []).forEach(function(p) {
+      all.push(Object.assign({}, p, { fromTeam: r.team || '' }));
+    });
+  });
+  all.sort(function(a, b) { return b.overall - a.overall; });
+  return all;
+}
+
+function buildFaPoolCsv(players) {
+  var HEADERS = [
+    'Name','OVR','Pos','Team','Bats','Throws',
+    'Contact L','Contact R','Power L','Power R','Plate Vision','Plate Discipline','Clutch',
+    'Speed','Stealing','Fielding','Arm Strength','Arm Accuracy',
+    'Stamina','Pitching Clutch','Velocity','Control','Break',
+    'H/BF L','H/BF R','K/BF L','K/BF R','BB/BF','HR/BF',
+    'Pitch Arsenal','Quirks'
+  ];
+  var PITCHER_POS = ['SP','RP','CP'];
+
+  function csvEsc(v) {
+    if (v == null || v === '') return '';
+    var s = String(v);
+    if (s.indexOf(',') > -1 || s.indexOf('"') > -1 || s.indexOf('\n') > -1) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  }
+
+  var rows = [HEADERS.join(',')];
+  players.forEach(function(p) {
+    var isPitcher = PITCHER_POS.indexOf(p.pos) > -1;
+    var quirks = (p.quirks || []).join('; ');
+    var arsenal = isPitcher
+      ? (p.pitch_arsenal || [])
+          .map(function(a) { return a.name + ':' + a.speed + ':' + a.break; })
+          .join('; ')
+      : '';
+
+    rows.push([
+      csvEsc(p.name),
+      csvEsc(p.overall),
+      csvEsc(p.pos),
+      csvEsc(p.fromTeam),
+      csvEsc(p.bats),
+      csvEsc(p.throws),
+      csvEsc(isPitcher ? '' : p.contact_left),
+      csvEsc(isPitcher ? '' : p.contact_right),
+      csvEsc(isPitcher ? '' : p.power_left),
+      csvEsc(isPitcher ? '' : p.power_right),
+      csvEsc(isPitcher ? '' : p.plate_vision),
+      csvEsc(isPitcher ? '' : p.plate_discipline),
+      csvEsc(isPitcher ? '' : p.clutch),
+      csvEsc(isPitcher ? '' : p.speed),
+      csvEsc(isPitcher ? '' : p.stealing),
+      csvEsc(isPitcher ? '' : p.fielding),
+      csvEsc(isPitcher ? '' : p.arm_strength),
+      csvEsc(isPitcher ? '' : p.arm_accuracy),
+      csvEsc(isPitcher ? p.stamina : ''),
+      csvEsc(isPitcher ? p.pitching_clutch : ''),
+      csvEsc(isPitcher ? p.velocity : ''),
+      csvEsc(isPitcher ? p.control : ''),
+      csvEsc(isPitcher ? p.break_rating : ''),
+      csvEsc(isPitcher ? p.hits_per_bf_l : ''),
+      csvEsc(isPitcher ? p.hits_per_bf_r : ''),
+      csvEsc(isPitcher ? p.k_per_bf_l : ''),
+      csvEsc(isPitcher ? p.k_per_bf_r : ''),
+      csvEsc(isPitcher ? p.bb_per_bf : ''),
+      csvEsc(isPitcher ? p.hr_per_bf : ''),
+      csvEsc(arsenal),
+      csvEsc(quirks),
+    ].join(','));
+  });
+  return rows.join('\n');
+}
+
 function openFADraft(seasonId) {
   window.open('fa-draft.html?season=' + seasonId, '_blank');
 }
