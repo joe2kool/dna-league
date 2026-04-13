@@ -2282,7 +2282,7 @@ function renderSeasonCard(s) {
         : '') +
       '</div>';
   }
-  if (Object.keys(teams).length > 0) {
+  if (canManageSchedule() && Object.keys(teams).length > 0) {
     teamsContent +=
       '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
         '<button type="button" class="btn btn-outline btn-sm" style="color:var(--blue);border-color:rgba(106,158,199,0.4);" onclick="openFADraft(\'' + s.id + '\')">&#x1F3CB; FA Draft</button>' +
@@ -2848,7 +2848,7 @@ async function submitFaPoolForm(seasonId) {
   var max = parseInt(document.getElementById('fa-pool-max-' + seasonId).value, 10);
   if (isNaN(min) || isNaN(max) || min > max) { toast('Invalid OVR range.'); return; }
 
-  var teamAbbrs = Object.values(s.teamAssignments)
+  var teamAbbrs = Object.values(s.teamAssignments || {})
     .map(function(fullName) {
       var t = DNA_CONFIG.mlbTeams.find(function(t) { return t.name === fullName; });
       return t ? t.abbr : null;
@@ -2873,11 +2873,13 @@ async function _runFaPoolDownload(season, teamAbbrs, min, max) {
     var url  = URL.createObjectURL(blob);
     var a    = document.createElement('a');
     a.href     = url;
-    a.download = 'fa-pool-' + season.name.replace(/\s+/g, '_') + '-' + min + '-' + max + '.csv';
+    a.download = 'fa-pool-' + season.name.replace(/[^a-zA-Z0-9_-]/g, '_') + '-' + min + '-' + max + '.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    var form = document.getElementById('fa-pool-form-' + season.id);
+    if (form) form.style.display = 'none';
   } catch(e) {
     toast('Error fetching FA pool: ' + e.message);
   } finally {
