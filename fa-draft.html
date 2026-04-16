@@ -38,6 +38,22 @@
   /* Auth screen */
   .auth-wrap { max-width:380px; margin:80px auto; padding:1.5rem; background:var(--surface2); border-radius:12px; border:1px solid var(--border); }
   .auth-wrap h2 { font-family:'Bebas Neue'; font-size:32px; letter-spacing:2px; margin-bottom:1rem; }
+
+  /* Draft order list */
+  .order-move-btn {
+    background: var(--surface3);
+    border: 1px solid rgba(168,189,212,0.15);
+    border-radius: 4px;
+    color: var(--text);
+    width: 26px; height: 26px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+  }
+  .order-move-btn:disabled { opacity: 0.25; cursor: default; }
+  .order-move-btn:not(:disabled):hover { background: rgba(168,189,212,0.12); }
 </style>
 </head>
 <body>
@@ -140,11 +156,11 @@
         </div>
       </div>
 
-      <!-- Draft Order Preview -->
+      <!-- Draft Order -->
       <div class="setup-card">
-        <div class="setup-card-header">Draft Order <span style="font-size:10px;color:var(--text2);letter-spacing:1px;">(reversed from team draft)</span></div>
+        <div class="setup-card-header">Draft Order <span id="setup-order-source" style="font-size:10px;color:var(--text2);letter-spacing:1px;margin-left:6px;"></span></div>
         <div class="setup-card-body">
-          <div id="setup-order-preview" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+          <ol id="setup-order-list" style="list-style:none;display:flex;flex-direction:column;gap:6px;padding:0;margin:0;"></ol>
         </div>
       </div>
 
