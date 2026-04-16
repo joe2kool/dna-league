@@ -537,21 +537,12 @@ async function launchFADraft() {
   const params   = new URL(location.href).searchParams;
   const seasonId = params.get('season');
 
-  // Get reversed team draft order
-  const teamDraftRes = await db.from('drafts').select('id').eq('season_id', seasonId).eq('type','team').maybeSingle();
-  let memberOrder = [];
-  if (teamDraftRes.data) {
-    const slotsRes = await db.from('draft_slots')
-      .select('pick_number, member_id')
-      .eq('draft_id', teamDraftRes.data.id)
-      .order('pick_number', { ascending: true });
-    const seen = new Set(); const unique = [];
-    (slotsRes.data || []).forEach(s => { if (!seen.has(s.member_id)) { seen.add(s.member_id); unique.push(s.member_id); } });
-    unique.reverse();
-    memberOrder = unique;
-  }
+  // Read member order from the interactive setup list
+  const memberOrder = [...document.querySelectorAll('#setup-order-list li[data-member-id]')]
+    .map(li => li.dataset.memberId)
+    .filter(Boolean);
 
-  if (!memberOrder.length) { faToast('No team draft found to derive order'); return; }
+  if (!memberOrder.length) { faToast('Add at least one member to the draft order'); return; }
 
   // Create draft row
   const draftRes = await db.from('drafts').insert({
