@@ -459,6 +459,44 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function renderOrderList(members) {
+  const list = document.getElementById('setup-order-list');
+  list.innerHTML = members.map((m, i) => `
+    <li data-member-id="${escHtml(m.id)}"
+        style="display:flex;align-items:center;gap:8px;">
+      <button class="order-move-btn" onclick="moveOrderItem(this,-1)"
+              ${i === 0 ? 'disabled' : ''}>↑</button>
+      <button class="order-move-btn" onclick="moveOrderItem(this,1)"
+              ${i === members.length - 1 ? 'disabled' : ''}>↓</button>
+      <span style="font-size:13px;color:var(--text);">
+        <span style="color:var(--text2);margin-right:4px;">${i + 1}.</span>${escHtml(m.name)}
+      </span>
+    </li>`).join('');
+}
+
+function moveOrderItem(btn, dir) {
+  const li    = btn.closest('li');
+  const list  = li.parentElement;
+  const items = [...list.children];
+  const idx   = items.indexOf(li);
+  const target = items[idx + dir];
+  if (!target) return;
+  if (dir === -1) list.insertBefore(li, target);
+  else            list.insertBefore(target, li);
+  refreshOrderButtons();
+}
+
+function refreshOrderButtons() {
+  const items = [...document.querySelectorAll('#setup-order-list li')];
+  items.forEach((li, i) => {
+    const btns = li.querySelectorAll('.order-move-btn');
+    btns[0].disabled = (i === 0);
+    btns[1].disabled = (i === items.length - 1);
+    // Update position number
+    li.querySelector('span > span').textContent = `${i + 1}.`;
+  });
+}
+
 function selectTier(min, max, cls) {
   document.getElementById('setup-min').value = min;
   document.getElementById('setup-max').value = max;
