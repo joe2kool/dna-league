@@ -2427,15 +2427,17 @@ async function confirmFADraftReset(seasonId, draftId) {
   var wrap = document.getElementById('fa-reset-wrap-' + seasonId);
   if (wrap) wrap.innerHTML = '<span style="font-size:12px;color:var(--text2);">Resetting\u2026</span>';
   var picksRes = await db.from('draft_picks').delete().eq('draft_id', draftId);
-  if (picksRes.error) { toast('Reset failed: ' + picksRes.error.message); initFAResetButton(seasonId); return; }
+  if (picksRes.error) { toast('Reset failed (picks): ' + picksRes.error.message); initFAResetButton(seasonId); return; }
   var slotsRes = await db.from('draft_slots').delete().eq('draft_id', draftId);
-  if (slotsRes.error) { toast('Reset failed: ' + slotsRes.error.message); initFAResetButton(seasonId); return; }
+  if (slotsRes.error) { toast('Reset failed (slots): ' + slotsRes.error.message); initFAResetButton(seasonId); return; }
   var draftRes = await db.from('drafts').delete().eq('id', draftId);
-  if (draftRes.error) { toast('Reset failed: ' + draftRes.error.message); initFAResetButton(seasonId); return; }
-  toast('FA Draft reset \u2014 opening setup\u2026');
+  if (draftRes.error) { toast('Reset failed (draft): ' + draftRes.error.message); initFAResetButton(seasonId); return; }
+  // Verify the draft was actually deleted (RLS silent-fail guard)
+  var verifyRes = await db.from('drafts').select('id').eq('id', draftId).maybeSingle();
+  if (verifyRes.data) { toast('Reset failed \u2014 check Supabase delete permissions for drafts table'); initFAResetButton(seasonId); return; }
+  toast('FA Draft reset \u2014 ready for a new draft');
   var season = seasonState.seasons.find(function(s) { return s.id === seasonId; });
   if (season) switchSeasonTab(seasonId, 'teams', null);
-  window.open('fa-draft.html?season=' + seasonId, '_blank');
 }
 
 // ── SEASON CRUD ───────────────────────────────────
