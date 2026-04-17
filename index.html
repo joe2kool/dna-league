@@ -2432,9 +2432,10 @@ async function confirmFADraftReset(seasonId, draftId) {
   if (slotsRes.error) { toast('Reset failed: ' + slotsRes.error.message); initFAResetButton(seasonId); return; }
   var draftRes = await db.from('drafts').delete().eq('id', draftId);
   if (draftRes.error) { toast('Reset failed: ' + draftRes.error.message); initFAResetButton(seasonId); return; }
-  toast('FA Draft reset \u2014 ready for a new draft');
+  toast('FA Draft reset \u2014 opening setup\u2026');
   var season = seasonState.seasons.find(function(s) { return s.id === seasonId; });
   if (season) switchSeasonTab(seasonId, 'teams', null);
+  window.open('fa-draft.html?season=' + seasonId, '_blank');
 }
 
 // ── SEASON CRUD ───────────────────────────────────
