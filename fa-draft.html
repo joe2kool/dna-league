@@ -54,6 +54,20 @@
   }
   .order-move-btn:disabled { opacity: 0.25; cursor: default; }
   .order-move-btn:not(:disabled):hover { background: rgba(168,189,212,0.12); }
+
+  /* Drag-and-drop order list */
+  .order-list-item { cursor: grab; transition: opacity 0.15s; }
+  .order-list-item:active { cursor: grabbing; }
+  .order-list-item.drag-over { border-top: 2px solid var(--blue); margin-top: -2px; }
+  .order-pos-input {
+    width: 36px; padding: 2px 4px; font-size: 12px;
+    background: var(--surface3); border: 1px solid rgba(168,189,212,0.2);
+    border-radius: 4px; color: var(--text); text-align: center;
+    -moz-appearance: textfield;
+  }
+  .order-pos-input::-webkit-inner-spin-button,
+  .order-pos-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .order-drag-handle { color: var(--text2); font-size: 14px; flex-shrink: 0; user-select: none; }
 </style>
 </head>
 <body>
@@ -470,41 +484,78 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+let _dragSrc = null;
+
 function renderOrderList(members) {
   const list = document.getElementById('setup-order-list');
   list.innerHTML = members.map((m, i) => `
     <li data-member-id="${escHtml(m.id)}"
+        class="order-list-item"
+        draggable="true"
+        ondragstart="_onDragStart(event)"
+        ondragover="_onDragOver(event)"
+        ondrop="_onDrop(event)"
+        ondragend="_onDragEnd(event)"
+        ondragenter="_onDragEnter(event)"
+        ondragleave="_onDragLeave(event)"
         style="display:flex;align-items:center;gap:8px;">
-      <button class="order-move-btn" onclick="moveOrderItem(this,-1)"
-              ${i === 0 ? 'disabled' : ''}>↑</button>
-      <button class="order-move-btn" onclick="moveOrderItem(this,1)"
-              ${i === members.length - 1 ? 'disabled' : ''}>↓</button>
-      <span style="font-size:13px;color:var(--text);">
-        <span style="color:var(--text2);margin-right:4px;">${i + 1}.</span>${escHtml(m.name)}
-      </span>
+      <span class="order-drag-handle">&#x2630;</span>
+      <input type="number" class="order-pos-input" value="${i + 1}" min="1" max="${members.length}"
+             onchange="moveToPosition(this)">
+      <span style="font-size:13px;color:var(--text);">${escHtml(m.name)}</span>
     </li>`).join('');
 }
 
-function moveOrderItem(btn, dir) {
-  const li    = btn.closest('li');
+function _onDragStart(e) {
+  _dragSrc = e.currentTarget;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => { if (_dragSrc) _dragSrc.style.opacity = '0.4'; }, 0);
+}
+function _onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+function _onDragEnter(e) { if (e.currentTarget !== _dragSrc) e.currentTarget.classList.add('drag-over'); }
+function _onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function _onDrop(e) {
+  e.preventDefault(); e.stopPropagation();
+  const target = e.currentTarget;
+  target.classList.remove('drag-over');
+  if (!_dragSrc || _dragSrc === target) return;
+  const list = target.parentElement;
+  const items = [...list.children];
+  const srcIdx = items.indexOf(_dragSrc);
+  const tgtIdx = items.indexOf(target);
+  if (srcIdx < tgtIdx) list.insertBefore(_dragSrc, target.nextSibling);
+  else                 list.insertBefore(_dragSrc, target);
+  refreshOrderButtons();
+}
+function _onDragEnd(e) {
+  if (_dragSrc) _dragSrc.style.opacity = '1';
+  document.querySelectorAll('#setup-order-list .drag-over').forEach(el => el.classList.remove('drag-over'));
+  _dragSrc = null;
+}
+
+function moveToPosition(input) {
+  const li    = input.closest('li');
   const list  = li.parentElement;
   const items = [...list.children];
-  const idx   = items.indexOf(li);
-  const target = items[idx + dir];
-  if (!target) return;
-  if (dir === -1) list.insertBefore(li, target);
-  else            list.insertBefore(target, li);
+  const total = items.length;
+  let pos = parseInt(input.value);
+  if (isNaN(pos) || pos < 1) pos = 1;
+  if (pos > total) pos = total;
+  input.value = pos;
+  const curIdx = items.indexOf(li);
+  const tgtIdx = pos - 1;
+  if (tgtIdx === curIdx) return;
+  if (tgtIdx < curIdx) list.insertBefore(li, items[tgtIdx]);
+  else                 list.insertBefore(li, items[tgtIdx].nextSibling || null);
   refreshOrderButtons();
 }
 
 function refreshOrderButtons() {
   const items = [...document.querySelectorAll('#setup-order-list li')];
+  const total = items.length;
   items.forEach((li, i) => {
-    const btns = li.querySelectorAll('.order-move-btn');
-    btns[0].disabled = (i === 0);
-    btns[1].disabled = (i === items.length - 1);
-    // Update position number
-    li.querySelector('span > span').textContent = `${i + 1}.`;
+    const inp = li.querySelector('.order-pos-input');
+    if (inp) { inp.value = i + 1; inp.max = total; }
   });
 }
 
