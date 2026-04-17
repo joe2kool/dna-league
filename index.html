@@ -2282,20 +2282,24 @@ function renderSeasonCard(s) {
         : '') +
       '</div>';
   }
-  if (canManageSchedule() && Object.keys(teams).length > 0) {
+  if (Object.keys(teams).length > 0) {
     teamsContent +=
       '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
         '<button type="button" class="btn btn-outline btn-sm" style="color:var(--blue);border-color:rgba(106,158,199,0.4);" onclick="openFADraft(\'' + s.id + '\')">&#x1F3CB; FA Draft</button>' +
-        '<button type="button" id="fa-pool-export-btn-' + s.id + '" class="btn btn-outline btn-sm" style="color:var(--green);border-color:rgba(80,200,120,0.4);" onclick="downloadFaPoolCsv(\'' + s.id + '\')">&#x2B07; Export FA Pool CSV</button>' +
-        '<div id="fa-reset-wrap-' + s.id + '"></div>' +
+        (canManageSchedule()
+          ? '<button type="button" id="fa-pool-export-btn-' + s.id + '" class="btn btn-outline btn-sm" style="color:var(--green);border-color:rgba(80,200,120,0.4);" onclick="downloadFaPoolCsv(\'' + s.id + '\')">&#x2B07; Export FA Pool CSV</button>' +
+            '<div id="fa-reset-wrap-' + s.id + '"></div>'
+          : '') +
       '</div>' +
-      '<div id="fa-pool-form-' + s.id + '" style="display:none;margin-top:8px;align-items:center;gap:6px;flex-wrap:wrap;">' +
-        '<span style="font-size:12px;color:var(--text2);">OVR range:</span>' +
-        '<input type="number" id="fa-pool-min-' + s.id + '" value="70" min="1" max="99" style="width:52px;padding:2px 4px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);">' +
-        '<span style="font-size:12px;color:var(--text2);">&#x2013;</span>' +
-        '<input type="number" id="fa-pool-max-' + s.id + '" value="84" min="1" max="99" style="width:52px;padding:2px 4px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);">' +
-        '<button type="button" id="fa-pool-dl-btn-' + s.id + '" class="btn btn-sm" onclick="submitFaPoolForm(\'' + s.id + '\')">Download</button>' +
-      '</div>';
+      (canManageSchedule()
+        ? '<div id="fa-pool-form-' + s.id + '" style="display:none;margin-top:8px;align-items:center;gap:6px;flex-wrap:wrap;">' +
+            '<span style="font-size:12px;color:var(--text2);">OVR range:</span>' +
+            '<input type="number" id="fa-pool-min-' + s.id + '" value="70" min="1" max="99" style="width:52px;padding:2px 4px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);">' +
+            '<span style="font-size:12px;color:var(--text2);">&#x2013;</span>' +
+            '<input type="number" id="fa-pool-max-' + s.id + '" value="84" min="1" max="99" style="width:52px;padding:2px 4px;font-size:12px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);">' +
+            '<button type="button" id="fa-pool-dl-btn-' + s.id + '" class="btn btn-sm" onclick="submitFaPoolForm(\'' + s.id + '\')">Download</button>' +
+          '</div>'
+        : '');
   }
 
   // Settings tab
