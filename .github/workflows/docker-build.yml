@@ -75,7 +75,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: false          # build only here; push happens after scan passes
@@ -187,7 +187,7 @@ jobs:
       # Rebuild with push=true now that scan has passed
       # The layer cache from job 1 means this is near-instant
       - name: Build and push image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
